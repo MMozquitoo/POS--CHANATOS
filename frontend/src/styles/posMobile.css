@@ -1,0 +1,140 @@
+/**
+ * FASE M2 — Sistema de estilos móvil (base PRO)
+ * Kit mínimo de estilos mobile. Importar 1 vez en App/main.
+ * Solo aplica en viewport < 480px. No rompe desktop.
+ */
+
+/* Breakpoint móvil estándar */
+@media (max-width: 480px) {
+  /* --- Anti word-break: nada de palabras partidas (ME-SAS, CO-CINA, VOL-VER) --- */
+  .pos-mobile-no-break,
+  .caja-header h1,
+  .caja-header .back-btn,
+  .caja-header button,
+  .mesero-header h1,
+  .mesero-header button,
+  .mesas-abiertas-header h1,
+  .mesas-abiertas-header button,
+  .detalle-mesa-header h1,
+  .detalle-mesa-header button,
+  [class*="tab"] button,
+  .table-card .table-number,
+  .table-card .table-label,
+  .table-card .table-status,
+  .table-card-caja .table-number-caja,
+  .table-card-caja .table-label-caja,
+  .footer-btn,
+  .action-btn {
+    hyphens: none;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  /* Títulos/labels que sí pueden wrapar en 2 líneas si es necesario (evitar cortes feos) */
+  .pos-mobile-allow-wrap {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+
+  /* --- Variables de spacing estándar --- */
+  :root {
+    --pos-mobile-space-xs: 0.25rem;
+    --pos-mobile-space-sm: 0.5rem;
+    --pos-mobile-space-md: 0.75rem;
+    --pos-mobile-space-lg: 1rem;
+    --pos-mobile-space-xl: 1.25rem;
+  }
+
+  /* --- Botones móviles: altura/padding consistentes, área de toque mínima 44px --- */
+  .pos-mobile-btn,
+  .caja-header .back-btn,
+  .caja-header button[class*="logout"],
+  .mesero-header button,
+  .mesas-abiertas-header .back-btn,
+  .mesas-abiertas-header .logout-btn,
+  .mesas-abiertas-footer .footer-btn,
+  .mesero-footer .footer-btn,
+  button.action-btn,
+  [class*="tab"] > button {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 8px;
+  }
+
+  /* --- Grid estándar 2 columnas (mesas) --- */
+  .pos-mobile-grid-mesas,
+  .tables-grid,
+  .tables-list-caja {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--pos-mobile-space-md, 0.75rem);
+    padding: var(--pos-mobile-space-lg, 1rem);
+  }
+
+  /* --- Spacing estándar en contenedores --- */
+  .pos-mobile-section {
+    padding: var(--pos-mobile-space-lg, 1rem);
+  }
+
+  .pos-mobile-stack > * + * {
+    margin-top: var(--pos-mobile-space-md, 0.75rem);
+  }
+
+  /* --- FASE M4: Tabs Centro de Control — vertical en móvil --- */
+  .centro-total-tabs {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .centro-total-tab {
+    width: 100%;
+    min-height: 44px;
+    hyphens: none;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  /* --- FASE M5: Mesas móvil PRO — Ventanilla/Domicilio fuera del grid --- */
+  .mesero-especiales-inner {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .mesero-especiales .ventanilla-card,
+  .mesero-especiales .domicilio-card {
+    width: 100%;
+    min-height: 44px;
+    hyphens: none;
+    word-break: keep-all;
+  }
+
+  .mesero-grid-mesas {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .mesero-container {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  }
+
+  /* --- FASE M6: Barra inferior "Mis Pedidos" pro — safe-area iOS, no tapa scroll --- */
+  .mesero-footer {
+    padding-top: 0.75rem;
+    padding-left: calc(1rem + env(safe-area-inset-left, 0));
+    padding-right: calc(1rem + env(safe-area-inset-right, 0));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0));
+  }
+
+  .mesero-footer .footer-btn {
+    max-width: 100%;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+}

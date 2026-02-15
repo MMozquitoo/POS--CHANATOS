@@ -1,0 +1,301 @@
+.cocina-container {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.cocina-header {
+  background: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cocina-header h1 {
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.cocina-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.cocina-column {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.column-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid;
+}
+
+.column-title.nuevo {
+  color: #1971c2;
+  border-bottom-color: #1971c2;
+}
+
+.column-title.en-prep {
+  color: #f59f00;
+  border-bottom-color: #f59f00;
+}
+
+.column-title.listo {
+  color: #2b8a3e;
+  border-bottom-color: #2b8a3e;
+}
+
+.orders-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.empty-column {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+
+.order-card-kitchen {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid #F5BB4C;
+}
+
+.order-header-kitchen {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.order-code-kitchen {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.order-time-kitchen {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.order-table-kitchen {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+}
+
+.order-items-kitchen {
+  margin-bottom: 1rem;
+}
+
+.order-item-kitchen {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.item-qty {
+  font-weight: bold;
+  color: #F5BB4C;
+}
+
+.item-name {
+  flex: 1;
+  color: #333;
+}
+
+.item-notes {
+  color: #666;
+  font-style: italic;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.75rem;
+  font-weight: bold;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.iniciar-btn {
+  background: #1971c2;
+  color: white;
+}
+
+.listo-btn {
+  background: #2b8a3e;
+  color: white;
+}
+
+.archivar-btn {
+  background: #868e96;
+  color: white;
+}
+
+.archivar-btn:hover {
+  background: #6c757d;
+}
+
+.archive-day-btn {
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #868e96;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.archive-day-btn:hover {
+  background: #6c757d;
+}
+
+.logout-btn {
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #c82333;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+/* Estilos responsive para mobile */
+@media (max-width: 768px) {
+  .cocina-container {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .cocina-header {
+    padding: 0.75rem;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .cocina-header h1 {
+    font-size: 1.1rem;
+    flex: 1;
+    text-align: center;
+    margin: 0;
+    padding: 0 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-actions {
+    flex-shrink: 0;
+    gap: 0.4rem;
+  }
+
+  .header-actions button {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .cocina-columns {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+    gap: 0.75rem;
+    height: auto;
+  }
+
+  .cocina-column {
+    padding: 0.875rem;
+    max-height: none;
+  }
+
+  .column-title {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .order-card-kitchen {
+    padding: 0.875rem;
+  }
+
+  .order-code-kitchen {
+    font-size: 1rem;
+  }
+
+  .order-time-kitchen {
+    font-size: 0.8rem;
+  }
+
+  .order-table-kitchen {
+    font-size: 0.85rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .order-item-kitchen {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .action-btn {
+    padding: 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  .logout-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .archive-day-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  /* Asegurar que el texto respete márgenes */
+  p, span, div, h1, h2, h3, h4, h5, h6, label, button {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}

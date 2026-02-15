@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/*.db
+data/*.db-journal
+# IMPORTANTE: products.json debe incluirse en Git (NO ignorarlo)
+# !data/products.json
+*.log
+.DS_Store
+

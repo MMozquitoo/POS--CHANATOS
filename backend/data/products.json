@@ -1,0 +1,250 @@
+[
+  {
+    "name": "Gaseosa Personal",
+    "category": "BEBIDAS",
+    "price": 2000,
+    "variant": "250 ml",
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Jugo Hit",
+    "category": "BEBIDAS",
+    "price": 4000,
+    "variant": "500 ml",
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Mr Tea",
+    "category": "BEBIDAS",
+    "price": 4000,
+    "variant": "500 ml",
+    "display_order": 3,
+    "is_active": true
+  },
+  {
+    "name": "Coca-Cola Personal",
+    "category": "BEBIDAS",
+    "price": 4000,
+    "variant": "250 ml",
+    "display_order": 4,
+    "is_active": true
+  },
+  {
+    "name": "Gaseosa Litro",
+    "category": "BEBIDAS",
+    "price": 5500,
+    "variant": "1 L",
+    "display_order": 5,
+    "is_active": true
+  },
+  {
+    "name": "Cerveza Andina",
+    "category": "CERVEZAS",
+    "price": 4000,
+    "variant": null,
+    "display_order": 0,
+    "is_active": true
+  },
+  {
+    "name": "Cerveza Poker",
+    "category": "CERVEZAS",
+    "price": 5000,
+    "variant": null,
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Cerveza Heineken",
+    "category": "CERVEZAS",
+    "price": 5000,
+    "variant": null,
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Corona",
+    "category": "CERVEZAS",
+    "price": 6000,
+    "variant": null,
+    "display_order": 3,
+    "is_active": true
+  },
+  {
+    "name": "Cerveza Club Colombia",
+    "category": "CERVEZAS",
+    "price": 6000,
+    "variant": null,
+    "display_order": 4,
+    "is_active": true
+  },
+  {
+    "name": "Filete de Pollo",
+    "category": "FILETES",
+    "price": 16000,
+    "variant": null,
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Filete de Cerdo",
+    "category": "FILETES",
+    "price": 16000,
+    "variant": null,
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Baconera",
+    "category": "HAMBURGUESAS",
+    "price": 18000,
+    "variant": null,
+    "display_order": 0,
+    "is_active": false
+  },
+  {
+    "name": "Baconera",
+    "category": "HAMBURGUESAS",
+    "price": 20000,
+    "variant": "Combo",
+    "display_order": 0,
+    "is_active": false
+  },
+  {
+    "name": "Hamburguesa Pepinillos",
+    "category": "HAMBURGUESAS",
+    "price": 12000,
+    "variant": "Sencillo",
+    "display_order": 0,
+    "is_active": false
+  },
+  {
+    "name": "Hamburguesa Clásica",
+    "category": "HAMBURGUESAS",
+    "price": 12000,
+    "variant": "Sencillo",
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Hamburguesa Clásica",
+    "category": "HAMBURGUESAS",
+    "price": 16000,
+    "variant": "Combo",
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Hamburguesa Chanata",
+    "category": "HAMBURGUESAS",
+    "price": 16000,
+    "variant": "Sencillo",
+    "display_order": 3,
+    "is_active": true
+  },
+  {
+    "name": "Hamburguesa Chanata",
+    "category": "HAMBURGUESAS",
+    "price": 20000,
+    "variant": "Combo",
+    "display_order": 4,
+    "is_active": true
+  },
+  {
+    "name": "Hamburguesa Doble Carne",
+    "category": "HAMBURGUESAS",
+    "price": 18000,
+    "variant": "Sencillo",
+    "display_order": 5,
+    "is_active": true
+  },
+  {
+    "name": "Hamburguesa Doble Carne",
+    "category": "HAMBURGUESAS",
+    "price": 22000,
+    "variant": "Combo",
+    "display_order": 6,
+    "is_active": true
+  },
+  {
+    "name": "Jugo Natural en Agua",
+    "category": "JUGOS_NATURALES",
+    "price": 7000,
+    "variant": null,
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Jugo Natural en Leche",
+    "category": "JUGOS_NATURALES",
+    "price": 8000,
+    "variant": null,
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Michelada",
+    "category": "OTROS",
+    "price": 8000,
+    "variant": null,
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Limonada Natural",
+    "category": "OTROS",
+    "price": 10000,
+    "variant": null,
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Porción de Papas Sencilla",
+    "category": "PAPAS",
+    "price": 5000,
+    "variant": null,
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Salchipapa Sencilla",
+    "category": "PAPAS",
+    "price": 7000,
+    "variant": null,
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Papa LoKa",
+    "category": "PAPAS",
+    "price": 18000,
+    "variant": null,
+    "display_order": 3,
+    "is_active": true
+  },
+  {
+    "name": "Perro Clásico",
+    "category": "PERROS_CALIENTES",
+    "price": 8000,
+    "variant": "Sencillo",
+    "display_order": 1,
+    "is_active": true
+  },
+  {
+    "name": "Perro Especial",
+    "category": "PERROS_CALIENTES",
+    "price": 10000,
+    "variant": "Sencillo",
+    "display_order": 2,
+    "is_active": true
+  },
+  {
+    "name": "Sándwich de Pollo",
+    "category": "SANDWICH",
+    "price": 10000,
+    "variant": "Sencillo",
+    "display_order": 1,
+    "is_active": true
+  }
+]

@@ -1,0 +1,142 @@
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #F5BB4C 0%, #e6a03d 100%);
+  padding: 1rem;
+}
+
+.login-box {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.login-box h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 2rem;
+}
+
+.login-subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+}
+
+.pin-display {
+  margin-bottom: 1.5rem;
+}
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  background: white;
+  transition: all 0.2s;
+}
+
+.pin-dot.filled {
+  background: #F5BB4C;
+  border-color: #F5BB4C;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.blocked-message {
+  background: #ffeaa7;
+  color: #d63031;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
+
+.keypad {
+  margin-bottom: 1.5rem;
+}
+
+.keypad-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.keypad button {
+  flex: 1;
+  height: 60px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.keypad button:hover:not(:disabled) {
+  background: #e9ecef;
+  transform: scale(1.05);
+}
+
+.keypad button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.keypad button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  background: #ff6b6b !important;
+  color: white;
+}
+
+.delete-btn {
+  background: #4ecdc4 !important;
+  color: white;
+}
+
+.enter-btn {
+  width: 100%;
+  height: 50px;
+  background: #F5BB4C;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.enter-btn:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.enter-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
