@@ -97,35 +97,28 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 /* ================================
-   FRONTEND PRODUCCIÓN (PWA)
-   IMPORTANTE: Esto debe ir DESPUÉS de todas las rutas de API
+   FRONTEND estático (solo cuando NO es producción web)
+   En producción (Render) el frontend está en Vercel; no servir frontend/dist
    ================================ */
-// En Electron empaquetado, el frontend está en resources/frontend/dist
-// En desarrollo, está en ../frontend/dist
-// El backend está en resources/backend, así que el frontend está en resources/frontend/dist
-// (un nivel arriba desde __dirname)
-const frontendPath = process.env.RESOURCES_PATH
-  ? join(process.env.RESOURCES_PATH, "frontend", "dist")
-  : join(__dirname, "../frontend/dist");
+if (process.env.NODE_ENV !== "production") {
+  const frontendPath = process.env.RESOURCES_PATH
+    ? join(process.env.RESOURCES_PATH, "frontend", "dist")
+    : join(__dirname, "../frontend/dist");
 
-// Servir archivos estáticos del frontend SOLO para rutas que no empiecen con /api
-app.use((req, res, next) => {
-  // Si la ruta empieza con /api, saltar el static middleware
-  if (req.path.startsWith("/api")) {
-    return next();
-  }
-  // De lo contrario, servir archivos estáticos
-  express.static(frontendPath)(req, res, next);
-});
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    express.static(frontendPath)(req, res, next);
+  });
 
-// Catch-all para rutas del frontend (SPA) - SOLO para GET y rutas que no sean /api
-app.get("*", (req, res, next) => {
-  // No interceptar rutas de API
-  if (req.path.startsWith("/api")) {
-    return next();
-  }
-  res.sendFile(join(frontendPath, "index.html"));
-});
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    res.sendFile(join(frontendPath, "index.html"));
+  });
+}
 
 // Iniciar servidor
 httpServer.listen(PORT, "0.0.0.0", () => {
