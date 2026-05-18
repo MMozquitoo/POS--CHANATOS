@@ -8,6 +8,7 @@ import Recibo from '../../components/Recibo.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export default function Historial() {
   const navigate = useNavigate();
@@ -25,7 +26,8 @@ export default function Historial() {
   const [methodFilter, setMethodFilter] = useState('TODOS');
   const [tableFilter, setTableFilter] = useState('TODAS');
   const [searchCode, setSearchCode] = useState('');
-  
+  const debouncedSearch = useDebounce(searchCode, 300);
+
   // Estados de detalle
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
@@ -39,7 +41,7 @@ export default function Historial() {
 
   useEffect(() => {
     loadPayments();
-  }, [dateRange, fromDate, toDate, methodFilter, tableFilter, searchCode]);
+  }, [dateRange, fromDate, toDate, methodFilter, tableFilter, debouncedSearch]);
 
   // Calcular fechas según rango rápido
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function Historial() {
       if (toDate) params.append('to', toDate);
       if (methodFilter !== 'TODOS') params.append('method', methodFilter);
       if (tableFilter !== 'TODAS') params.append('tableNumber', tableFilter);
-      if (searchCode.trim()) params.append('orderCode', searchCode.trim());
+      if (debouncedSearch.trim()) params.append('orderCode', debouncedSearch.trim());
       params.append('limit', '200');
       
       const res = await axios.get(`/payments?${params.toString()}`);

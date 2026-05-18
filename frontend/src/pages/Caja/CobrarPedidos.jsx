@@ -179,32 +179,32 @@ export default function CobrarPedidos() {
 
     // Validar sesión activa (FASE 9.5)
     if (!cashSessionActive) {
-      alert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      await showAlert('Debes ABRIR CAJA antes de cobrar');
       navigate('/mesas');
       return;
     }
 
     const itemIds = Array.from(selectedItemIds);
     if (itemIds.length === 0) {
-      alert('Selecciona items para cobrar por partes');
+      await showAlert('Selecciona items para cobrar por partes');
       return;
     }
     const total = selectedTotal();
 
     // Validar total > 0 (FASE 9.5)
     if (total <= 0) {
-      alert('Total inválido. Revisa precios o items.');
+      await showAlert('Total inválido. Revisa precios o items.');
       return;
     }
 
     // FASE 12.4: Validar que la orden esté en estado LISTO
     if (selectedOrder.status !== 'LISTO') {
-      alert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
       loadOrders();
       return;
     }
 
-    if (!confirm(`¿Cobrar ${itemIds.length} item(s) por ${formatPriceCOP(total)}?`)) return;
+    if (!(await showConfirm(`¿Cobrar ${itemIds.length} item(s) por ${formatPriceCOP(total)}?`))) return;
     try {
       // PASO 16.2.2-A: Normalizar payload
       let payload;
@@ -217,7 +217,7 @@ export default function CobrarPedidos() {
           amount: total
         });
       } catch (normalizeError) {
-        alert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
+        await showAlert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
         return;
       }
 
@@ -231,23 +231,23 @@ export default function CobrarPedidos() {
       }
 
       await axios.post('/payments/items', payload);
-      alert('Pago parcial procesado');
+      await showAlert('Pago parcial procesado');
       loadOrders();
       setSelectedItemIds(new Set());
     } catch (error) {
       console.error('Error procesando pago parcial:', error);
       // FASE 12.4: Manejo de error 409 (orden bloqueada)
       if (error.response?.status === 409) {
-        alert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
+        await showAlert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
         loadOrders();
       } else {
-        alert(error.response?.data?.error || 'Error al procesar pago parcial');
+        await showAlert(error.response?.data?.error || 'Error al procesar pago parcial');
       }
     }
   };
 
   const archiveOrder = async (orderId) => {
-    if (!confirm('¿Archivar esta cuenta? Se ocultará de listas/cocina.')) return;
+    if (!(await showConfirm('¿Archivar esta cuenta? Se ocultará de listas/cocina.'))) return;
     try {
       await axios.patch(`/orders/${orderId}/archive`);
       loadOrders();
@@ -255,12 +255,12 @@ export default function CobrarPedidos() {
       setSelectedItemIds(new Set());
     } catch (error) {
       console.error('Error archivando:', error);
-      alert(error.response?.data?.error || 'Error al archivar');
+      await showAlert(error.response?.data?.error || 'Error al archivar');
     }
   };
 
   const deleteOrder = async (orderId) => {
-    if (!confirm('¿BORRAR esta cuenta? Solo permitido si no tiene pagos.')) return;
+    if (!(await showConfirm('¿BORRAR esta cuenta? Solo permitido si no tiene pagos.'))) return;
     try {
       await axios.delete(`/orders/${orderId}`);
       loadOrders();
@@ -268,7 +268,7 @@ export default function CobrarPedidos() {
       setSelectedItemIds(new Set());
     } catch (error) {
       console.error('Error borrando:', error);
-      alert(error.response?.data?.error || 'Error al borrar');
+      await showAlert(error.response?.data?.error || 'Error al borrar');
     }
   };
 
@@ -276,25 +276,25 @@ export default function CobrarPedidos() {
     const reason = prompt('Motivo de cancelación (mínimo 3 caracteres):');
     if (!reason || reason.trim().length < 3) {
       if (reason !== null) {
-        alert('El motivo debe tener al menos 3 caracteres');
+        await showAlert('El motivo debe tener al menos 3 caracteres');
       }
       return;
     }
 
     const orderCode = order.daily_no || order.code || `#${order.id}`;
-    if (!confirm(`¿Cancelar ORDEN ${orderCode}?\n\nMotivo: ${reason}`)) {
+    if (!(await showConfirm(`¿Cancelar ORDEN ${orderCode}?\n\nMotivo: ${reason}`))) {
       return;
     }
 
     try {
       await axios.patch(`/orders/${order.id}/cancel`, { reason: reason.trim() });
-      alert('Orden cancelada correctamente');
+      await showAlert('Orden cancelada correctamente');
       loadOrders();
       setSelectedOrder(null);
       setSelectedItemIds(new Set());
     } catch (error) {
       console.error('Error cancelando orden:', error);
-      alert(error.response?.data?.error || 'Error al cancelar orden');
+      await showAlert(error.response?.data?.error || 'Error al cancelar orden');
     }
   };
 
@@ -303,8 +303,9 @@ export default function CobrarPedidos() {
   }
 
   return (
+    <>
     <div className="cobrar-container">
-      <CajaHeader 
+      <CajaHeader
         title="COBRAR PEDIDOS"
         backTo="/centro"
       />
@@ -517,6 +518,18 @@ export default function CobrarPedidos() {
         )}
       </div>
     </div>
+    <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+      actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+      <p>{alertState.message}</p>
+    </Modal>
+    <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+      actions={<>
+        <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+        <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+      </>}>
+      <p>{confirmState.message}</p>
+    </Modal>
+    </>
   );
 }
 
