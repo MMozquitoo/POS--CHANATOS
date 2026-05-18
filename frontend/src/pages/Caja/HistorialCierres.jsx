@@ -17,7 +17,7 @@ function getDiffLabel(diff) {
 function getDiffColor(diff) {
   if (diff > 0) return "#28a745";
   if (diff < 0) return "#dc3545";
-  return "#007bff";
+  return "#F5BB4C";
 }
 
 export default function HistorialCierres() {
@@ -193,7 +193,7 @@ export default function HistorialCierres() {
                       }}
                       style={{
                         padding: '0.5rem 1rem',
-                        background: '#007bff',
+                        background: '#F5BB4C',
                         color: 'white',
                         border: 'none',
                         borderRadius: '6px',

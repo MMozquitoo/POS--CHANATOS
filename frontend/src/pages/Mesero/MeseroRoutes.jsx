@@ -1,15 +1,18 @@
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import RequireRole from '../../components/RequireRole';
-import Mesas from './Mesas';
-import PedidoMesa from './PedidoMesa';
-import EstadoPedidos from './EstadoPedidos';
-import Mas from './Mas';
-import Ventanilla from '../Ventanilla/Ventanilla';
-import Domicilios from '../Domicilios/Domicilios';
+
+const Mesas = lazy(() => import('./Mesas'));
+const PedidoMesa = lazy(() => import('./PedidoMesa'));
+const EstadoPedidos = lazy(() => import('./EstadoPedidos'));
+const Mas = lazy(() => import('./Mas'));
+const Ventanilla = lazy(() => import('../Ventanilla/Ventanilla'));
+const Domicilios = lazy(() => import('../Domicilios/Domicilios'));
 
 export default function MeseroRoutes() {
   return (
     <RequireRole role="MESERO" redirectTo="/centro">
+      <Suspense fallback={<div style={{padding:'2rem',textAlign:'center'}}>Cargando...</div>}>
       <Routes>
         <Route path="/" element={<Mesas />} />
         <Route path="/mesa/:tableId" element={<PedidoMesa />} />
@@ -20,6 +23,7 @@ export default function MeseroRoutes() {
         {/* FASE 18.6: /mesas → / (evita pantalla en blanco y "menú viejo" por cache) */}
         <Route path="/mesas" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </RequireRole>
   );
 }

@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { getDb } from '../db/database.js';
 
@@ -22,7 +23,7 @@ const failedAttempts = new Map(); // userId o IP -> { count, blockedUntil }
 
 // POST /api/auth/pin
 router.post('/pin', async (req, res) => {
-  console.log('🔐 POST /api/auth/pin recibido:', { pin: req.body?.pin, ip: req.ip });
+  console.log('POST /api/auth/pin recibido desde IP:', req.ip);
   try {
     const { pin } = req.body;
 
@@ -74,7 +75,7 @@ router.post('/pin', async (req, res) => {
     failedAttempts.delete(clientId);
 
     // Crear sesión
-    const token = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, {
       userId: user.id,
       role: user.role,

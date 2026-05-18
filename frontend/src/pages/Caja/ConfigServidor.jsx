@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiBaseUrl } from '../../utils/api';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
 
@@ -15,28 +16,13 @@ export default function ConfigServidor() {
   const [statusMessage, setStatusMessage] = useState('');
   const [saved, setSaved] = useState(false);
 
-  // Función para obtener URL por defecto
-  const getDefaultUrl = () => {
-    const origin = window.location.origin;
-    // Si está en desarrollo (puerto 5173), cambiar a 3000
-    if (origin.includes(':5173')) {
-      return origin.replace(':5173', ':3000');
-    }
-    // Si ya está en 3000, mantenerlo
-    if (origin.includes(':3000')) {
-      return origin;
-    }
-    // Fallback: variable de entorno (Vercel/Netlify) o localhost en dev
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  };
-
   // Cargar URL guardada al montar
   useEffect(() => {
     const savedUrl = localStorage.getItem('pos_server_url');
     if (savedUrl) {
       setServerUrl(savedUrl);
     } else {
-      setServerUrl(getDefaultUrl());
+      setServerUrl(getApiBaseUrl());
     }
   }, []);
 
@@ -129,7 +115,7 @@ export default function ConfigServidor() {
   // Resetear a default
   const handleReset = () => {
     if (window.confirm('¿Restaurar URL por defecto?')) {
-      const defaultUrl = getDefaultUrl();
+      const defaultUrl = getApiBaseUrl();
       setServerUrl(defaultUrl);
       localStorage.removeItem('pos_server_url');
       setStatus('idle');
@@ -245,7 +231,7 @@ export default function ConfigServidor() {
                 borderRadius: '4px',
                 fontSize: '0.9rem',
                 fontFamily: 'monospace',
-                color: '#007bff'
+                color: '#F5BB4C'
               }}>
                 {window.location.origin}
               </code>
@@ -271,7 +257,7 @@ export default function ConfigServidor() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                background: '#007bff',
+                background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -376,7 +362,7 @@ export default function ConfigServidor() {
               onClick={handleSave}
               style={{
                 padding: '0.75rem 1.5rem',
-                background: '#007bff',
+                background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',

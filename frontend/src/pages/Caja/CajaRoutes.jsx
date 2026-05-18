@@ -1,25 +1,27 @@
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import RequireRole from '../../components/RequireRole';
-import SesionCaja from './SesionCaja';
-import CobrarPedidos from './CobrarPedidos';
-import Historial from './Historial';
-import HistorialSesiones from './HistorialSesiones';
-import MesasAbiertas from './MesasAbiertas';
-import DetalleMesa from './DetalleMesa';
-import MasCaja from './MasCaja';
-import VentanillaCaja from '../Ventanilla/Ventanilla';
-import DomiciliosCaja from '../Domicilios/Domicilios';
-import Menu from './Menu';
-import CentroTotal from './CentroTotal';
-import CocinaCaja from './CocinaCaja';
-import DashboardCaja from './DashboardCaja';
-import ConfigImpresora from './ConfigImpresora';
-import CierreCaja from './CierreCaja';
-import HistorialCierres from './HistorialCierres';
-import Auditoria from './Auditoria';
-import ConfigServidor from './ConfigServidor';
-import Diagnostico from './Diagnostico';
-import AperturaCaja from './AperturaCaja';
+
+const SesionCaja = lazy(() => import('./SesionCaja'));
+const CobrarPedidos = lazy(() => import('./CobrarPedidos'));
+const Historial = lazy(() => import('./Historial'));
+const HistorialSesiones = lazy(() => import('./HistorialSesiones'));
+const MesasAbiertas = lazy(() => import('./MesasAbiertas'));
+const DetalleMesa = lazy(() => import('./DetalleMesa'));
+const MasCaja = lazy(() => import('./MasCaja'));
+const VentanillaCaja = lazy(() => import('../Ventanilla/Ventanilla'));
+const DomiciliosCaja = lazy(() => import('../Domicilios/Domicilios'));
+const Menu = lazy(() => import('./Menu'));
+const CentroTotal = lazy(() => import('./CentroTotal'));
+const CocinaCaja = lazy(() => import('./CocinaCaja'));
+const DashboardCaja = lazy(() => import('./DashboardCaja'));
+const ConfigImpresora = lazy(() => import('./ConfigImpresora'));
+const CierreCaja = lazy(() => import('./CierreCaja'));
+const HistorialCierres = lazy(() => import('./HistorialCierres'));
+const Auditoria = lazy(() => import('./Auditoria'));
+const ConfigServidor = lazy(() => import('./ConfigServidor'));
+const Diagnostico = lazy(() => import('./Diagnostico'));
+const AperturaCaja = lazy(() => import('./AperturaCaja'));
 
 /**
  * FIX 2: Redirección si el usuario cae a / siendo CAJA
@@ -32,6 +34,7 @@ function HomeRedirect() {
 export default function CajaRoutes() {
   return (
     <RequireRole role="CAJA" redirectTo="/">
+      <Suspense fallback={<div style={{padding:'2rem',textAlign:'center'}}>Cargando...</div>}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/mesas" element={<MesasAbiertas />} />
@@ -54,6 +57,7 @@ export default function CajaRoutes() {
         <Route path="/diagnostico" element={<Diagnostico />} />
         <Route path="/apertura-caja" element={<AperturaCaja />} />
       </Routes>
+      </Suspense>
     </RequireRole>
   );
 }

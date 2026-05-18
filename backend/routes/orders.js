@@ -204,16 +204,12 @@ router.post(
         initialStatus
       });
 
-      // 3) Crear pedido (aquí ya sabemos que req.user.id existe)
+      // 3) Crear pedido con transacción (aquí ya sabemos que req.user.id existe)
       let result;
+      let orderId;
       try {
-      // Insert flexible por si la DB aún no tiene columnas nuevas (compatibilidad)
-      const ordersInfo = await db.all("PRAGMA table_info(orders)");
-      const hasServiceCol = ordersInfo.some((c) => c.name === "service");
-      const hasBusinessDayCol = ordersInfo.some((c) => c.name === "business_day");
-      const hasDailyNoCol = ordersInfo.some((c) => c.name === "daily_no");
+        await db.run("BEGIN TRANSACTION");
 
-      if (hasServiceCol && hasBusinessDayCol && hasDailyNoCol) {
         result = await db.run(
           `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -228,64 +224,22 @@ router.post(
             req.user.id,
           ]
         );
-      } else {
-        result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, status, created_by)
-           VALUES (?, ?, ?, ?, ?)`,
-          [code, finalTableId || null, channel, initialStatus, req.user.id]
-        );
-      }
-        console.log("✅ Pedido creado, result:", result);
-        console.log('[ORDER SAVED]', {
-          orderId: result.lastID,
-          savedStatus: initialStatus,
-          tableNumber: tableNumber || null,
-          service: orderService
-        });
-      } catch (dbError) {
-        console.error("❌ Error en db.run al crear pedido:", dbError);
-        console.error("❌ Stack:", dbError.stack);
-        return res.status(500).json({
-          error: "Error al crear el pedido en la base de datos",
-          details:
-            process.env.NODE_ENV === "development"
-              ? dbError.message
-              : undefined,
-        });
-      }
 
-      const orderId = result?.lastID;
+        orderId = result?.lastID;
 
-      if (!orderId) {
-        console.error(
-          "❌ POST /orders: No se pudo crear el pedido (lastID no existe)"
-        );
-        console.error("❌ Result completo:", result);
-        return res
-          .status(500)
-          .json({ error: "Error al crear el pedido: no se obtuvo ID" });
-      }
+        if (!orderId) {
+          throw new Error("No se obtuvo ID del pedido creado");
+        }
 
-      console.log("✅ Pedido creado con ID:", orderId);
+        console.log("✅ Pedido creado con ID:", orderId);
 
-      // Crear items
-      console.log("📝 Creando", items.length, "items para pedido", orderId);
-      for (const item of items) {
-        try {
-          console.log("📝 Insertando item:", item);
-          // Validar que el item tenga precio
-          if (!item.price || item.price <= 0) {
+        // Crear items dentro de la misma transacción
+        for (const item of items) {
+          const itemPrice = item.price || 0;
+          if (!itemPrice || itemPrice <= 0) {
             throw new Error(`Item "${item.name}" debe tener un precio válido`);
           }
-          // Validar precio
-          const itemPrice = item.price || 0;
-          if (itemPrice <= 0) {
-            throw new Error(
-              `Item "${item.name}" debe tener un precio válido`
-            );
-          }
 
-          // Determinar product_id e is_custom (Fase 1)
           const productId = item.product_id || item.productId || null;
           const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
 
@@ -293,26 +247,25 @@ router.post(
             "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [orderId, item.name, item.qty || 1, itemPrice, item.notes || null, productId, isCustom]
           );
-          console.log("✅ Item insertado:", item.name, "precio:", item.price);
-        } catch (itemError) {
-          console.error("❌ Error insertando item:", itemError);
-          console.error("❌ Item que falló:", item);
-          console.error("❌ Stack:", itemError.stack);
-          // Si falla un item, intentar eliminar el pedido creado
-          try {
-            await db.run("DELETE FROM orders WHERE id = ?", [orderId]);
-            console.log("✅ Pedido eliminado después de error en items");
-          } catch (deleteError) {
-            console.error("❌ Error eliminando pedido fallido:", deleteError);
-          }
-          return res.status(500).json({
-            error: "Error al crear items del pedido",
-            details:
-              process.env.NODE_ENV === "development"
-                ? itemError.message
-                : undefined,
-          });
         }
+
+        await db.run("COMMIT");
+        console.log('[ORDER SAVED]', {
+          orderId,
+          savedStatus: initialStatus,
+          tableNumber: tableNumber || null,
+          service: orderService
+        });
+      } catch (txError) {
+        try { await db.run("ROLLBACK"); } catch (rbErr) { /* ignore rollback error */ }
+        console.error("❌ Error en transacción al crear pedido:", txError);
+        return res.status(500).json({
+          error: "Error al crear el pedido en la base de datos",
+          details:
+            process.env.NODE_ENV === "development"
+              ? txError.message
+              : undefined,
+        });
       }
 
       // Obtener pedido completo
@@ -461,18 +414,25 @@ router.get("/", requireAuth, async (req, res) => {
       );
     }
 
-    // Obtener items para cada pedido
-    const ordersWithItems = await Promise.all(
-      filteredOrders.map(async (order) => {
-        const items = await db.all(
-          "SELECT * FROM order_items WHERE order_id = ?",
-          [order.id]
-        );
-        return { ...order, items };
-      })
-    );
+    // Obtener items para todos los pedidos en una sola query
+    if (filteredOrders.length > 0) {
+      const orderIds = filteredOrders.map(o => o.id);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const allItems = await db.all(
+        `SELECT * FROM order_items WHERE order_id IN (${placeholders})`,
+        orderIds
+      );
+      const itemsByOrder = {};
+      allItems.forEach(item => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
+      });
+      filteredOrders.forEach(order => { order.items = itemsByOrder[order.id] || []; });
+    } else {
+      filteredOrders.forEach(order => { order.items = []; });
+    }
 
-    res.json(ordersWithItems);
+    res.json(filteredOrders);
   } catch (error) {
     console.error("Error obteniendo pedidos:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -519,18 +479,26 @@ router.get("/service/:service", requireAuth, async (req, res) => {
 
     const orders = await db.all(query, params);
 
-    // Para cada orden, calcular total de items pendientes
-    const ordersWithTotals = await Promise.all(
-      orders.map(async (order) => {
-        const items = await db.all(
-          `SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL`,
-          [order.id]
-        );
-        
+    // Obtener todos los items de todas las órdenes en una sola query
+    let ordersWithTotals = orders;
+    if (orders.length > 0) {
+      const orderIds = orders.map(o => o.id);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const allItems = await db.all(
+        `SELECT * FROM order_items WHERE order_id IN (${placeholders}) AND voided_at IS NULL`,
+        orderIds
+      );
+      const itemsByOrder = {};
+      allItems.forEach(item => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
+      });
+
+      ordersWithTotals = orders.map(order => {
+        const items = itemsByOrder[order.id] || [];
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-        
         return {
           ...order,
           totalItems: items.length,
@@ -539,15 +507,14 @@ router.get("/service/:service", requireAuth, async (req, res) => {
           pendingTotal,
           hasPendingItems: pendingItems.length > 0
         };
-      })
-    );
+      });
+    }
 
     // Ordenar por estado (NUEVO → EN_PREP → LISTO → PAGADA → CANCELADO) y luego por fecha descendente
     const statusOrder = { 'NUEVO': 1, 'EN_PREP': 2, 'LISTO': 3, 'PAGADA': 4, 'CANCELADO': 5 };
     const sortedOrders = ordersWithTotals.sort((a, b) => {
       const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
       if (statusDiff !== 0) return statusDiff;
-      // Si mismo estado, ordenar por fecha descendente (más reciente primero)
       return new Date(b.created_at) - new Date(a.created_at);
     });
 
@@ -643,18 +610,26 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
 
     const orders = await db.all(query, params);
 
-    // Para cada orden, calcular total de items pendientes
-    const ordersWithTotals = await Promise.all(
-      orders.map(async (order) => {
-        const items = await db.all(
-          `SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL`,
-          [order.id]
-        );
-        
+    // Obtener todos los items de todas las órdenes en una sola query
+    let ordersWithTotals = orders;
+    if (orders.length > 0) {
+      const orderIds = orders.map(o => o.id);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const allItems = await db.all(
+        `SELECT * FROM order_items WHERE order_id IN (${placeholders}) AND voided_at IS NULL`,
+        orderIds
+      );
+      const itemsByOrder = {};
+      allItems.forEach(item => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
+      });
+
+      ordersWithTotals = orders.map(order => {
+        const items = itemsByOrder[order.id] || [];
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-        
         return {
           ...order,
           totalItems: items.length,
@@ -663,15 +638,14 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
           pendingTotal,
           hasPendingItems: pendingItems.length > 0
         };
-      })
-    );
+      });
+    }
 
     // Ordenar por estado (NUEVO → EN_PREP → LISTO → PAGADA → CANCELADO) y luego por fecha descendente
     const statusOrder = { 'NUEVO': 1, 'EN_PREP': 2, 'LISTO': 3, 'PAGADA': 4, 'CANCELADO': 5 };
     const sortedOrders = ordersWithTotals.sort((a, b) => {
       const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
       if (statusDiff !== 0) return statusDiff;
-      // Si mismo estado, ordenar por fecha descendente (más reciente primero)
       return new Date(b.created_at) - new Date(a.created_at);
     });
 
@@ -709,18 +683,26 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
       ORDER BY o.created_at ASC
     `);
 
-    // Para cada orden, calcular total de items pendientes
-    const ordersWithTotals = await Promise.all(
-      orders.map(async (order) => {
-        const items = await db.all(
-          `SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL`,
-          [order.id]
-        );
-        
+    // Obtener todos los items de todas las órdenes en una sola query
+    let ordersWithTotals = [];
+    if (orders.length > 0) {
+      const orderIds = orders.map(o => o.id);
+      const placeholders = orderIds.map(() => '?').join(',');
+      const allItems = await db.all(
+        `SELECT * FROM order_items WHERE order_id IN (${placeholders}) AND voided_at IS NULL`,
+        orderIds
+      );
+      const itemsByOrder = {};
+      allItems.forEach(item => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
+      });
+
+      ordersWithTotals = orders.map(order => {
+        const items = itemsByOrder[order.id] || [];
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-        
         return {
           ...order,
           totalItems: items.length,
@@ -729,8 +711,8 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
           pendingTotal,
           hasPendingItems: pendingItems.length > 0
         };
-      })
-    );
+      });
+    }
 
     res.json(ordersWithTotals);
   } catch (error) {
@@ -934,34 +916,20 @@ router.patch(
         });
       }
 
-      // Verificar si las columnas existen (compatibilidad)
-      const ordersInfo = await db.all("PRAGMA table_info(orders)");
-      const hasCanceledAt = ordersInfo.some((col) => col.name === "canceled_at");
-      const hasCanceledBy = ordersInfo.some((col) => col.name === "canceled_by");
-      const hasCancelReason = ordersInfo.some((col) => col.name === "cancel_reason");
-
       const timestamp = toBogotaSQLiteTimestamp(new Date());
 
       // Actualizar orden: status = CANCELADO, metadata de cancelación y archivado automático
-      if (hasCanceledAt && hasCanceledBy && hasCancelReason) {
-        await db.run(
-          `UPDATE orders 
-           SET status = 'CANCELADO', 
-               canceled_at = ?,
-               canceled_by = ?,
-               cancel_reason = ?,
-               archived_at = ?,
-               updated_at = ? 
-           WHERE id = ?`,
-          [timestamp, req.user.id, reason.trim(), timestamp, timestamp, req.params.id]
-        );
-      } else {
-        // Fallback: cambiar status y archivar si las columnas no existen
-        await db.run(
-          "UPDATE orders SET status = 'CANCELADO', archived_at = ?, updated_at = ? WHERE id = ?",
-          [timestamp, timestamp, req.params.id]
-        );
-      }
+      await db.run(
+        `UPDATE orders
+         SET status = 'CANCELADO',
+             cancelled_at = ?,
+             cancelled_by = ?,
+             cancel_reason = ?,
+             archived_at = ?,
+             updated_at = ?
+         WHERE id = ?`,
+        [timestamp, req.user.id, reason.trim(), timestamp, timestamp, req.params.id]
+      );
 
       const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [
         req.params.id,
@@ -1150,62 +1118,6 @@ router.post("/archive-day", requireAuth, requireRole("COCINA", "CAJA"), async (r
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-
-// PATCH /api/orders/:id/cancel
-// NOTA: En la nueva versión, solo CAJA puede cancelar
-router.patch(
-  "/:id/cancel",
-  requireAuth,
-  requireRole("CAJA"),
-  async (req, res) => {
-    try {
-      const db = getDb();
-
-      const order = await db.get("SELECT * FROM orders WHERE id = ?", [
-        req.params.id,
-      ]);
-      if (!order) {
-        return res.status(404).json({ error: "Pedido no encontrado" });
-      }
-
-      // Solo el mesero que creó el pedido puede cancelarlo
-      if (order.created_by !== req.user.id) {
-        return res
-          .status(403)
-          .json({ error: "Solo puedes cancelar tus propios pedidos" });
-      }
-
-      // No se puede cancelar si ya está pagado
-      if (order.paid_at) {
-        return res
-          .status(400)
-          .json({ error: "No se puede cancelar un pedido pagado" });
-      }
-
-      await db.run(
-        'UPDATE orders SET status = "CANCELADO", updated_at = ? WHERE id = ?',
-        [toBogotaSQLiteTimestamp(new Date()), req.params.id]
-      );
-
-      const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [
-        req.params.id,
-      ]);
-
-      // Notificar cancelación
-      const io = req.app.get("io");
-      if (io) {
-        io.emit("order:cancelled", {
-          order: updatedOrder,
-        });
-      }
-
-      res.json({ order: updatedOrder });
-    } catch (error) {
-      console.error("Error cancelando pedido:", error);
-      res.status(500).json({ error: "Error interno del servidor" });
-    }
-  }
-);
 
 // POST /api/orders/:id/items - Agregar items a una orden existente
 // Permite a CAJA agregar items a una orden que está en NUEVO o EN_PREP

@@ -130,9 +130,9 @@
 }
 
 .enter-btn:hover:not(:disabled) {
-  background: #5568d3;
+  background: #D4A03A;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(245, 187, 76, 0.4);
 }
 
 .enter-btn:disabled {

@@ -41,7 +41,7 @@ function TableCard({
         // Ventanilla: amarillo, Domicilios: verde
         return number === 9 ? '#F5BB4C' : '#28a745';
       }
-      return '#007bff';
+      return '#F5BB4C';
     }
     // Status colors
     if (status === 'libre' || status === 'LIBRE') return '#51cf66';
@@ -56,7 +56,7 @@ function TableCard({
       if (variant === 'waiter') {
         return number === 9 ? '#F5BB4C' : '#28a745';
       }
-      return '#007bff';
+      return '#F5BB4C';
     }
     return '#333';
   };

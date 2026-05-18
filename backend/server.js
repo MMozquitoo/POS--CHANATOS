@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 // Importar rutas
+import { validateSession } from "./routes/auth.js";
 import authRoutes from "./routes/auth.js";
 import ordersRoutes from "./routes/orders.js";
 import paymentsRoutes from "./routes/payments.js";
@@ -53,7 +54,15 @@ app.use(
     credentials: corsOrigin ? true : false,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
 // Inicializar base de datos (incluye migración automática si es necesario)
 try {
@@ -84,9 +93,29 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// WebSocket authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    // Allow unauthenticated connections but mark them
+    socket.authenticated = false;
+    return next();
+  }
+  // Validate token against sessions
+  const session = validateSession(token);
+  if (session) {
+    socket.authenticated = true;
+    socket.userId = session.userId;
+    socket.userRole = session.role;
+  } else {
+    socket.authenticated = false;
+  }
+  next();
+});
+
 // WebSocket para realtime
 io.on("connection", (socket) => {
-  console.log("Cliente conectado:", socket.id);
+  console.log("Cliente conectado:", socket.id, "autenticado:", socket.authenticated);
 
   socket.on("disconnect", () => {
     console.log("Cliente desconectado:", socket.id);

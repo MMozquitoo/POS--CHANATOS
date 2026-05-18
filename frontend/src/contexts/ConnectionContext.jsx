@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { getApiBaseUrl } from '../utils/api';
 
 const ConnectionContext = createContext();
 
@@ -26,22 +27,6 @@ export function ConnectionProvider({ children }) {
   const lastNetworkLogAtRef = useRef(0);
   const abortControllerRef = useRef(null);
   const isVisibleRef = useRef(true);
-
-  // Función para obtener URL base
-  const getApiBaseUrl = () => {
-    const savedUrl = localStorage.getItem('pos_server_url');
-    if (savedUrl && savedUrl.trim()) {
-      return savedUrl.trim();
-    }
-    const origin = window.location.origin;
-    if (origin.includes(':5173')) {
-      return origin.replace(':5173', ':3000');
-    }
-    if (origin.includes(':3000')) {
-      return origin;
-    }
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  };
 
   // Calcular intervalo con backoff
   // FASE 19.MINI: Optimizar para reducir spam de requests

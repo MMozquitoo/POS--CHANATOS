@@ -1067,7 +1067,7 @@ export default function DetalleMesa() {
             onClick={() => navigate(backTo, { replace: true })}
             style={{
               padding: '0.75rem 1.5rem',
-              background: '#007bff',
+              background: '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -1127,7 +1127,7 @@ export default function DetalleMesa() {
             onClick={() => navigate(backTo, { replace: true })}
             style={{
               padding: '0.75rem 1.5rem',
-              background: '#007bff',
+              background: '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -1222,11 +1222,11 @@ export default function DetalleMesa() {
                   onClick={() => handleMesaChange(table?.id || num)}
                   style={{
                     padding: '1rem',
-                    background: isActive ? '#007bff' : 
+                    background: isActive ? '#F5BB4C' : 
                                status === 'activa' ? '#ffc107' :
                                status === 'listo' ? '#28a745' : 'white',
                     color: isActive || status === 'activa' || status === 'listo' ? 'white' : '#333',
-                    border: isActive ? '3px solid #0056b3' : '2px solid #ddd',
+                    border: isActive ? '3px solid #D4A03A' : '2px solid #ddd',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -1325,9 +1325,9 @@ export default function DetalleMesa() {
                         }}
                         style={{
                           padding: '0.5rem 1rem',
-                          background: selectedOrderId === ord.id ? '#007bff' : '#f8f9fa',
+                          background: selectedOrderId === ord.id ? '#F5BB4C' : '#f8f9fa',
                           color: selectedOrderId === ord.id ? 'white' : '#6c757d',
-                          border: '1px solid ' + (selectedOrderId === ord.id ? '#007bff' : '#dee2e6'),
+                          border: '1px solid ' + (selectedOrderId === ord.id ? '#F5BB4C' : '#dee2e6'),
                           borderRadius: '8px',
                           cursor: 'pointer',
                           fontWeight: selectedOrderId === ord.id ? 'bold' : 500,
@@ -1385,7 +1385,7 @@ export default function DetalleMesa() {
                       }}
                       style={{
                         padding: '0.75rem 1.5rem',
-                        background: '#007bff',
+                        background: '#F5BB4C',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
@@ -1579,7 +1579,7 @@ export default function DetalleMesa() {
                             }}
                             style={{ 
                               padding: '0.5rem 0.75rem', 
-                              background: '#007bff', 
+                              background: '#F5BB4C', 
                               color: 'white', 
                               border: 'none', 
                               borderRadius: '6px', 
@@ -1677,7 +1677,7 @@ export default function DetalleMesa() {
                   background: 'white', 
                   padding: '1.5rem', 
                   borderRadius: '12px', 
-                  border: '2px solid #007bff',
+                  border: '2px solid #F5BB4C',
                   marginTop: '1rem'
                 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>
@@ -1840,7 +1840,7 @@ export default function DetalleMesa() {
                   background: 'white', 
                   padding: '1rem', 
                   borderRadius: '8px',
-                  border: '2px solid #007bff'
+                  border: '2px solid #F5BB4C'
                 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Items a agregar:</h3>
                   {newOrderItems.map((it, idx) => (
@@ -1871,7 +1871,7 @@ export default function DetalleMesa() {
                           onChange={(e) => updateNewOrderItem(idx, { qty: parseInt(e.target.value) || 1 })}
                           style={{ width: '50px', padding: '0.25rem', textAlign: 'center', border: '1px solid #ddd', borderRadius: '4px' }}
                         />
-                        <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })} style={{ padding: '0.25rem 0.5rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+</button>
+                        <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })} style={{ padding: '0.25rem 0.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+</button>
                         <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)} style={{ padding: '0.25rem 0.5rem', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
                       </div>
                     </div>
@@ -1972,7 +1972,7 @@ export default function DetalleMesa() {
                 background: 'white', 
                 padding: '1.5rem', 
                 borderRadius: '12px',
-                border: '2px solid #007bff'
+                border: '2px solid #F5BB4C'
               }}>
                 <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>Resumen</h3>
                 
@@ -1988,7 +1988,7 @@ export default function DetalleMesa() {
                       padding: '0.25rem 0.75rem',
                       borderRadius: '4px',
                       background: (activeOrder.status === 'NUEVO') ? '#ffc107' :
-                                 (activeOrder.status === 'EN_PREP') ? '#007bff' :
+                                 (activeOrder.status === 'EN_PREP') ? '#F5BB4C' :
                                  (activeOrder.status === 'LISTO') ? '#28a745' : '#6c757d',
                       color: 'white'
                     }}>
@@ -2293,7 +2293,7 @@ export default function DetalleMesa() {
                   min="1"
                   style={{ width: '80px', padding: '0.5rem', textAlign: 'center', border: '1px solid #ddd', borderRadius: '6px' }}
                 />
-                <button onClick={() => setCustomQty(customQty + 1)} style={{ padding: '0.5rem 1rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+</button>
+                <button onClick={() => setCustomQty(customQty + 1)} style={{ padding: '0.5rem 1rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+</button>
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: '1rem' }}>

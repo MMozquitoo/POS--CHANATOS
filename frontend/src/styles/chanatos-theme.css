@@ -1,0 +1,194 @@
+:root {
+  /* Chanatos Brand Colors */
+  --chanatos-primary: #F5BB4C;
+  --chanatos-primary-dark: #D4A03A;
+  --chanatos-primary-light: #F8CE7A;
+  --chanatos-primary-bg: #FFF8E7;
+  --chanatos-primary-hover: #E5AB3C;
+
+  /* Neutral Colors */
+  --chanatos-dark: #1a1a2e;
+  --chanatos-dark-light: #2d2d44;
+  --chanatos-gray-900: #212529;
+  --chanatos-gray-700: #495057;
+  --chanatos-gray-600: #6c757d;
+  --chanatos-gray-400: #ced4da;
+  --chanatos-gray-200: #e9ecef;
+  --chanatos-gray-100: #f8f9fa;
+  --chanatos-white: #ffffff;
+
+  /* Status Colors */
+  --chanatos-success: #28a745;
+  --chanatos-success-light: #d4edda;
+  --chanatos-danger: #dc3545;
+  --chanatos-danger-light: #f8d7da;
+  --chanatos-warning: #ffc107;
+  --chanatos-info: #17a2b8;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 50%;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
+
+  /* Typography */
+  --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+}
+
+/* Utility classes */
+.btn-chanatos {
+  background: var(--chanatos-primary);
+  color: var(--chanatos-dark);
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-md);
+  min-height: 44px;
+}
+.btn-chanatos:hover {
+  background: var(--chanatos-primary-hover);
+}
+.btn-chanatos:active {
+  background: var(--chanatos-primary-dark);
+}
+.btn-chanatos:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-chanatos-outline {
+  background: transparent;
+  color: var(--chanatos-primary);
+  border: 2px solid var(--chanatos-primary);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: var(--font-size-md);
+  min-height: 44px;
+}
+.btn-chanatos-outline:hover {
+  background: var(--chanatos-primary);
+  color: var(--chanatos-dark);
+}
+
+.btn-danger {
+  background: var(--chanatos-danger);
+  color: white;
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-md);
+  min-height: 44px;
+}
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-success {
+  background: var(--chanatos-success);
+  color: white;
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-md);
+  min-height: 44px;
+}
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-secondary {
+  background: var(--chanatos-gray-600);
+  color: white;
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-md);
+  min-height: 44px;
+}
+.btn-secondary:hover {
+  background: var(--chanatos-gray-700);
+}
+
+/* Card styles */
+.chanatos-card {
+  background: var(--chanatos-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-lg);
+}
+
+/* Modal overlay */
+.chanatos-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-md);
+}
+
+.chanatos-modal {
+  background: var(--chanatos-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-xl);
+}
+
+.chanatos-modal h3 {
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-size-lg);
+}
+
+.chanatos-modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
+}

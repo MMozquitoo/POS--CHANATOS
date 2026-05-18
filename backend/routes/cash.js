@@ -16,16 +16,16 @@ async function calculateDaySummary(db, date) {
   const totalSales = await db.get(
     `SELECT COALESCE(SUM(amount), 0) as total
      FROM payments
-     WHERE substr(created_at, 1, 10) = ? OR DATE(created_at) = ?`,
-    [date, date]
+     WHERE DATE(created_at) = ?`,
+    [date]
   );
 
   // Número total de pedidos pagados
   const totalOrders = await db.get(
     `SELECT COUNT(DISTINCT order_id) as count
      FROM payments
-     WHERE substr(created_at, 1, 10) = ? OR DATE(created_at) = ?`,
-    [date, date]
+     WHERE DATE(created_at) = ?`,
+    [date]
   );
 
   // Ticket promedio
@@ -35,31 +35,31 @@ async function calculateDaySummary(db, date) {
 
   // Ventas por método de pago
   const paymentsByMethod = await db.all(
-    `SELECT 
+    `SELECT
        method,
        COUNT(*) as count,
        COALESCE(SUM(amount), 0) as total
      FROM payments
-     WHERE substr(created_at, 1, 10) = ? OR DATE(created_at) = ?
+     WHERE DATE(created_at) = ?
      GROUP BY method`,
-    [date, date]
+    [date]
   );
 
   // Top productos (Top 3)
   const topProducts = await db.all(
-    `SELECT 
+    `SELECT
        oi.name,
        SUM(oi.qty) as total_qty,
        SUM(oi.qty * oi.price) as total_sales
      FROM order_items oi
      JOIN orders o ON oi.order_id = o.id
-     WHERE (substr(o.created_at, 1, 10) = ? OR DATE(o.created_at) = ?)
+     WHERE DATE(o.created_at) = ?
        AND oi.voided_at IS NULL
        AND oi.paid_at IS NOT NULL
      GROUP BY oi.name
      ORDER BY total_qty DESC
      LIMIT 3`,
-    [date, date]
+    [date]
   );
 
   // Mesas atendidas
@@ -67,14 +67,14 @@ async function calculateDaySummary(db, date) {
     `SELECT COUNT(DISTINCT o.table_id) as count
      FROM orders o
      JOIN payments p ON p.order_id = o.id
-     WHERE (substr(o.created_at, 1, 10) = ? OR DATE(o.created_at) = ?)
+     WHERE DATE(o.created_at) = ?
        AND o.table_id IS NOT NULL`,
-    [date, date]
+    [date]
   );
 
   // Mesa con mayor consumo
   const topTable = await db.get(
-    `SELECT 
+    `SELECT
        o.table_id,
        t.label as table_label,
        t.number as table_number,
@@ -83,12 +83,12 @@ async function calculateDaySummary(db, date) {
      FROM orders o
      JOIN payments p ON p.order_id = o.id
      LEFT JOIN tables t ON o.table_id = t.id
-     WHERE (substr(o.created_at, 1, 10) = ? OR DATE(o.created_at) = ?)
+     WHERE DATE(o.created_at) = ?
        AND o.table_id IS NOT NULL
      GROUP BY o.table_id, t.label, t.number
      ORDER BY total_sales DESC
      LIMIT 1`,
-    [date, date]
+    [date]
   );
 
   // Sesión de caja del día

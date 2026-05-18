@@ -233,7 +233,7 @@ export default function DashboardCaja() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div>
                   <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Ventas Teรณricas</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#007bff' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F5BB4C' }}>
                     {formatPriceCOP(totalSales)}
                   </div>
                 </div>
@@ -275,26 +275,7 @@ export default function DashboardCaja() {
         <div style={{ display: 'grid', gap: '1.5rem' }}>
           <button
             onClick={() => navigate('/centro-total')}
-            style={{
-              padding: '2rem',
-              background: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '1.5rem',
-              fontWeight: 'bold',
-              boxShadow: '0 4px 12px rgba(0, 123, 255, 0.3)',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 6px 16px rgba(0, 123, 255, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.3)';
-            }}
+            className="caja-main-action btn-chanatos"
           >
             CENTRO DE CONTROL
           </button>
@@ -308,31 +289,7 @@ export default function DashboardCaja() {
               navigate('/cobrar');
             }}
             disabled={!session}
-            style={{
-              padding: '2rem',
-              background: !session ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: !session ? 'not-allowed' : 'pointer',
-              fontSize: '1.5rem',
-              fontWeight: 'bold',
-              boxShadow: !session ? 'none' : '0 4px 12px rgba(40, 167, 69, 0.3)',
-              transition: 'all 0.2s',
-              opacity: !session ? 0.6 : 1
-            }}
-            onMouseOver={(e) => {
-              if (session) {
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 6px 16px rgba(40, 167, 69, 0.4)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (session) {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 12px rgba(40, 167, 69, 0.3)';
-              }
-            }}
+            className="caja-main-action btn-success"
           >
             COBRAR PEDIDOS
           </button>
@@ -340,63 +297,29 @@ export default function DashboardCaja() {
           <button
             onClick={() => navigate('/cierre')}
             disabled={!session}
-            style={{
-              padding: '2rem',
-              background: !session ? '#6c757d' : '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: !session ? 'not-allowed' : 'pointer',
-              fontSize: '1.5rem',
-              fontWeight: 'bold',
-              boxShadow: !session ? 'none' : '0 4px 12px rgba(220, 53, 69, 0.3)',
-              transition: 'all 0.2s',
-              opacity: !session ? 0.6 : 1
-            }}
-            onMouseOver={(e) => {
-              if (session) {
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 6px 16px rgba(220, 53, 69, 0.4)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (session) {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-              }
-            }}
+            className="caja-main-action btn-danger"
           >
             CIERRE DE CAJA
           </button>
         </div>
 
         {/* Botรณn SALIR (FASE 13.4) */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          padding: '1rem', 
-          background: '#f8f9fa', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '1rem',
+          background: '#f8f9fa',
           borderTop: '1px solid #ddd',
           marginTop: '1rem'
         }}>
-          <button 
+          <button
             onClick={() => {
               if (window.confirm('ยฟCerrar sesiรณn?')) {
                 logout();
               }
             }}
-            style={{
-              padding: '0.75rem 2rem',
-              background: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              width: '100%',
-              maxWidth: '300px'
-            }}
+            className="btn-danger"
+            style={{ width: '100%', maxWidth: '300px', padding: '0.75rem 2rem' }}
           >
             SALIR
           </button>

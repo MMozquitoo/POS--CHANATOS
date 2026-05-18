@@ -4,10 +4,13 @@ import { useConnection } from '../../contexts/ConnectionContext';
 import axios from 'axios';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
+import Modal from '../../components/Modal';
+import { useAlert } from '../../hooks/useModal';
 
 export default function AperturaCaja() {
   const navigate = useNavigate();
   const { isOnline } = useConnection();
+  const { alertState, showAlert, closeAlert } = useAlert();
   const [initialCash, setInitialCash] = useState('');
   const [opening, setOpening] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
@@ -36,7 +39,7 @@ export default function AperturaCaja() {
   const handleOpen = async () => {
     const cash = parseFloat(initialCash);
     if (isNaN(cash) || cash < 0) {
-      alert('Ingresa un monto válido (>= 0)');
+      await showAlert('Ingresa un monto válido (>= 0)');
       return;
     }
 
@@ -48,11 +51,11 @@ export default function AperturaCaja() {
     } catch (error) {
       console.error('Error abriendo caja:', error);
       if (error.response?.status === 409) {
-        alert('Ya hay una caja abierta. Redirigiendo...');
+        await showAlert('Ya hay una caja abierta. Redirigiendo...');
         await checkActiveSession();
         setHasActiveSession(true);
       } else {
-        alert(error.response?.data?.error || 'Error al abrir caja');
+        await showAlert(error.response?.data?.error || 'Error al abrir caja');
       }
     } finally {
       setOpening(false);
@@ -63,7 +66,7 @@ export default function AperturaCaja() {
     return (
       <div className="caja-container">
         <CajaHeader title="APERTURA DE CAJA" backTo="/centro" />
-        <div className="caja-content" style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className="caja-content caja-page" style={{ textAlign: 'center' }}>
           <p>Cargando...</p>
         </div>
       </div>
@@ -75,13 +78,10 @@ export default function AperturaCaja() {
     return (
       <div className="caja-container">
         <CajaHeader title="APERTURA DE CAJA" backTo="/centro" />
-        <div className="caja-content" style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-          <div style={{ 
-            background: '#d4edda', 
-            padding: '2rem', 
-            borderRadius: '12px',
+        <div className="caja-content caja-page" style={{ maxWidth: '600px' }}>
+          <div className="caja-stat-card" style={{
             border: '2px solid #28a745',
-            textAlign: 'center'
+            background: '#d4edda'
           }}>
             <h2 style={{ color: '#155724', marginBottom: '1rem' }}>Ya hay una caja abierta</h2>
             <p style={{ color: '#666', marginBottom: '1.5rem' }}>
@@ -89,16 +89,7 @@ export default function AperturaCaja() {
             </p>
             <button
               onClick={() => navigate('/centro')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}
+              className="btn-chanatos"
             >
               IR AL DASHBOARD
             </button>
@@ -111,13 +102,10 @@ export default function AperturaCaja() {
   return (
     <div className="caja-container">
       <CajaHeader title="APERTURA DE CAJA" backTo="/centro" />
-      <div className="caja-content" style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-        <div style={{ 
-          background: 'white', 
-          padding: '2rem', 
-          borderRadius: '12px',
-          border: '2px solid #007bff',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+      <div className="caja-content caja-page" style={{ maxWidth: '600px' }}>
+        <div className="caja-stat-card" style={{
+          border: '2px solid #F5BB4C',
+          textAlign: 'left'
         }}>
           <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', textAlign: 'center', color: '#333' }}>
             APERTURA DE CAJA
@@ -149,7 +137,7 @@ export default function AperturaCaja() {
                 width: '100%',
                 padding: '0.75rem',
                 fontSize: '1.2rem',
-                border: '2px solid #007bff',
+                border: '2px solid #F5BB4C',
                 borderRadius: '8px',
                 textAlign: 'right',
                 fontWeight: 'bold',
@@ -178,24 +166,22 @@ export default function AperturaCaja() {
           <button
             onClick={handleOpen}
             disabled={opening || !initialCash || isNaN(parseFloat(initialCash)) || parseFloat(initialCash) < 0 || !isOnline}
+            className="btn-success"
             style={{
               width: '100%',
               padding: '1rem',
-              background: opening || !isOnline ? '#ccc' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: opening || !isOnline ? 'not-allowed' : 'pointer',
-              fontSize: '1.2rem',
-              fontWeight: 'bold',
-              boxShadow: opening || !isOnline ? 'none' : '0 4px 12px rgba(40, 167, 69, 0.4)',
-              opacity: opening || !isOnline ? 0.6 : 1
+              fontSize: '1.2rem'
             }}
           >
             {opening ? 'Abriendo...' : 'ABRIR CAJA'}
           </button>
         </div>
       </div>
+
+      <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+        actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+        <p>{alertState.message}</p>
+      </Modal>
     </div>
   );
 }

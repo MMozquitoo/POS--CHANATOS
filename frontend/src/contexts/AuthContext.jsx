@@ -1,31 +1,9 @@
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
+import { getApiBaseUrl } from "../utils/api";
 
 const AuthContext = createContext();
-
-// FASE 14.2: Función centralizada para obtener URL base del servidor
-const getApiBaseUrl = () => {
-  // Leer de localStorage
-  const savedUrl = localStorage.getItem('pos_server_url');
-  
-  if (savedUrl && savedUrl.trim()) {
-    return savedUrl.trim();
-  }
-  
-  // Default: detectar automáticamente
-  const origin = window.location.origin;
-  // Si está en desarrollo (puerto 5173), cambiar a 3000
-  if (origin.includes(':5173')) {
-    return origin.replace(':5173', ':3000');
-  }
-  // Si ya está en 3000, mantenerlo
-  if (origin.includes(':3000')) {
-    return origin;
-  }
-  // Fallback: variable de entorno (Vercel/Netlify) o localhost en dev
-  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-};
 
 // Obtener URL completa para API (con /api)
 const getApiUrl = () => {
@@ -73,64 +51,67 @@ export function AuthProvider({ children }) {
   const lastNetworkLogAtRef = useRef(0);
   const THROTTLE_MS = 5000; // 5 segundos para errores de red repetidos
 
-  // Interceptor para logging de requests (solo si PERF_DEBUG está activo)
-  // Nota: Los interceptores se registran una vez, pero verificamos PERF_DEBUG dentro de ellos
-  axios.interceptors.request.use(
-    (config) => {
-      if (PERF_DEBUG) {
-        console.log("📤 Request:", config.method?.toUpperCase(), config.url);
-        console.log("📤 Headers:", config.headers);
-        console.log("📤 Data:", config.data);
-      }
-      return config;
-    },
-    (error) => {
-      if (PERF_DEBUG) {
-        console.error("❌ Request error:", error);
-      }
-      return Promise.reject(error);
-    }
-  );
-
-  axios.interceptors.response.use(
-    (response) => {
-      if (PERF_DEBUG) {
-        console.log("✅ Response:", response.status, response.config.url);
-      }
-      return response;
-    },
-    (error) => {
-      const now = Date.now();
-      const isNetworkError = !error.response && (
-        error.code === 'ECONNABORTED' || 
-        error.code === 'ECONNREFUSED' || 
-        error.message?.includes('Network Error') ||
-        error.message?.includes('timeout')
-      );
-      
-      // FASE 19.3: Throttle logs de errores de red (1 cada 5-10s) - SOLO si PERF_DEBUG
-      if (isNetworkError) {
-        if (PERF_DEBUG && now - lastNetworkLogAtRef.current > THROTTLE_MS) {
-          console.warn("⚠️ Error de red (throttled):", error.message || error.code);
-          lastNetworkLogAtRef.current = now;
-        }
-      } else {
-        // Errores del backend (4xx, 5xx) - SOLO si PERF_DEBUG
+  // Interceptors registered once inside useEffect with cleanup
+  useEffect(() => {
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
         if (PERF_DEBUG) {
-          console.error(
-            "❌ Response error:",
-            error.response?.status,
-            error.config?.url
-          );
-          // PASO 16.2.2: Logging mejorado para diagnóstico (JSON stringify)
-          const data = error.response?.data;
-          console.error("❌ Error data JSON:", data ? JSON.stringify(data, null, 2) : null);
+          console.log("Request:", config.method?.toUpperCase(), config.url);
+          console.log("Headers:", config.headers);
+          console.log("Data:", config.data);
         }
+        return config;
+      },
+      (error) => {
+        if (PERF_DEBUG) {
+          console.error("Request error:", error);
+        }
+        return Promise.reject(error);
       }
-      
-      return Promise.reject(error);
-    }
-  );
+    );
+
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => {
+        if (PERF_DEBUG) {
+          console.log("Response:", response.status, response.config.url);
+        }
+        return response;
+      },
+      (error) => {
+        const now = Date.now();
+        const isNetworkError = !error.response && (
+          error.code === 'ECONNABORTED' ||
+          error.code === 'ECONNREFUSED' ||
+          error.message?.includes('Network Error') ||
+          error.message?.includes('timeout')
+        );
+
+        if (isNetworkError) {
+          if (PERF_DEBUG && now - lastNetworkLogAtRef.current > THROTTLE_MS) {
+            console.warn("Error de red (throttled):", error.message || error.code);
+            lastNetworkLogAtRef.current = now;
+          }
+        } else {
+          if (PERF_DEBUG) {
+            console.error(
+              "Response error:",
+              error.response?.status,
+              error.config?.url
+            );
+            const data = error.response?.data;
+            console.error("Error data JSON:", data ? JSON.stringify(data, null, 2) : null);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
 
   useEffect(() => {
     // FASE 14.2: Actualizar baseURL al cambiar localStorage (escuchar cambios)

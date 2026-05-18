@@ -9,83 +9,14 @@ import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-
-// PASO 16.2.2-A: Helper para normalizar payload de POST /payments/items
-function normalizePaymentItemsPayload({
-  items, // array de objetos o números
-  method, // string (puede venir como CASH/CARD/TRANSFER)
-  tableId, // number o string
-  orderId, // number o string (opcional)
-  amount // number (opcional, solo para logs)
-}) {
-  // 1) Normalizar itemIds como array de números
-  let itemIds = [];
-  if (Array.isArray(items)) {
-    itemIds = items
-      .map(item => {
-        if (typeof item === 'number') return item;
-        if (typeof item === 'object' && item !== null) {
-          return item.id || item.order_item_id || item.itemId || item.item_id;
-        }
-        return null;
-      })
-      .filter(id => id != null)
-      .map(id => Number(id))
-      .filter(id => !isNaN(id) && id > 0);
-  }
-
-  if (itemIds.length === 0) {
-    throw new Error('No hay items válidos para cobrar. Verifica que los items tengan id.');
-  }
-
-  // 2) Normalizar method
-  let normalizedMethod = method?.toUpperCase() || 'EFECTIVO';
-  const methodMap = {
-    'CASH': 'EFECTIVO',
-    'CARD': 'TARJETA',
-    'TRANSFER': 'TRANSFERENCIA',
-    'EFECTIVO': 'EFECTIVO',
-    'TARJETA': 'TARJETA',
-    'TRANSFERENCIA': 'TRANSFERENCIA'
-  };
-  normalizedMethod = methodMap[normalizedMethod] || 'EFECTIVO';
-
-  // 3) Construir payload
-  const payload = {
-    itemIds,
-    method: normalizedMethod
-  };
-
-  // Agregar orderId si existe, sino tableId
-  if (orderId != null) {
-    const orderIdNum = typeof orderId === 'number' ? orderId : parseInt(orderId);
-    if (!isNaN(orderIdNum) && orderIdNum > 0) {
-      payload.orderId = orderIdNum;
-    }
-  }
-  
-  if (tableId != null && !payload.orderId) {
-    const tableIdNum = typeof tableId === 'number' ? tableId : parseInt(tableId);
-    if (!isNaN(tableIdNum) && tableIdNum > 0) {
-      payload.tableId = tableIdNum;
-    }
-  }
-
-  // Agregar amount si viene (opcional, solo para logs)
-  if (amount != null && !isNaN(Number(amount))) {
-    payload.amount = Number(amount);
-  }
-
-  // PASO 16.2.2-A: Log en desarrollo
-  if (import.meta.env.DEV || process.env.NODE_ENV === 'development') {
-    console.log('[payments/items payload]', payload);
-  }
-
-  return payload;
-}
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
+import { normalizePaymentItemsPayload } from '../../utils/payments';
 
 export default function CobrarPedidos() {
   const { isOnline } = useConnection();
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
@@ -186,7 +117,7 @@ export default function CobrarPedidos() {
 
     // Validar sesión activa (FASE 9.5)
     if (!cashSessionActive) {
-      alert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      await showAlert('Debes ABRIR CAJA antes de cobrar');
       navigate('/mesas');
       return;
     }
@@ -195,13 +126,13 @@ export default function CobrarPedidos() {
 
     // Validar total > 0 (FASE 9.5)
     if (total <= 0) {
-      alert('Total inválido. Revisa precios o items.');
+      await showAlert('Total inválido. Revisa precios o items.');
       return;
     }
 
     // FASE 12.4: Validar que la orden esté en estado LISTO
     if (selectedOrder.status !== 'LISTO') {
-      alert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
       loadOrders();
       return;
     }
@@ -213,17 +144,17 @@ export default function CobrarPedidos() {
         amount: total
       });
 
-      alert('Pago procesado correctamente');
+      await showAlert('Pago procesado correctamente');
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
       console.error('Error procesando pago:', error);
       // FASE 12.4: Manejo de error 409 (orden bloqueada)
       if (error.response?.status === 409) {
-        alert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
+        await showAlert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
         loadOrders();
       } else {
-        alert(error.response?.data?.error || 'Error al procesar pago');
+        await showAlert(error.response?.data?.error || 'Error al procesar pago');
       }
     }
   };
@@ -413,7 +344,7 @@ export default function CobrarPedidos() {
               style={{
                 marginTop: '1rem',
                 padding: '0.75rem 1.5rem',
-                background: '#007bff',
+                background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',

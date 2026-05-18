@@ -56,6 +56,8 @@ export const getDb = () => {
       }
     });
     db = promisifyDb(db);
+    // Enable foreign key enforcement
+    db.run("PRAGMA foreign_keys = ON");
   }
   return db;
 };
@@ -191,10 +193,19 @@ export const initDatabase = async () => {
     `CREATE INDEX IF NOT EXISTS idx_orders_paid_at ON orders(paid_at)`
   );
   await database.run(
+    `CREATE INDEX IF NOT EXISTS idx_orders_business_day ON orders(business_day)`
+  );
+  await database.run(
+    `CREATE INDEX IF NOT EXISTS idx_orders_service ON orders(service)`
+  );
+  await database.run(
     `CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)`
   );
   await database.run(
     `CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)`
+  );
+  await database.run(
+    `CREATE INDEX IF NOT EXISTS idx_payments_cash_session ON payments(cash_session_id)`
   );
   await database.run(
     `CREATE INDEX IF NOT EXISTS idx_cash_sessions_opened ON cash_sessions(opened_at)`
@@ -500,9 +511,7 @@ export const initDatabase = async () => {
     );
     const hasDailyNo = ordersInfo.some((col) => col.name === "daily_no");
     
-    // FASE 9.6: Verificar columnas de cancelación
-    const hasCanceledAt = ordersInfo.some((col) => col.name === "canceled_at");
-    const hasCanceledBy = ordersInfo.some((col) => col.name === "canceled_by");
+    // FASE 9.6: Verificar columnas de cancelación (estandarizado a cancelled_at/cancelled_by)
     const hasCancelReason = ordersInfo.some((col) => col.name === "cancel_reason");
 
     // Verificar campos KPI en cash_sessions (Fase 1 y 2.3)
@@ -614,8 +623,6 @@ export const initDatabase = async () => {
       !hasPurchaseQty ||
       !hasPurchaseTotalCost ||
       !hasCashSessionId ||
-      !hasCanceledAt ||
-      !hasCanceledBy ||
       !hasCancelReason ||
       !hasAuditLogsTable ||
       !hasPaymentVoidedAt ||
@@ -655,9 +662,7 @@ async function migrateDatabase(database) {
       (col) => col.name === "business_day"
     );
     const hasDailyNo = ordersInfo.some((col) => col.name === "daily_no");
-    // FASE 9.6: Verificar columnas de cancelación
-    const hasCanceledAt = ordersInfo.some((col) => col.name === "canceled_at");
-    const hasCanceledBy = ordersInfo.some((col) => col.name === "canceled_by");
+    // FASE 9.6: Verificar columnas de cancelación (estandarizado a cancelled_at/cancelled_by)
     const hasCancelReason = ordersInfo.some((col) => col.name === "cancel_reason");
     const hasPrice = orderItemsInfo.some((col) => col.name === "price");
     const hasPaidAt = orderItemsInfo.some((col) => col.name === "paid_at");
@@ -694,15 +699,7 @@ async function migrateDatabase(database) {
       await database.run("ALTER TABLE orders ADD COLUMN daily_no INTEGER");
     }
     
-    // FASE 9.6: Agregar columnas de cancelación
-    if (!hasCanceledAt) {
-      console.log("  ➕ Agregando canceled_at a orders...");
-      await database.run("ALTER TABLE orders ADD COLUMN canceled_at DATETIME");
-    }
-    if (!hasCanceledBy) {
-      console.log("  ➕ Agregando canceled_by a orders...");
-      await database.run("ALTER TABLE orders ADD COLUMN canceled_by INTEGER");
-    }
+    // FASE 9.6: Agregar columna de motivo de cancelación
     if (!hasCancelReason) {
       console.log("  ➕ Agregando cancel_reason a orders...");
       await database.run("ALTER TABLE orders ADD COLUMN cancel_reason TEXT");
@@ -1246,12 +1243,30 @@ async function migrateDatabase(database) {
           await database.run("PRAGMA foreign_keys=on");
           
           console.log("  ✅ CHECK constraint de orders.status actualizado para incluir 'PAGADA'");
+
+          // Recreate indexes lost during table recreation
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_table ON orders(table_id)`);
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_created_by ON orders(created_by)`);
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_paid_at ON orders(paid_at)`);
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_business_day ON orders(business_day)`);
+          await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_service ON orders(service)`);
+          console.log("  ✅ Índices de orders recreados");
         }
       }
     } catch (checkError) {
       console.error("  ⚠️  Error al verificar/actualizar CHECK constraint:", checkError);
       // No lanzar error, continuar con la migración
     }
+
+    // Ensure indexes exist (may have been lost during table recreation)
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_table ON orders(table_id)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_created_by ON orders(created_by)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_paid_at ON orders(paid_at)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_business_day ON orders(business_day)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_service ON orders(service)`);
+    await database.run(`CREATE INDEX IF NOT EXISTS idx_payments_cash_session ON payments(cash_session_id)`);
 
     console.log("✅ Migración automática completada");
   } catch (error) {

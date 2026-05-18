@@ -294,7 +294,7 @@ export default function Ventanilla() {
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                       <span className="badge" style={{ 
                         background: order.status === 'NUEVO' ? '#ffc107' : 
-                                   order.status === 'EN_PREP' ? '#007bff' : '#28a745',
+                                   order.status === 'EN_PREP' ? '#F5BB4C' : '#28a745',
                         color: 'white', 
                         padding: '0.25rem 0.5rem', 
                         borderRadius: '4px', 
@@ -313,7 +313,7 @@ export default function Ventanilla() {
                           }}
                           style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#007bff',
+                            background: '#F5BB4C',
                             color: 'white',
                             border: 'none',
                             borderRadius: '6px',
@@ -444,7 +444,7 @@ export default function Ventanilla() {
                         }}
                         style={{
                           padding: '0.5rem 1rem',
-                          background: '#007bff',
+                          background: '#F5BB4C',
                           color: 'white',
                           border: 'none',
                           borderRadius: '8px',
@@ -541,7 +541,7 @@ export default function Ventanilla() {
                                   .then(() => loadOrders())
                                   .catch(err => alert(err.response?.data?.error || 'Error al actualizar cantidad'));
                               }}
-                              style={{ padding: '0.25rem 0.5rem', marginRight: '0.5rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                              style={{ padding: '0.25rem 0.5rem', marginRight: '0.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                             >
                               +
                             </button>

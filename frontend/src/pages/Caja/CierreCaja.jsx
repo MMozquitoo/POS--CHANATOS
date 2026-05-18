@@ -9,6 +9,8 @@ import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
 
 // Helpers locales para diferencias de cierre
 function getDiffLabel(diff) {
@@ -20,12 +22,14 @@ function getDiffLabel(diff) {
 function getDiffColor(diff) {
   if (diff > 0) return "#28a745";
   if (diff < 0) return "#dc3545";
-  return "#007bff";
+  return "#F5BB4C";
 }
 
 export default function CierreCaja() {
   const navigate = useNavigate();
   const { isOnline } = useConnection();
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -65,7 +69,7 @@ export default function CierreCaja() {
       }
     } catch (error) {
       console.error('Error cargando sesión:', error);
-      alert('Error al cargar sesión de caja');
+      await showAlert('Error al cargar sesión de caja');
     } finally {
       setLoading(false);
     }
@@ -83,12 +87,12 @@ export default function CierreCaja() {
   const handleClose = async () => {
     const cash = parseFloat(closingCash);
     if (isNaN(cash) || cash < 0) {
-      alert('Ingresa un monto válido (>= 0)');
+      await showAlert('Ingresa un monto válido (>= 0)');
       return;
     }
 
     if (!summary) {
-      alert('No hay datos de resumen disponibles');
+      await showAlert('No hay datos de resumen disponibles');
       return;
     }
 
@@ -104,7 +108,7 @@ export default function CierreCaja() {
       `Efectivo esperado: ${formatPriceCOP(expectedCash)}\n` +
       `Efectivo contado: ${formatPriceCOP(cash)}`;
 
-    if (!window.confirm(confirmMsg)) {
+    if (!(await showConfirm(confirmMsg))) {
       return;
     }
 
@@ -126,10 +130,10 @@ export default function CierreCaja() {
     } catch (error) {
       console.error('Error cerrando caja:', error);
       if (error.response?.status === 409) {
-        alert('La sesión ya fue cerrada. Recargando...');
+        await showAlert('La sesión ya fue cerrada. Recargando...');
         await loadSession();
       } else {
-        alert(error.response?.data?.error || 'Error al cerrar caja');
+        await showAlert(error.response?.data?.error || 'Error al cerrar caja');
       }
     } finally {
       setClosing(false);
@@ -268,9 +272,10 @@ export default function CierreCaja() {
   const expectedCash = openingCash + totalCash;
 
   return (
+    <>
     <div className="caja-container">
       <CajaHeader title="CIERRE DE CAJA" backTo="/centro" />
-      
+
       {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
       {isOnline && isRefreshingOnReconnect && !closedReport && (
         <div style={{
@@ -291,7 +296,7 @@ export default function CierreCaja() {
           background: 'white', 
           padding: '1.5rem', 
           borderRadius: '12px',
-          border: '2px solid #007bff',
+          border: '2px solid #F5BB4C',
           marginBottom: '1rem'
         }}>
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>Sesión Activa</h2>
@@ -491,5 +496,17 @@ export default function CierreCaja() {
         </button>
       </div>
     </div>
+    <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+      actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+      <p>{alertState.message}</p>
+    </Modal>
+    <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+      actions={<>
+        <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+        <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+      </>}>
+      <p>{confirmState.message}</p>
+    </Modal>
+    </>
   );
 }

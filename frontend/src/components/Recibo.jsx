@@ -3,16 +3,7 @@ import { formatPriceCOP } from '../utils/currency.js';
 import { formatBogotaDateTime } from '../utils/timezone.js';
 
 export default function Recibo({ order, payment, items, onClose, onPrint, changeAmount }) {
-  if (!order || !payment || !items) {
-    return null;
-  }
-
-  // Helpers para normalización numérica
-  const toNumber = (v) => {
-    const num = Number(parseFloat(v));
-    return isNaN(num) ? 0 : num;
-  };
-
+  // ALL hooks must be declared before any conditional returns
   // Estado para formato de impresión (default: 80mm)
   const [printFormat, setPrintFormat] = useState(() => {
     const saved = localStorage.getItem('reciboPrintFormat');
@@ -23,6 +14,16 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
   useEffect(() => {
     localStorage.setItem('reciboPrintFormat', printFormat);
   }, [printFormat]);
+
+  if (!order || !payment || !items) {
+    return null;
+  }
+
+  // Helpers para normalización numérica
+  const toNumber = (v) => {
+    const num = Number(parseFloat(v));
+    return isNaN(num) ? 0 : num;
+  };
 
   // Normalizar items con cálculo de subtotales
   const normalizedItems = items.map(item => {
@@ -184,9 +185,9 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
                     flex: 1,
                     minWidth: '80px',
                     padding: '0.5rem',
-                    background: printFormat === format ? '#007bff' : 'white',
+                    background: printFormat === format ? '#F5BB4C' : 'white',
                     color: printFormat === format ? 'white' : '#333',
-                    border: `2px solid ${printFormat === format ? '#007bff' : '#ddd'}`,
+                    border: `2px solid ${printFormat === format ? '#F5BB4C' : '#ddd'}`,
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -225,7 +226,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
               style={{
                 flex: 1,
                 padding: '0.75rem',
-                background: '#007bff',
+                background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',

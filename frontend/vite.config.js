@@ -11,8 +11,8 @@ export default defineConfig({
         name: 'POS Chanatos',
         short_name: 'Chanatos',
         description: 'Sistema POS interno para Chanatos',
-        theme_color: '#1a1a1a',
-        background_color: '#ffffff',
+        theme_color: '#F5BB4C',
+        background_color: '#FFF8E7',
         display: 'standalone',
         icons: [
           {

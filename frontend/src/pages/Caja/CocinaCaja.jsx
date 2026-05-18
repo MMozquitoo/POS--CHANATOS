@@ -4,10 +4,80 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
+
+/* OrderCard extracted outside CocinaCaja to avoid re-creating on every render */
+function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus }) {
+  const getActionButton = () => {
+    if (order.status === 'NUEVO') {
+      return (
+        <button
+          onClick={() => onConfirmStatus(order.id, 'EN_PREP', '¿Enviar esta orden a preparación?')}
+          disabled={isUpdating}
+          className={isUpdating ? 'btn-secondary' : 'btn-chanatos'}
+          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+        >
+          {isUpdating ? 'Enviando...' : 'Enviar a Preparación'}
+        </button>
+      );
+    } else if (order.status === 'EN_PREP') {
+      return (
+        <button
+          onClick={() => onConfirmStatus(order.id, 'LISTO', '¿Marcar esta orden como LISTO?')}
+          disabled={isUpdating}
+          className={isUpdating ? 'btn-secondary' : 'btn-success'}
+          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+        >
+          {isUpdating ? 'Marcando...' : 'Marcar Listo'}
+        </button>
+      );
+    }
+    return null;
+  };
+
+  const totalItems = order.items?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0;
+
+  return (
+    <div
+      onClick={() => onSelect(order)}
+      className="caja-list-item"
+      style={{
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        border: selectedOrderId === order.id ? '3px solid #F5BB4C' : '2px solid #ddd',
+        marginBottom: '1rem'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
+          {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
+        </div>
+        <div style={{ color: '#666', fontSize: '0.85rem' }}>
+          {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+
+      {order.table_label && (
+        <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+          Mesa: {order.table_label}
+        </div>
+      )}
+
+      <div style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+        {totalItems} item(s)
+      </div>
+
+      {getActionButton()}
+    </div>
+  );
+}
 
 export default function CocinaCaja({ hideHeader = false }) {
   const navigate = useNavigate();
   const { socket } = useAuth();
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const [orders, setOrders] = useState({ NUEVO: [], EN_PREP: [], LISTO: [] });
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -45,10 +115,9 @@ export default function CocinaCaja({ hideHeader = false }) {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      // Usar el mismo endpoint que Cocina
       const res = await axios.get('/orders?kitchen=true');
       const allOrders = res.data.filter(o => o.status !== 'CANCELADO');
-      
+
       setOrders({
         NUEVO: allOrders.filter(o => o.status === 'NUEVO'),
         EN_PREP: allOrders.filter(o => o.status === 'EN_PREP'),
@@ -56,19 +125,17 @@ export default function CocinaCaja({ hideHeader = false }) {
       });
     } catch (error) {
       console.error('Error cargando pedidos:', error);
-      alert(error.response?.data?.error || 'Error al cargar pedidos');
+      await showAlert(error.response?.data?.error || 'Error al cargar pedidos');
     } finally {
       setLoading(false);
     }
   };
 
   const updateStatus = async (orderId, newStatus) => {
-    // Prevenir doble click
     if (updatingStatus.has(orderId)) {
       return;
     }
 
-    // Validar que la orden tenga items antes de cambiar a EN_PREP o LISTO
     if (newStatus === 'EN_PREP' || newStatus === 'LISTO') {
       const allOrders = [...orders.NUEVO, ...orders.EN_PREP, ...orders.LISTO];
       const order = allOrders.find(o => o.id === orderId);
@@ -76,7 +143,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         const items = order.items || [];
         const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
         if (pendingItems.length === 0) {
-          alert('No se puede cambiar estado: la orden no tiene items.');
+          await showAlert('No se puede cambiar estado: la orden no tiene items.');
           return;
         }
       }
@@ -89,7 +156,7 @@ export default function CocinaCaja({ hideHeader = false }) {
       await loadOrders();
     } catch (error) {
       console.error('Error actualizando estado:', error);
-      alert(error.response?.data?.error || 'Error al actualizar estado');
+      await showAlert(error.response?.data?.error || 'Error al actualizar estado');
     } finally {
       setUpdatingStatus(prev => {
         const next = new Set(prev);
@@ -99,102 +166,10 @@ export default function CocinaCaja({ hideHeader = false }) {
     }
   };
 
-  const OrderCard = ({ order }) => {
-    const isUpdating = updatingStatus.has(order.id);
-    const getActionButton = () => {
-      if (order.status === 'NUEVO') {
-        return (
-          <button
-            onClick={() => {
-              if (confirm('¿Enviar esta orden a preparación?')) {
-                updateStatus(order.id, 'EN_PREP');
-              }
-            }}
-            disabled={isUpdating}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: isUpdating ? '#6c757d' : '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isUpdating ? 'not-allowed' : 'pointer',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              opacity: isUpdating ? 0.6 : 1
-            }}
-          >
-            {isUpdating ? 'Enviando...' : 'Enviar a Preparación'}
-          </button>
-        );
-      } else if (order.status === 'EN_PREP') {
-        return (
-          <button
-            onClick={() => {
-              if (confirm('¿Marcar esta orden como LISTO?')) {
-                updateStatus(order.id, 'LISTO');
-              }
-            }}
-            disabled={isUpdating}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: isUpdating ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isUpdating ? 'not-allowed' : 'pointer',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              opacity: isUpdating ? 0.6 : 1
-            }}
-          >
-            {isUpdating ? 'Marcando...' : 'Marcar Listo'}
-          </button>
-        );
-      }
-      // LISTO no tiene botón (solo lectura)
-      return null;
-    };
-
-    const totalItems = order.items?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0;
-
-    return (
-      <div
-        onClick={() => setSelectedOrder(order)}
-        style={{
-          background: 'white',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginBottom: '1rem',
-          border: selectedOrder?.id === order.id ? '3px solid #007bff' : '2px solid #ddd',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
-            {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
-          </div>
-          <div style={{ color: '#666', fontSize: '0.85rem' }}>
-            {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
-        
-        {order.table_label && (
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Mesa: {order.table_label}
-          </div>
-        )}
-        
-        <div style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-          {totalItems} item(s)
-        </div>
-
-        {getActionButton()}
-      </div>
-    );
+  const handleConfirmStatus = async (orderId, newStatus, message) => {
+    if (await showConfirm(message)) {
+      updateStatus(orderId, newStatus);
+    }
   };
 
   if (loading) {
@@ -215,6 +190,7 @@ export default function CocinaCaja({ hideHeader = false }) {
   }
 
   return (
+    <>
     <div className="caja-container" style={{ height: hideHeader ? '100%' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {!hideHeader && (
         <header className="caja-header" style={{ flexShrink: 0 }}>
@@ -257,7 +233,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos nuevos</p>
             ) : (
               orders.NUEVO.map(order => (
-                <OrderCard key={order.id} order={order} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
               ))
             )}
           </div>
@@ -287,7 +263,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos en preparación</p>
             ) : (
               orders.EN_PREP.map(order => (
-                <OrderCard key={order.id} order={order} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
               ))
             )}
           </div>
@@ -317,7 +293,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos listos</p>
             ) : (
               orders.LISTO.map(order => (
-                <OrderCard key={order.id} order={order} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
               ))
             )}
           </div>
@@ -399,7 +375,7 @@ export default function CocinaCaja({ hideHeader = false }) {
                       }}
                     >
                       <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                        <span style={{ color: '#007bff', marginRight: '0.5rem' }}>{item.qty}x</span>
+                        <span style={{ color: '#F5BB4C', marginRight: '0.5rem' }}>{item.qty}x</span>
                         {item.name}
                       </div>
                       {item.notes && (
@@ -421,5 +397,17 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
       )}
     </div>
+    <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+      actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+      <p>{alertState.message}</p>
+    </Modal>
+    <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+      actions={<>
+        <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+        <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+      </>}>
+      <p>{confirmState.message}</p>
+    </Modal>
+    </>
   );
 }

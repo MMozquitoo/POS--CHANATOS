@@ -249,7 +249,7 @@ export default function PedidoMesa() {
                 <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
                   Estado: <span style={{ 
                     color: order.status === 'NUEVO' ? '#ffc107' : 
-                           order.status === 'EN_PREP' ? '#007bff' : '#28a745',
+                           order.status === 'EN_PREP' ? '#F5BB4C' : '#28a745',
                     fontWeight: 'bold'
                   }}>{order.status}</span>
                 </div>
@@ -259,7 +259,7 @@ export default function PedidoMesa() {
                   onClick={sendToPreparation}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: '#007bff',
+                    background: '#F5BB4C',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',

@@ -101,7 +101,7 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
                 width: '100%',
                 padding: '0.75rem',
                 fontSize: '1.2rem',
-                border: '2px solid #007bff',
+                border: '2px solid #F5BB4C',
                 borderRadius: '8px',
                 textAlign: 'right',
                 fontWeight: 'bold',

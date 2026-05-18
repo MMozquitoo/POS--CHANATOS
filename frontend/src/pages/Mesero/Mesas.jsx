@@ -119,7 +119,7 @@ export default function Mesas() {
             className="toggle-btn"
             style={{
               padding: '0.5rem 1rem',
-              background: showPlano ? '#007bff' : '#6c757d',
+              background: showPlano ? '#F5BB4C' : '#6c757d',
               color: 'white',
               border: 'none',
               borderRadius: '4px',

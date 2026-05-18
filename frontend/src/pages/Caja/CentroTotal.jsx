@@ -942,9 +942,9 @@ export default function CentroTotal() {
           onClick={() => setActiveTab('mesas')}
           style={{
             padding: '0.75rem 1.5rem',
-            background: activeTab === 'mesas' ? '#007bff' : 'white',
+            background: activeTab === 'mesas' ? '#F5BB4C' : 'white',
             color: activeTab === 'mesas' ? 'white' : '#333',
-            border: '2px solid #007bff',
+            border: '2px solid #F5BB4C',
             borderRadius: '8px',
             cursor: 'pointer',
             fontWeight: 'bold',
@@ -1067,9 +1067,9 @@ export default function CentroTotal() {
               onClick={() => setMesasView('plano')}
               style={{
                 padding: '0.5rem 1rem',
-                background: mesasView === 'plano' ? '#007bff' : '#f8f9fa',
+                background: mesasView === 'plano' ? '#F5BB4C' : '#f8f9fa',
                 color: mesasView === 'plano' ? 'white' : '#333',
-                border: '2px solid #007bff',
+                border: '2px solid #F5BB4C',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
@@ -1082,9 +1082,9 @@ export default function CentroTotal() {
               onClick={() => setMesasView('lista')}
               style={{
                 padding: '0.5rem 1rem',
-                background: mesasView === 'lista' ? '#007bff' : '#f8f9fa',
+                background: mesasView === 'lista' ? '#F5BB4C' : '#f8f9fa',
                 color: mesasView === 'lista' ? 'white' : '#333',
-                border: '2px solid #007bff',
+                border: '2px solid #F5BB4C',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
@@ -1228,7 +1228,7 @@ export default function CentroTotal() {
                 style={{
                   marginTop: '1rem',
                   padding: '0.75rem 1.5rem',
-                  background: '#007bff',
+                  background: '#F5BB4C',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -1438,7 +1438,7 @@ export default function CentroTotal() {
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button onClick={() => setCustomQty(Math.max(1, customQty - 1))} style={{ padding: '0.5rem 1rem', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>−</button>
                 <input type="number" value={customQty} onChange={(e) => setCustomQty(parseInt(e.target.value) || 1)} min="1" style={{ width: '80px', padding: '0.5rem', textAlign: 'center', border: '1px solid #ddd', borderRadius: '6px' }} />
-                <button onClick={() => setCustomQty(customQty + 1)} style={{ padding: '0.5rem 1rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+</button>
+                <button onClick={() => setCustomQty(customQty + 1)} style={{ padding: '0.5rem 1rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+</button>
               </div>
             </div>
             <div style={{ marginBottom: '1rem' }}>

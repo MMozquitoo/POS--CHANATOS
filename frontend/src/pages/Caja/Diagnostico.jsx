@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnection } from '../../contexts/ConnectionContext';
+import { getApiBaseUrl } from '../../utils/api';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
 
@@ -16,24 +17,6 @@ export default function Diagnostico() {
   const { isOnline, lastError } = useConnection();
   const [status, setStatus] = useState('idle'); // idle, loading, ok, error
   const [result, setResult] = useState(null);
-
-  // Función para obtener URL base (reutilizar lógica de AuthContext)
-  const getApiBaseUrl = () => {
-    const savedUrl = localStorage.getItem('pos_server_url');
-    
-    if (savedUrl && savedUrl.trim()) {
-      return savedUrl.trim();
-    }
-    
-    const origin = window.location.origin;
-    if (origin.includes(':5173')) {
-      return origin.replace(':5173', ':3000');
-    }
-    if (origin.includes(':3000')) {
-      return origin;
-    }
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  };
 
   // Probar conectividad
   const handleTest = async () => {
@@ -158,7 +141,7 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
             disabled={status === 'loading'}
             style={{
               padding: '0.75rem 1.5rem',
-              background: status === 'loading' ? '#6c757d' : '#007bff',
+              background: status === 'loading' ? '#6c757d' : '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '8px',

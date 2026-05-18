@@ -3,10 +3,7 @@ import { formatPriceCOP } from '../utils/currency.js';
 import { formatBogotaDateTime } from '../utils/timezone.js';
 
 export default function ReporteCierre({ snapshot, format: initialFormat, showControls = true }) {
-  if (!snapshot) {
-    return null;
-  }
-
+  // ALL hooks must be declared before any conditional returns
   // Estado para formato de impresión (default: 80mm)
   const [printFormat, setPrintFormat] = useState(() => {
     if (initialFormat) return initialFormat;
@@ -18,6 +15,10 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
   useEffect(() => {
     localStorage.setItem('cierre_format', printFormat);
   }, [printFormat]);
+
+  if (!snapshot) {
+    return null;
+  }
 
   const handlePrint = () => {
     window.print();
@@ -34,7 +35,7 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
     if (diff === null || diff === undefined) return '#666';
     if (diff < 0) return '#dc3545';
     if (diff > 0) return '#28a745';
-    return '#007bff';
+    return '#F5BB4C';
   };
 
   const diff = snapshot.diff_cash;
@@ -80,7 +81,7 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
             onClick={handlePrint}
             style={{
               padding: '0.75rem 1.5rem',
-              background: '#007bff',
+              background: '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '8px',

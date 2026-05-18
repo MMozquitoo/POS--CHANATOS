@@ -63,7 +63,7 @@ export default function ComprobanteAnulacion({
           onClick={handlePrint}
           style={{
             padding: '0.5rem 1rem',
-            background: '#007bff',
+            background: '#F5BB4C',
             color: 'white',
             border: 'none',
             borderRadius: '6px',

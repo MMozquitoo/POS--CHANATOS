@@ -45,7 +45,7 @@ export default function ComandaCocina({ order, onClose, onPrint }) {
             style={{
               flex: 1,
               padding: '0.75rem',
-              background: '#007bff',
+              background: '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -111,7 +111,7 @@ export default function ComandaCocina({ order, onClose, onPrint }) {
                 padding: '0.25rem 0.75rem',
                 borderRadius: '4px',
                 background: order.status === 'NUEVO' ? '#ffc107' :
-                           order.status === 'EN_PREP' ? '#007bff' :
+                           order.status === 'EN_PREP' ? '#F5BB4C' :
                            order.status === 'LISTO' ? '#28a745' : '#6c757d',
                 color: 'white'
               }}>

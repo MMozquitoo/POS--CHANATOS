@@ -7,6 +7,8 @@ import axios from 'axios';
 import './Caja.css';
 import { formatBogotaDateTime, formatBogotaTime } from '../../utils/timezone.js';
 import { formatPriceCOP } from '../../utils/currency.js';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
 
 export default function SesionCaja() {
   const [session, setSession] = useState(null);
@@ -21,6 +23,8 @@ export default function SesionCaja() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { isOnline } = useConnection();
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
 
   // FASE 19.1: Eliminar setInterval propio, usar useReconnectRefresh + botón refresh manual
   // FASE 19.5: useCallback para evitar recrear función
@@ -61,7 +65,7 @@ export default function SesionCaja() {
 
   const openCash = async () => {
     if (!initialCash || parseFloat(initialCash) < 0) {
-      alert('Ingresa un monto inicial válido');
+      await showAlert('Ingresa un monto inicial válido');
       return;
     }
 
@@ -71,17 +75,17 @@ export default function SesionCaja() {
       setInitialCash('');
     } catch (error) {
       console.error('Error abriendo caja:', error);
-      alert(error.response?.data?.error || 'Error al abrir caja');
+      await showAlert(error.response?.data?.error || 'Error al abrir caja');
     }
   };
 
   const closeCash = async () => {
     if (!finalCash || parseFloat(finalCash) < 0) {
-      alert('Ingresa un monto final válido');
+      await showAlert('Ingresa un monto final válido');
       return;
     }
 
-    if (!confirm('¿Estás seguro de cerrar la caja? Esto generará un resumen del día.')) {
+    if (!await showConfirm('¿Estás seguro de cerrar la caja? Esto generará un resumen del día.')) {
       return;
     }
 
@@ -92,7 +96,7 @@ export default function SesionCaja() {
       setFinalCash('');
     } catch (error) {
       console.error('Error cerrando caja:', error);
-      alert(error.response?.data?.error || 'Error al cerrar caja');
+      await showAlert(error.response?.data?.error || 'Error al cerrar caja');
     }
   };
 
@@ -328,7 +332,7 @@ export default function SesionCaja() {
             disabled={!isOnline}
             style={{
               padding: '0.5rem 1rem',
-              background: isOnline ? '#007bff' : '#6c757d',
+              background: isOnline ? '#F5BB4C' : '#6c757d',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -460,7 +464,7 @@ export default function SesionCaja() {
             )}
 
             <div className="cash-actions">
-              <button onClick={() => navigate('/centro-total')} className="action-btn" style={{ background: '#007bff', color: 'white', fontSize: '1.1rem', fontWeight: 'bold' }}>
+              <button onClick={() => navigate('/centro-total')} className="action-btn" style={{ background: '#F5BB4C', color: 'white', fontSize: '1.1rem', fontWeight: 'bold' }}>
                 🎯 CENTRO TOTAL
               </button>
               <button onClick={() => navigate('/mesas')} className="action-btn mesas-btn">
@@ -523,7 +527,19 @@ export default function SesionCaja() {
           </div>
         )}
       </div>
+
+      <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+        actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+        <p>{alertState.message}</p>
+      </Modal>
+
+      <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+        actions={<>
+          <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+          <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+        </>}>
+        <p>{confirmState.message}</p>
+      </Modal>
     </div>
   );
 }
-

@@ -6,10 +6,14 @@ import { formatPriceCOP } from '../../utils/currency.js';
 import { formatBogotaTime, formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
 import Recibo from '../../components/Recibo.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
 
 export default function Historial() {
   const navigate = useNavigate();
-  
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+
   // Estados principales
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +86,7 @@ export default function Historial() {
       setPayments([]);
       // Solo mostrar alert si es un error crítico (no 404, etc.)
       if (error.response?.status !== 404) {
-        alert('Error al cargar historial de pagos');
+        await showAlert('Error al cargar historial de pagos');
       }
     } finally {
       setLoading(false);
@@ -101,7 +105,7 @@ export default function Historial() {
   const getMethodColor = (method) => {
     const colors = {
       EFECTIVO: '#28a745',
-      TARJETA: '#007bff',
+      TARJETA: '#F5BB4C',
       TRANSFERENCIA: '#6c757d'
     };
     return colors[method] || '#666';
@@ -151,7 +155,7 @@ export default function Historial() {
       setReceiptData(receiptData);
     } catch (error) {
       console.error('Error cargando detalle:', error);
-      alert('Error al cargar detalle del pago');
+      await showAlert('Error al cargar detalle del pago');
     } finally {
       setLoadingReceipt(false);
     }
@@ -164,6 +168,7 @@ export default function Historial() {
   const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
+    <>
     <div className="caja-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header unificado (FASE 13.3) */}
       <CajaHeader title="HISTORIAL DE PAGOS" backTo="/mas" />
@@ -189,9 +194,9 @@ export default function Historial() {
                   onClick={() => setDateRange(range)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: dateRange === range ? '#007bff' : 'white',
+                    background: dateRange === range ? '#F5BB4C' : 'white',
                     color: dateRange === range ? 'white' : '#333',
-                    border: '2px solid #007bff',
+                    border: '2px solid #F5BB4C',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -325,7 +330,7 @@ export default function Historial() {
         }}>
           <div>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>Total Pagos</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#007bff' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F5BB4C' }}>
               {formatPriceCOP(total)}
             </div>
           </div>
@@ -368,7 +373,7 @@ export default function Historial() {
                     transition: 'all 0.2s'
                   }}
                   onMouseOver={(e) => {
-                    e.target.style.borderColor = '#007bff';
+                    e.target.style.borderColor = '#F5BB4C';
                     e.target.style.transform = 'translateY(-2px)';
                     e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
                   }}
@@ -573,7 +578,7 @@ export default function Historial() {
                     onClick={handlePrintReceipt}
                     style={{
                       padding: '1rem',
-                      background: '#007bff',
+                      background: '#F5BB4C',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -707,11 +712,11 @@ export default function Historial() {
               <button
                 onClick={async () => {
                   if (!voidReason.trim() || voidReason.trim().length < 5) {
-                    alert('El motivo debe tener al menos 5 caracteres');
+                    await showAlert('El motivo debe tener al menos 5 caracteres');
                     return;
                   }
 
-                  if (!confirm(`¿Confirma anular este pago?\n\nMotivo: ${voidReason.trim()}`)) {
+                  if (!(await showConfirm(`¿Confirma anular este pago?\n\nMotivo: ${voidReason.trim()}`))) {
                     return;
                   }
 
@@ -720,8 +725,8 @@ export default function Historial() {
                     await axios.post(`/payments/${selectedPayment.id}/void`, {
                       reason: voidReason.trim()
                     });
-                    
-                    alert('Pago anulado correctamente');
+
+                    await showAlert('Pago anulado correctamente');
                     await loadPayments();
                     // Recargar el detalle del pago actualizado
                     const updatedPayment = payments.find(p => p.id === selectedPayment.id);
@@ -732,7 +737,7 @@ export default function Historial() {
                     setVoidReason('');
                   } catch (error) {
                     console.error('Error anulando pago:', error);
-                    alert(error.response?.data?.error || 'Error al anular pago');
+                    await showAlert(error.response?.data?.error || 'Error al anular pago');
                   } finally {
                     setVoidingPayment(false);
                   }
@@ -757,5 +762,17 @@ export default function Historial() {
         </div>
       )}
     </div>
+    <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+      actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+      <p>{alertState.message}</p>
+    </Modal>
+    <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+      actions={<>
+        <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+        <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+      </>}>
+      <p>{confirmState.message}</p>
+    </Modal>
+    </>
   );
 }

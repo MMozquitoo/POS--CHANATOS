@@ -4,10 +4,14 @@ import axios from "axios";
 import "./Caja.css";
 import { formatPriceCOP } from "../../utils/currency.js";
 import CajaHeader from "../../components/CajaHeader.jsx";
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
 
 export default function Menu() {
   const navigate = useNavigate();
-  
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+
   // Estados principales
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -56,7 +60,7 @@ export default function Menu() {
       setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
     } catch (error) {
       console.error("Error cargando datos:", error);
-      alert("Error al cargar productos");
+      await showAlert("Error al cargar productos");
       setProducts([]);
       setCategories([]);
     } finally {
@@ -123,24 +127,24 @@ export default function Menu() {
 
     // Validaciones
     if (!formData.name.trim()) {
-      alert("El nombre es requerido");
+      await showAlert("El nombre es requerido");
       return;
     }
 
     if (!formData.category.trim()) {
-      alert("La categoría es requerida");
+      await showAlert("La categoría es requerida");
       return;
     }
 
     const price = parseFloat(formData.price);
     if (isNaN(price) || price < 0) {
-      alert("El precio debe ser un número >= 0");
+      await showAlert("El precio debe ser un número >= 0");
       return;
     }
 
     const displayOrder = parseInt(formData.display_order);
     if (isNaN(displayOrder) || displayOrder < 0) {
-      alert("El orden debe ser un número entero >= 0");
+      await showAlert("El orden debe ser un número entero >= 0");
       return;
     }
 
@@ -160,11 +164,11 @@ export default function Menu() {
       if (editingProductId) {
         // Editar producto existente
         await axios.patch(`/products/${editingProductId}`, payload);
-        alert("Producto actualizado correctamente");
+        await showAlert("Producto actualizado correctamente");
       } else {
         // Crear nuevo producto
         await axios.post("/products", payload);
-        alert("Producto creado correctamente");
+        await showAlert("Producto creado correctamente");
       }
 
       // Cerrar modal y recargar datos
@@ -172,7 +176,7 @@ export default function Menu() {
       await loadData();
     } catch (error) {
       console.error("Error guardando producto:", error);
-      alert(error.response?.data?.error || "Error al guardar producto");
+      await showAlert(error.response?.data?.error || "Error al guardar producto");
     } finally {
       // CRÍTICO: SIEMPRE resetear saving, incluso si hay error
       setSaving(false);
@@ -181,7 +185,7 @@ export default function Menu() {
 
   // Toggle activar/desactivar producto
   const handleToggle = async (product) => {
-    if (!confirm(`¿${product.is_active === 1 ? 'Desactivar' : 'Activar'} este producto?`)) {
+    if (!(await showConfirm(`¿${product.is_active === 1 ? 'Desactivar' : 'Activar'} este producto?`))) {
       return;
     }
 
@@ -190,7 +194,7 @@ export default function Menu() {
       await loadData();
     } catch (error) {
       console.error("Error cambiando estado:", error);
-      alert(error.response?.data?.error || "Error al cambiar estado");
+      await showAlert(error.response?.data?.error || "Error al cambiar estado");
     }
   };
 
@@ -225,6 +229,7 @@ export default function Menu() {
   }
 
   return (
+    <>
     <div className="caja-container">
       <CajaHeader title="MENÚ" backTo="/mas" />
 
@@ -315,7 +320,7 @@ export default function Menu() {
                     onClick={() => handleOpenModal(product)}
                     style={{
                       padding: "0.5rem 1rem",
-                      background: "#007bff",
+                      background: "#F5BB4C",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
@@ -625,5 +630,17 @@ export default function Menu() {
         </div>
       )}
     </div>
+    <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+      actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+      <p>{alertState.message}</p>
+    </Modal>
+    <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+      actions={<>
+        <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+        <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+      </>}>
+      <p>{confirmState.message}</p>
+    </Modal>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import axios from 'axios';
 import './Caja.css';
 import { formatBogotaTime, formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export default function Auditoria() {
   const navigate = useNavigate();
@@ -19,13 +20,14 @@ export default function Auditoria() {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [tableFilter, setTableFilter] = useState('TODAS');
   const [searchCode, setSearchCode] = useState('');
-  
+  const debouncedSearch = useDebounce(searchCode, 300);
+
   // Estados de detalle
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
     loadEvents();
-  }, [dateRange, fromDate, toDate, typeFilter, tableFilter, searchCode]);
+  }, [dateRange, fromDate, toDate, typeFilter, tableFilter, debouncedSearch]);
 
   // Calcular fechas según rango rápido
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function Auditoria() {
       if (toDate) params.append('to', toDate);
       if (typeFilter !== 'ALL') params.append('type', typeFilter);
       if (tableFilter !== 'TODAS') params.append('tableNumber', tableFilter);
-      if (searchCode.trim()) params.append('orderCode', searchCode.trim());
+      if (debouncedSearch.trim()) params.append('orderCode', debouncedSearch.trim());
       params.append('limit', '200');
       
       const res = await axios.get(`/audit?${params.toString()}`);
@@ -131,9 +133,9 @@ export default function Auditoria() {
                   onClick={() => setDateRange(range)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: dateRange === range ? '#007bff' : 'white',
+                    background: dateRange === range ? '#F5BB4C' : 'white',
                     color: dateRange === range ? 'white' : '#333',
-                    border: '2px solid #007bff',
+                    border: '2px solid #F5BB4C',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -305,7 +307,7 @@ export default function Auditoria() {
                     transition: 'all 0.2s'
                   }}
                   onMouseOver={(e) => {
-                    e.target.style.borderColor = '#007bff';
+                    e.target.style.borderColor = '#F5BB4C';
                     e.target.style.transform = 'translateY(-2px)';
                     e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
                   }}

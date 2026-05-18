@@ -58,7 +58,7 @@ export default function MesasAbiertas() {
             className="toggle-btn"
             style={{
               padding: '0.5rem 1rem',
-              background: showPlano ? '#6c757d' : '#007bff',
+              background: showPlano ? '#6c757d' : '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '4px',

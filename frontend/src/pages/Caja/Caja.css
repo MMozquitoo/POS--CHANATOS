@@ -2560,3 +2560,237 @@
   opacity: 0.9;
   font-weight: bold;
 }
+
+/* === Chanatos Caja Layout Classes === */
+.caja-page {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.caja-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.caja-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #212529;
+  margin: 0;
+}
+
+.caja-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.caja-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.caja-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 768px) {
+  .caja-page { padding: 1rem; }
+  .caja-grid-2, .caja-grid-3 { grid-template-columns: 1fr; }
+}
+
+.caja-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.caja-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #D4A03A;
+}
+
+.caja-stat-label {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+.caja-filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.caja-filter-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #ced4da;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 150ms ease;
+  min-height: 44px;
+}
+
+.caja-filter-btn:hover {
+  border-color: #F5BB4C;
+  background: #FFF8E7;
+}
+
+.caja-filter-btn.active {
+  background: #F5BB4C;
+  border-color: #F5BB4C;
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.caja-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+}
+
+.caja-list-item:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.caja-empty {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  color: #6c757d;
+}
+
+.caja-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  color: #495057;
+  cursor: pointer;
+  font-size: 1rem;
+  border-radius: 8px;
+  transition: background 150ms ease;
+}
+
+.caja-back-btn:hover {
+  background: #e9ecef;
+}
+
+.caja-search {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 2px solid #ced4da;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 150ms ease;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.caja-search:focus {
+  outline: none;
+  border-color: #F5BB4C;
+}
+
+.caja-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.caja-badge-success { background: #d4edda; color: #28a745; }
+.caja-badge-danger { background: #f8d7da; color: #dc3545; }
+.caja-badge-warning { background: #fff3cd; color: #856404; }
+
+.caja-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.caja-actions-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.caja-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.95rem;
+}
+
+.caja-info-label { color: #6c757d; }
+.caja-info-value { font-weight: 600; color: #212529; }
+
+.caja-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border-top: 2px solid #F5BB4C;
+  margin-top: 0.5rem;
+}
+
+/* Caja menu option button */
+.caja-menu-option {
+  background: white;
+  color: #333;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 1.25rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 150ms ease;
+  width: 100%;
+}
+
+.caja-menu-option:hover {
+  border-color: #F5BB4C;
+  background: #FFF8E7;
+}
+
+/* Dashboard main action button */
+.caja-main-action {
+  padding: 2rem;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1.5rem;
+  font-weight: bold;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.caja-main-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.caja-main-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

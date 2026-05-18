@@ -74,7 +74,7 @@ class ErrorBoundary extends React.Component {
               onClick={this.handleReload}
               style={{
                 padding: '0.75rem 2rem',
-                background: '#007bff',
+                background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -83,8 +83,8 @@ class ErrorBoundary extends React.Component {
                 cursor: 'pointer',
                 transition: 'background 0.2s'
               }}
-              onMouseOver={(e) => e.target.style.background = '#0056b3'}
-              onMouseOut={(e) => e.target.style.background = '#007bff'}
+              onMouseOver={(e) => e.target.style.background = '#D4A03A'}
+              onMouseOut={(e) => e.target.style.background = '#F5BB4C'}
             >
               Recargar
             </button>

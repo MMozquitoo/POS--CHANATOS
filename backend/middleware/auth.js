@@ -16,13 +16,13 @@ export const requireAuth = async (req, res, next) => {
     const session = validateSession(token);
     
     if (!session) {
-      console.log("❌ requireAuth: Sesión inválida para token:", token.substring(0, 20) + "...");
+      console.log("requireAuth: Sesión inválida");
       return res.status(401).json({ error: 'Sesión inválida' });
     }
 
     // Verificar que el usuario existe y está activo
     const db = getDb();
-    const user = await db.get('SELECT * FROM users WHERE id = ? AND is_active = 1', [session.userId]);
+    const user = await db.get('SELECT id, name, role, is_active FROM users WHERE id = ? AND is_active = 1', [session.userId]);
     
     if (!user) {
       console.log("❌ requireAuth: Usuario no encontrado o inactivo, userId:", session.userId);

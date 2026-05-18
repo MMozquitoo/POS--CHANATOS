@@ -60,7 +60,7 @@ export default function EmptyState({ title, description, actionLabel, onAction }
           onClick={onAction}
           style={{
             padding: '0.75rem 1.5rem',
-            background: '#007bff',
+            background: '#F5BB4C',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
@@ -70,10 +70,10 @@ export default function EmptyState({ title, description, actionLabel, onAction }
             transition: 'background 0.2s'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#0056b3';
+            e.currentTarget.style.background = '#D4A03A';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#007bff';
+            e.currentTarget.style.background = '#F5BB4C';
           }}
         >
           {actionLabel}
