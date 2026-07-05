@@ -312,6 +312,7 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     // Insertar payments por orden afectada
     const affectedOrderIds = [...new Set(items.map((it) => it.order_id))];
     const createdPayments = [];
+    let firstPaymentOfRequest = true; // FASE F10: la propina va en el primer pago
 
     for (const oid of affectedOrderIds) {
       // PASO 16.2.2-B: Validar que orderId existe antes de insertar payment
@@ -354,9 +355,13 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
         throw new Error('Usuario no autenticado o sin id');
       }
 
+      // FASE F10: propina opcional (una sola vez, en el primer pago del cobro)
+      const itemsTip = firstPaymentOfRequest ? Math.max(0, Number(req.body.tipAmount) || 0) : 0;
+      firstPaymentOfRequest = false;
+
       const paymentResult = await db.run(
-        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id) VALUES (?, ?, ?, ?, ?, ?)",
-        [oid, method, orderAmount, req.user.id, paymentTimestamp, cashSessionId]
+        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [oid, method, orderAmount, req.user.id, paymentTimestamp, cashSessionId, itemsTip]
       );
 
       // PASO 16.2.2-B: Validar que el INSERT fue exitoso

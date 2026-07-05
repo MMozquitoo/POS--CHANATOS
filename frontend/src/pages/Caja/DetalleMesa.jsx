@@ -135,6 +135,7 @@ export default function DetalleMesa() {
   const [disableReason, setDisableReason] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
+  const [tipAmount, setTipAmount] = useState('');
   
   // Validar tableId al inicio
   const isValidTableId = tableId && !isNaN(parseInt(tableId)) && parseInt(tableId) > 0;
@@ -435,7 +436,9 @@ export default function DetalleMesa() {
   // FASE F9: pago dividido desde la vista de mesa (varios métodos en un cobro)
   const processSplitPayment = async (paymentLines) => {
     try {
-      await axios.post('/payments', { orderId: activeOrder.id, payments: paymentLines });
+      const splitTip = Math.max(0, parseFloat(tipAmount) || 0);
+      await axios.post('/payments', { orderId: activeOrder.id, payments: paymentLines, tipAmount: splitTip });
+      setTipAmount('');
       setShowSplit(false);
 
       // Recibo con los métodos combinados
@@ -549,7 +552,10 @@ export default function DetalleMesa() {
         console.log("[DEBUG payments/items] paymentMethod =", paymentMethod);
       }
 
-      const paymentRes = await axios.post('/payments/items', payload);
+      // FASE F10: propina opcional
+      const tip = Math.max(0, parseFloat(tipAmount) || 0);
+      const paymentRes = await axios.post('/payments/items', { ...payload, tipAmount: tip });
+      setTipAmount('');
 
       let reciboShown = false;
       // Obtener datos completos para el recibo
@@ -2140,6 +2146,20 @@ export default function DetalleMesa() {
                   >
                     CALCULADORA
                   </button>
+
+                  {/* FASE F10: propina opcional */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina:</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      placeholder="0 (opcional)"
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      style={{ flex: 1, minWidth: 0, height: '42px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+                    />
+                  </div>
 
                   {/* PASO 14.3: Mensaje cuando no hay conexión */}
                   {!isOnline && (
