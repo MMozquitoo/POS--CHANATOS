@@ -7,6 +7,7 @@ import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
 import SalsasChips from '../../components/SalsasChips';
+import PagoDividido from '../../components/caja/PagoDividido.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -133,6 +134,7 @@ export default function DetalleMesa() {
   const [loading, setLoading] = useState(true);
   const [disableReason, setDisableReason] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showSplit, setShowSplit] = useState(false);
   
   // Validar tableId al inicio
   const isValidTableId = tableId && !isNaN(parseInt(tableId)) && parseInt(tableId) > 0;
@@ -430,6 +432,44 @@ export default function DetalleMesa() {
   };
 
   // Cobrar la orden activa
+  // FASE F9: pago dividido desde la vista de mesa (varios métodos en un cobro)
+  const processSplitPayment = async (paymentLines) => {
+    try {
+      await axios.post('/payments', { orderId: activeOrder.id, payments: paymentLines });
+      setShowSplit(false);
+
+      // Recibo con los métodos combinados
+      try {
+        const orderRes = await axios.get(`/orders/${activeOrder.id}`);
+        setReciboData({
+          order: {
+            ...orderRes.data,
+            table_label: tableData?.table?.label ||
+              (tableData?.table?.number ? `Mesa ${tableData.table.number}` : 'Sin mesa'),
+          },
+          payment: {
+            method: paymentLines.map(l => l.method).join(' + '),
+            amount: paymentLines.reduce((s, l) => s + l.amount, 0),
+            created_at: new Date().toISOString(),
+          },
+          items: orderRes.data.items || [],
+        });
+        setChangeAmount(0);
+        setShowRecibo(true);
+      } catch (reciboError) {
+        console.error('Error preparando recibo:', reciboError);
+        showAlert('Pago dividido procesado correctamente');
+      }
+
+      await loadActiveOrder();
+      await loadTableData();
+    } catch (error) {
+      console.error('Error procesando pago dividido:', error);
+      setShowSplit(false);
+      showAlert(error.response?.data?.error || 'Error al procesar el pago dividido');
+    }
+  };
+
   const payActiveOrder = async () => {
     // Evitar doble click (FASE 10)
     if (loadingPay) {
@@ -2098,7 +2138,7 @@ export default function DetalleMesa() {
                       marginBottom: '1rem'
                     }}
                   >
-                    🧮 CALCULADORA
+                    CALCULADORA
                   </button>
 
                   {/* PASO 14.3: Mensaje cuando no hay conexión */}
@@ -2172,6 +2212,26 @@ export default function DetalleMesa() {
                     }}
                   >
                     {loadingPay ? 'Procesando...' : 'COBRAR'}
+                  </button>
+
+                  <button
+                    onClick={() => setShowSplit(true)}
+                    disabled={loadingPay || !isOnline}
+                    style={{
+                      width: '100%',
+                      padding: '0.9rem',
+                      marginTop: '0.75rem',
+                      background: '#1a1a2e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      cursor: loadingPay || !isOnline ? 'not-allowed' : 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      opacity: loadingPay || !isOnline ? 0.6 : 1
+                    }}
+                  >
+                    PAGO DIVIDIDO
                   </button>
                 </div>
               ) : activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === false ? (
@@ -2341,6 +2401,15 @@ export default function DetalleMesa() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pago dividido (varios métodos en un cobro) */}
+      {showSplit && activeOrder && (
+        <PagoDividido
+          total={activeOrderTotal}
+          onCancel={() => setShowSplit(false)}
+          onConfirm={processSplitPayment}
+        />
       )}
 
       {/* Calculadora de vuelto (el monto recibido alimenta el vuelto del recibo) */}
