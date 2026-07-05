@@ -6,6 +6,7 @@ import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
+import SalsasChips from '../../components/SalsasChips';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -1743,12 +1744,15 @@ export default function DetalleMesa() {
                     />
                     <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })}>+</button>
                   </div>
-                  <input
-                    className="new-order-notes"
-                    value={it.notes || ''}
-                    placeholder="Notas (opcional)"
-                    onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
-                  />
+                  <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+                    <input
+                      className="new-order-notes"
+                      value={it.notes || ''}
+                      placeholder="Notas (opcional)"
+                      onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
+                    />
+                    <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                  </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>
               ))}

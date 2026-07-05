@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
+import SalsasChips from '../../components/SalsasChips';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
 import '../Mesero/Mesero.css';
 
@@ -629,12 +630,15 @@ export default function Ventanilla() {
                     />
                     <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })}>+</button>
                   </div>
-                  <input
-                    className="new-order-notes"
-                    value={it.notes || ''}
-                    placeholder="Notas (opcional)"
-                    onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
-                  />
+                  <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+                    <input
+                      className="new-order-notes"
+                      value={it.notes || ''}
+                      placeholder="Notas (opcional)"
+                      onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
+                    />
+                    <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                  </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>
               ))}

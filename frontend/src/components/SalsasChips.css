@@ -1,0 +1,29 @@
+.salsas-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.salsa-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #e5d9bd;
+  background: #FFFDF7;
+  color: #8a7443;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.salsa-chip:hover {
+  border-color: #F5BB4C;
+}
+
+.salsa-chip.active {
+  background: #F5BB4C;
+  border-color: #F5BB4C;
+  color: #1a1a2e;
+}

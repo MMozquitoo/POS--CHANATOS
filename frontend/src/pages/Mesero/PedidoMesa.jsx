@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
+import SalsasChips from '../../components/SalsasChips';
 import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
 
@@ -390,6 +391,7 @@ export default function PedidoMesa() {
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ej: Sin cebolla"
                 />
+                <SalsasChips value={notes} onChange={setNotes} />
               </div>
               <button onClick={addItem} className="add-item-btn">Agregar</button>
             </div>
@@ -445,6 +447,7 @@ export default function PedidoMesa() {
                     placeholder="Opcional"
                     style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
                   />
+                  <SalsasChips value={customNotes} onChange={setCustomNotes} />
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
