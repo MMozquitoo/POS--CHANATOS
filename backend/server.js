@@ -61,7 +61,27 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Chrome/WebView exige esta cabecera para permitir peticiones hacia la red privada
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
   next();
+});
+
+// FASE F5: SQLite usa UNA conexión compartida; dos transacciones concurrentes se
+// entrelazan y corrompen ("cannot start a transaction within a transaction").
+// Serializar todas las ESCRITURAS garantiza transacciones atómicas sin refactor
+// de cada ruta. Las lecturas (GET) no se encolan.
+let writeQueue = Promise.resolve();
+app.use((req, res, next) => {
+  if (!["POST", "PATCH", "PUT", "DELETE"].includes(req.method)) return next();
+  const prev = writeQueue;
+  let release;
+  writeQueue = new Promise((resolve) => { release = resolve; });
+  prev.then(() => {
+    // Liberar el turno al terminar la respuesta (o si el cliente aborta)
+    res.on("finish", release);
+    res.on("close", release);
+    next();
+  });
 });
 
 // Inicializar base de datos (incluye migración automática si es necesario)
@@ -91,6 +111,11 @@ app.use("/api/audit", auditRoutes);
 // Health check (Render/Railway)
 app.get("/api/health", (req, res) => {
   res.status(200).json({ ok: true });
+});
+
+// Descubrimiento automático: la app móvil escanea la red buscando esta firma
+app.get("/api/discover", (req, res) => {
+  res.status(200).json({ app: "pos-chanatos", name: "POS Chanatos" });
 });
 
 // WebSocket authentication
@@ -153,4 +178,19 @@ if (process.env.NODE_ENV !== "production") {
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Servidor POS Chanatos corriendo en http://0.0.0.0:${PORT}`);
   console.log(`📱 Accesible desde la red local`);
+
+  // Anunciar el servicio por mDNS/Bonjour para que la app lo encuentre sola
+  import("bonjour-service")
+    .then(({ Bonjour }) => {
+      const bonjour = new Bonjour();
+      bonjour.publish({
+        name: "POS Chanatos",
+        type: "pos-chanatos",
+        port: Number(PORT),
+      });
+      console.log(`📡 Servicio anunciado por mDNS (_pos-chanatos._tcp.local)`);
+    })
+    .catch((err) => {
+      console.warn("⚠️ No se pudo anunciar por mDNS:", err.message);
+    });
 });

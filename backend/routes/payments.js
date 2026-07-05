@@ -2,7 +2,7 @@ import express from "express";
 import { getDb } from "../db/database.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getBogotaDateString, toBogotaSQLiteTimestamp } from "../utils/timezone.js";
-import { deductInventoryFromOrderItems } from "./inventoryMovements.js";
+import { deductInventoryFromOrderItems, restoreInventoryFromOrderItems } from "./inventoryMovements.js";
 import { logAudit } from "../utils/audit.js";
 
 const router = express.Router();
@@ -430,8 +430,16 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     try {
       await deductInventoryFromOrderItems(db, items, req.user.id);
     } catch (inventoryError) {
+      // FASE F5: el fallo no bloquea el pago, pero queda en auditoría (antes se perdía en consola)
       console.error("⚠️  Error descontando inventario (no bloquea el pago):", inventoryError);
-      // No lanzar error para no interrumpir el pago
+      await logAudit({
+        action: 'INVENTORY_ERROR',
+        entity_type: 'order',
+        entity_id: affectedOrderIds[0] || null,
+        user_id: req.user.id,
+        summary: `Fallo descontando inventario tras pago por items: ${inventoryError.message}`,
+        meta: { order_ids: affectedOrderIds, error: inventoryError.message }
+      }).catch(() => {});
     }
 
     // Notificar vía WebSocket (con guardas defensivas)
@@ -550,20 +558,33 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
 // POST /api/payments
 router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { orderId, method, amount } = req.body;
+    const { orderId, method, amount, payments: paymentsInput } = req.body;
 
-    if (!orderId || !method || !amount) {
+    if (!orderId) {
       return res.status(400).json({ error: "Faltan campos requeridos" });
     }
 
-    if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA"].includes(method)) {
-      return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA o TRANSFERENCIA" });
+    // FASE F3: aceptar pago simple {method, amount} o dividido {payments: [{method, amount}, ...]}
+    let paymentLines;
+    if (Array.isArray(paymentsInput) && paymentsInput.length > 0) {
+      paymentLines = paymentsInput;
+    } else if (method && amount) {
+      paymentLines = [{ method, amount }];
+    } else {
+      return res.status(400).json({ error: "Faltan campos requeridos (method/amount o payments[])" });
     }
 
-    // Validar amount como número > 0
-    const amountNum = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      return res.status(400).json({ error: "amount debe ser un número mayor a 0" });
+    // Validar cada línea de pago
+    const normalizedLines = [];
+    for (const line of paymentLines) {
+      if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA"].includes(line.method)) {
+        return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA o TRANSFERENCIA" });
+      }
+      const amountNum = typeof line.amount === 'string' ? parseFloat(line.amount) : Number(line.amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        return res.status(400).json({ error: "Cada pago debe tener un monto mayor a 0" });
+      }
+      normalizedLines.push({ method: line.method, amount: amountNum });
     }
 
     const db = getDb();
@@ -614,23 +635,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       return res.status(400).json({ error: "El pedido ya está pagado" });
     }
 
-    // Crear pago (usando zona horaria America/Bogota)
-    // La migración de cash_session_id debe estar en database.js al boot
-    const paymentTimestamp = toBogotaSQLiteTimestamp(new Date());
-    console.log(`💰 Creando pago completo: order_id=${orderId}, method=${method}, amount=${amountNum}, cash_session_id=${cashSessionId}, timestamp=${paymentTimestamp}`);
-    
-    const paymentResult = await db.run(
-      "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id) VALUES (?, ?, ?, ?, ?, ?)",
-      [orderId, method, amountNum, req.user.id, paymentTimestamp, cashSessionId]
-    );
-    console.log(`✅ Pago insertado con ID: ${paymentResult.lastID}`);
-
-    // Marcar pedido como pagado (usando zona horaria America/Bogota)
-    const timestamp = paymentTimestamp;
-    await db.run("UPDATE orders SET paid_at = ? WHERE id = ?", [timestamp, orderId]);
-
-    // Fase 3: Descontar inventario automáticamente usando recetas
-    // Obtener items del pedido que no estén anulados
+    // FASE F3: validar montos contra el saldo real de la orden
     const orderItems = await db.all(
       `SELECT oi.*, o.id as order_id
        FROM order_items oi
@@ -638,56 +643,89 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
        WHERE oi.order_id = ? AND oi.voided_at IS NULL`,
       [orderId]
     );
-    
-    // Marcar items como pagados
-    for (const item of orderItems) {
-      await db.run("UPDATE order_items SET paid_at = ? WHERE id = ?", [timestamp, item.id]);
-    }
 
-    // Descontar inventario
-    try {
-      await deductInventoryFromOrderItems(db, orderItems, req.user.id);
-    } catch (inventoryError) {
-      console.error("⚠️  Error descontando inventario (no bloquea el pago):", inventoryError);
-      // No lanzar error para no interrumpir el pago
-    }
-
-    // Archivado automático: recalcular estado y archivar si queda PAGADA
-    // Calcular total pagado (suma de todos los pagos no anulados)
-    const totalPagado = await db.get(
-      `SELECT COALESCE(SUM(amount), 0) as total 
-       FROM payments 
-       WHERE order_id = ? AND voided_at IS NULL`,
-      [orderId]
-    );
-    const totalPagadoNum = totalPagado?.total || 0;
-    
-    // Calcular total de la orden (suma de items no anulados)
     const totalOrden = orderItems.reduce((sum, item) => {
       const qty = item.qty || 0;
       const price = item.price || 0;
       return sum + (qty * price);
     }, 0);
 
-    // Si total pagado >= total orden, marcar como PAGADA y archivar
-    if (totalPagadoNum > 0 && totalPagadoNum >= totalOrden) {
-      await db.run(
-        "UPDATE orders SET status = 'PAGADA', paid_at = ?, archived_at = ? WHERE id = ?",
-        [timestamp, timestamp, orderId]
-      );
-      console.log(`✅ Orden ${orderId} marcada como PAGADA y archivada (total pagado: ${totalPagadoNum}, total orden: ${totalOrden})`);
-    } else {
-      // Si no queda PAGADA, solo actualizar paid_at (no tocar archived_at)
-      // El status puede seguir siendo LISTO u otro
-      await db.run("UPDATE orders SET paid_at = ? WHERE id = ?", [timestamp, orderId]);
-      console.log(`✅ Orden ${orderId} actualizada (total pagado: ${totalPagadoNum}, total orden: ${totalOrden}) - NO PAGADA aún`);
+    const yaPagado = await db.get(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM payments
+       WHERE order_id = ? AND voided_at IS NULL`,
+      [orderId]
+    );
+    const yaPagadoNum = yaPagado?.total || 0;
+    const saldoPendiente = totalOrden - yaPagadoNum;
+
+    if (saldoPendiente <= 0) {
+      return res.status(400).json({ error: "El pedido ya está pagado" });
     }
 
-    const payment = await db.get(
-      "SELECT * FROM payments WHERE id = ?",
-      [paymentResult.lastID]
-    );
-    console.log(`✅ Pago recuperado:`, payment);
+    const sumLines = normalizedLines.reduce((s, l) => s + l.amount, 0);
+    // Tolerancia de 1 peso por redondeos
+    if (sumLines > saldoPendiente + 1) {
+      return res.status(400).json({
+        error: `El monto a cobrar (${sumLines}) supera el saldo pendiente de la orden (${saldoPendiente})`,
+        saldoPendiente,
+      });
+    }
+
+    const paymentTimestamp = toBogotaSQLiteTimestamp(new Date());
+    const timestamp = paymentTimestamp;
+    const quedaPagada = yaPagadoNum + sumLines >= totalOrden - 1;
+    const insertedIds = [];
+
+    await db.run("BEGIN IMMEDIATE");
+    try {
+      for (const line of normalizedLines) {
+        const result = await db.run(
+          "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id) VALUES (?, ?, ?, ?, ?, ?)",
+          [orderId, line.method, line.amount, req.user.id, paymentTimestamp, cashSessionId]
+        );
+        insertedIds.push(result.lastID);
+      }
+
+      if (quedaPagada) {
+        // Marcar items como pagados y cerrar la orden
+        for (const item of orderItems) {
+          if (!item.paid_at) {
+            await db.run("UPDATE order_items SET paid_at = ? WHERE id = ?", [timestamp, item.id]);
+          }
+        }
+        await db.run(
+          "UPDATE orders SET status = 'PAGADA', paid_at = ?, archived_at = ? WHERE id = ?",
+          [timestamp, timestamp, orderId]
+        );
+      }
+      // Pago parcial: la orden sigue LISTO y sin paid_at (la mesa sigue activa con saldo)
+
+      await db.run("COMMIT");
+    } catch (txError) {
+      try { await db.run("ROLLBACK"); } catch (rbErr) { /* ignore */ }
+      throw txError;
+    }
+
+    console.log(`💰 Cobro orden ${orderId}: ${normalizedLines.map(l => `${l.method} ${l.amount}`).join(' + ')} | pagada=${quedaPagada}`);
+
+    // Descontar inventario SOLO cuando la orden queda totalmente pagada
+    if (quedaPagada) {
+      try {
+        await deductInventoryFromOrderItems(db, orderItems, req.user.id);
+      } catch (inventoryError) {
+        // FASE F5: el fallo no bloquea el pago, pero queda en auditoría
+        console.error("⚠️  Error descontando inventario (no bloquea el pago):", inventoryError);
+        await logAudit({
+          action: 'INVENTORY_ERROR',
+          entity_type: 'order',
+          entity_id: orderId,
+          user_id: req.user.id,
+          summary: `Fallo descontando inventario tras pago de orden ${orderId}: ${inventoryError.message}`,
+          meta: { order_id: orderId, error: inventoryError.message }
+        }).catch(() => {});
+      }
+    }
 
     // Obtener información de la orden para auditoría
     const orderInfo = await db.get(
@@ -695,33 +733,49 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       [orderId]
     );
 
-    // FASE 12.3: Registrar auditoría - PAYMENT_CREATED
-    await logAudit({
-      action: 'PAYMENT_CREATED',
-      entity_type: 'payment',
-      entity_id: paymentResult.lastID,
-      table_number: orderInfo?.table_number || null,
-      order_id: orderId,
-      user_id: req.user.id,
-      ip: req.ip || req.connection?.remoteAddress || null,
-      summary: `Pago ${method} por ${amountNum} - Orden ${orderInfo?.daily_no || orderInfo?.code || orderId}`,
-      meta: {
-        amount: amountNum,
-        method: method,
-        cash_session_id: cashSessionId
-      }
-    });
+    const insertedPayments = [];
+    for (const pid of insertedIds) {
+      const p = await db.get("SELECT * FROM payments WHERE id = ?", [pid]);
+      insertedPayments.push(p);
 
-    // Notificar pago vía WebSocket
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("payment:created", {
-        payment,
-        orderId,
+      // FASE 12.3: Registrar auditoría - PAYMENT_CREATED (uno por método)
+      await logAudit({
+        action: 'PAYMENT_CREATED',
+        entity_type: 'payment',
+        entity_id: pid,
+        table_number: orderInfo?.table_number || null,
+        order_id: orderId,
+        user_id: req.user.id,
+        ip: req.ip || req.connection?.remoteAddress || null,
+        summary: `Pago ${p.method} por ${p.amount} - Orden ${orderInfo?.daily_no || orderInfo?.code || orderId}${normalizedLines.length > 1 ? ' (pago dividido)' : ''}`,
+        meta: {
+          amount: p.amount,
+          method: p.method,
+          cash_session_id: cashSessionId,
+          split: normalizedLines.length > 1
+        }
       });
     }
 
-    res.status(201).json({ payment });
+    // Notificar vía WebSocket
+    const io = req.app.get("io");
+    if (io) {
+      for (const p of insertedPayments) {
+        io.emit("payment:created", { payment: p, orderId });
+      }
+      if (quedaPagada) {
+        io.emit("order:status-changed", { order: { ...orderInfo, items: orderItems } });
+        io.emit("order:archived", { orderId });
+        io.emit("table:updated", { tableId: orderInfo?.table_id });
+      }
+    }
+
+    res.status(201).json({
+      payment: insertedPayments[0],
+      payments: insertedPayments,
+      fullyPaid: quedaPagada,
+      saldoPendiente: quedaPagada ? 0 : saldoPendiente - sumLines,
+    });
   } catch (error) {
     console.error("[PAYMENTS ERROR]", {
       message: error.message,
@@ -914,6 +968,29 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
       return res.status(409).json({ error: "Pago ya anulado" });
     }
 
+    // FASE F5: no anular pagos de una caja ya cerrada (descuadraría el arqueo histórico).
+    if (payment.cash_session_id) {
+      const paymentSession = await db.get(
+        "SELECT closed_at FROM cash_sessions WHERE id = ?",
+        [payment.cash_session_id]
+      );
+      if (paymentSession?.closed_at) {
+        return res.status(409).json({
+          error: "No se puede anular un pago de una caja ya cerrada. Registra un egreso manual para corregirlo.",
+        });
+      }
+    } else {
+      // Pagos antiguos sin sesión asociada: exigir al menos una caja abierta
+      const openSession = await db.get(
+        "SELECT id FROM cash_sessions WHERE closed_at IS NULL LIMIT 1"
+      );
+      if (!openSession) {
+        return res.status(409).json({
+          error: "No hay caja abierta. Abre caja antes de anular pagos.",
+        });
+      }
+    }
+
     // Obtener información de la orden para auditoría
     const orderInfo = await db.get(
       "SELECT o.*, t.number as table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE o.id = ?",
@@ -958,6 +1035,8 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
     if (totalPagadoNum <= 0 && order && order.status === 'PAGADA') {
       // Si no hay pagos válidos y la orden estaba PAGADA, cambiar a LISTO y desarchivar
       await db.run("UPDATE orders SET status = 'LISTO', paid_at = NULL, archived_at = NULL WHERE id = ?", [payment.order_id]);
+      // FASE F5: sin pagos válidos, los items vuelven a estar pendientes de cobro
+      await db.run("UPDATE order_items SET paid_at = NULL WHERE order_id = ? AND voided_at IS NULL", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
       console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago anulado)`);
     } else if (totalPagadoNum > 0 && totalPagadoNum >= totalOrden) {
@@ -978,6 +1057,24 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
       await db.run("UPDATE orders SET status = 'LISTO', archived_at = NULL WHERE id = ?", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
       console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago parcial anulado: ${totalPagadoNum} < ${totalOrden})`);
+    }
+
+    // FASE F5: si la orden deja de estar PAGADA, reponer el inventario descontado al cobrar
+    if (order?.status === 'PAGADA' && statusUpdatedTo === 'LISTO') {
+      try {
+        await restoreInventoryFromOrderItems(db, orderItems, req.user.id, payment.order_id);
+        console.log(`✅ Inventario repuesto por anulación de pago (orden ${payment.order_id})`);
+      } catch (restoreError) {
+        console.error("⚠️  Error reponiendo inventario tras anulación:", restoreError);
+        await logAudit({
+          action: 'INVENTORY_ERROR',
+          entity_type: 'order',
+          entity_id: payment.order_id,
+          user_id: req.user.id,
+          summary: `Fallo reponiendo inventario tras anular pago ${paymentId}: ${restoreError.message}`,
+          meta: { payment_id: paymentId, order_id: payment.order_id, error: restoreError.message }
+        }).catch(() => {});
+      }
     }
 
     // FASE 12.5: Registrar auditoría - PAYMENT_VOIDED

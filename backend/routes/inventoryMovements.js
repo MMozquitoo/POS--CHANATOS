@@ -2,6 +2,7 @@ import express from "express";
 import { getDb } from "../db/database.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { toBogotaSQLiteTimestamp } from "../utils/timezone.js";
+import { logAudit } from "../utils/audit.js";
 
 const router = express.Router();
 
@@ -204,89 +205,101 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
   }
 });
 
-// Función auxiliar para descontar inventario automáticamente (usada en payments)
-export async function deductInventoryFromOrderItems(db, orderItems, userId) {
-  try {
-    const timestamp = toBogotaSQLiteTimestamp(new Date());
-    const movements = [];
+// Calcular consumo total de ingredientes según recetas de los items (no anulados, no custom)
+async function computeIngredientQuantities(db, orderItems) {
+  const ingredientQuantities = {};
 
-    // Agrupar por ingrediente para sumar cantidades
-    const ingredientQuantities = {};
-
-    for (const item of orderItems) {
-      // Solo procesar items con product_id (no custom) y que no estén anulados
-      if (!item.product_id || item.is_custom === 1 || item.voided_at) {
-        continue;
-      }
-
-      // Obtener receta del producto
-      const recipeItems = await db.all(
-        `SELECT r.ingredient_id, r.qty_used
-         FROM recipes r
-         JOIN ingredients i ON r.ingredient_id = i.id
-         WHERE r.product_id = ? AND i.is_active = 1`,
-        [item.product_id]
-      );
-
-      // Calcular consumo por cada unidad vendida
-      for (const recipeItem of recipeItems) {
-        const totalQty = recipeItem.qty_used * item.qty;
-        
-        if (!ingredientQuantities[recipeItem.ingredient_id]) {
-          ingredientQuantities[recipeItem.ingredient_id] = 0;
-        }
-        ingredientQuantities[recipeItem.ingredient_id] += totalQty;
-      }
+  for (const item of orderItems) {
+    if (!item.product_id || item.is_custom === 1 || item.voided_at) {
+      continue;
     }
 
-    // Crear movimientos OUT para cada ingrediente
-    for (const [ingredientId, totalQty] of Object.entries(ingredientQuantities)) {
-      const ingredientIdNum = parseInt(ingredientId);
-      
-      // Verificar que existe inventario
-      const inventory = await db.get(
-        "SELECT * FROM inventory WHERE ingredient_id = ?",
-        [ingredientIdNum]
-      );
+    const recipeItems = await db.all(
+      `SELECT r.ingredient_id, r.qty_used
+       FROM recipes r
+       JOIN ingredients i ON r.ingredient_id = i.id
+       WHERE r.product_id = ? AND i.is_active = 1`,
+      [item.product_id]
+    );
 
-      if (!inventory) {
-        console.warn(`⚠️  No hay inventario para ingrediente ${ingredientIdNum}, saltando descuento automático`);
-        continue;
+    for (const recipeItem of recipeItems) {
+      const totalQty = recipeItem.qty_used * item.qty;
+      if (!ingredientQuantities[recipeItem.ingredient_id]) {
+        ingredientQuantities[recipeItem.ingredient_id] = 0;
       }
-
-      // Crear movimiento OUT
-      const movementResult = await db.run(
-        "INSERT INTO inventory_movements (ingredient_id, type, qty, reason, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          ingredientIdNum,
-          "OUT",
-          totalQty,
-          "Descuento automático por venta",
-          userId,
-          timestamp
-        ]
-      );
-
-      // Actualizar stock
-      const newStock = inventory.stock_qty - totalQty;
-      await db.run(
-        "UPDATE inventory SET stock_qty = ? WHERE ingredient_id = ?",
-        [newStock, ingredientIdNum]
-      );
-
-      movements.push({
-        id: movementResult.lastID,
-        ingredient_id: ingredientIdNum,
-        qty: totalQty
-      });
+      ingredientQuantities[recipeItem.ingredient_id] += totalQty;
     }
-
-    return movements;
-  } catch (error) {
-    console.error("Error descontando inventario:", error);
-    // No lanzar error para no interrumpir el pago, solo loguear
-    return [];
   }
+
+  return ingredientQuantities;
+}
+
+// Aplicar movimientos de inventario (OUT al vender, IN al reponer por anulación)
+async function applyInventoryMovements(db, ingredientQuantities, userId, type, reason) {
+  const timestamp = toBogotaSQLiteTimestamp(new Date());
+  const movements = [];
+
+  for (const [ingredientId, totalQty] of Object.entries(ingredientQuantities)) {
+    const ingredientIdNum = parseInt(ingredientId);
+
+    const inventory = await db.get(
+      "SELECT * FROM inventory WHERE ingredient_id = ?",
+      [ingredientIdNum]
+    );
+
+    if (!inventory) {
+      console.warn(`⚠️  No hay inventario para ingrediente ${ingredientIdNum}, saltando movimiento automático`);
+      continue;
+    }
+
+    const movementResult = await db.run(
+      "INSERT INTO inventory_movements (ingredient_id, type, qty, reason, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      [ingredientIdNum, type, totalQty, reason, userId, timestamp]
+    );
+
+    const newStock = type === "OUT"
+      ? inventory.stock_qty - totalQty
+      : inventory.stock_qty + totalQty;
+
+    await db.run(
+      "UPDATE inventory SET stock_qty = ? WHERE ingredient_id = ?",
+      [newStock, ingredientIdNum]
+    );
+
+    // FASE F5: el stock negativo se permite (significa conteo inicial errado)
+    // pero queda registrado en auditoría para que no pase desapercibido
+    if (newStock < 0) {
+      await logAudit({
+        action: 'STOCK_NEGATIVE',
+        entity_type: 'inventory',
+        entity_id: ingredientIdNum,
+        user_id: userId,
+        summary: `Stock negativo del ingrediente ${ingredientIdNum} (${newStock}) tras ${reason}`,
+        meta: { ingredient_id: ingredientIdNum, new_stock: newStock, qty: totalQty, type }
+      }).catch(() => {});
+    }
+
+    movements.push({
+      id: movementResult.lastID,
+      ingredient_id: ingredientIdNum,
+      qty: totalQty
+    });
+  }
+
+  return movements;
+}
+
+// Descontar inventario al vender (usada en payments).
+// FASE F5: ya no traga errores — el caller decide cómo manejarlos (y auditarlos).
+export async function deductInventoryFromOrderItems(db, orderItems, userId) {
+  const quantities = await computeIngredientQuantities(db, orderItems);
+  return applyInventoryMovements(db, quantities, userId, "OUT", "Descuento automático por venta");
+}
+
+// Reponer inventario cuando se anula el pago de una orden que ya había descontado stock
+export async function restoreInventoryFromOrderItems(db, orderItems, userId, orderId) {
+  const quantities = await computeIngredientQuantities(db, orderItems);
+  return applyInventoryMovements(db, quantities, userId, "IN", `Reposición por anulación de pago (orden ${orderId})`);
 }
 
 export default router;

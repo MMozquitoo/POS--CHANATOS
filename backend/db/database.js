@@ -147,6 +147,7 @@ export const initDatabase = async () => {
       amount REAL NOT NULL,
       created_by INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      cash_session_id INTEGER,
       FOREIGN KEY (order_id) REFERENCES orders(id),
       FOREIGN KEY (created_by) REFERENCES users(id)
     )

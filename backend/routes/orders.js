@@ -102,13 +102,14 @@ router.post(
       // FASE 1: Verificar que no exista orden activa para esta mesa
       // Mesas normales (1–8): una sola orden activa por mesa.
       // FASE M9.0: Ventanilla (9) y Domicilios (10) permiten múltiples órdenes activas.
+      let isVentanillaOrDomicilios = false;
       if (finalTableId) {
         const tbl = await db.get(
           "SELECT number, label FROM tables WHERE id = ?",
           [finalTableId]
         );
-        const isVentanillaOrDomicilios =
-          tbl &&
+        isVentanillaOrDomicilios =
+          !!tbl &&
           (tbl.number === 9 ||
             tbl.number === 10 ||
             (tbl.label && /ventanilla|domicilio/i.test(String(tbl.label).trim())));
@@ -151,26 +152,6 @@ router.post(
         }
       }
 
-    // Consecutivo diario para mostrar "ORDEN 1,2,3..."
-    const businessDay = formatYyyyMmDdLocal();
-    const nextDaily = await db.get(
-      "SELECT COALESCE(MAX(daily_no), 0) + 1 as next FROM orders WHERE business_day = ?",
-      [businessDay]
-    );
-    const dailyNo = nextDaily?.next || 1;
-
-    // code debe ser único global (por el UNIQUE). Guardamos algo corto, pero único.
-    // UI mostrará: "ORDEN {dailyNo}"
-    const code = `${formatYyyyMmDdCompact(businessDay)}-${dailyNo}`;
-
-      console.log("📝 Creando pedido con:", {
-        code,
-        tableId: finalTableId || null,
-        channel,
-        service: orderService,
-        created_by: req.user.id,
-      });
-
       // FASE 3: Determinar estado inicial SOLO por tableNumber (regla estricta)
       // - tableNumber === 9 (VENTANILLA) → status inicial = 'EN_PREP'
       // - tableNumber === 10 (DOMICILIOS) → status inicial = 'NUEVO'
@@ -204,11 +185,42 @@ router.post(
         initialStatus
       });
 
-      // 3) Crear pedido con transacción (aquí ya sabemos que req.user.id existe)
+      // 3) Crear pedido con transacción exclusiva (BEGIN IMMEDIATE serializa creadores
+      // concurrentes: evita doble orden activa en la misma mesa y colisiones de daily_no)
       let result;
       let orderId;
+      let businessDay;
+      let dailyNo;
+      let code;
       try {
-        await db.run("BEGIN TRANSACTION");
+        await db.run("BEGIN IMMEDIATE");
+
+        // Re-verificar orden activa DENTRO de la transacción (anti carrera)
+        if (finalTableId && !isVentanillaOrDomicilios) {
+          const activeNow = await db.get(
+            `SELECT id FROM orders
+             WHERE table_id = ? AND paid_at IS NULL AND status != 'CANCELADO'
+             LIMIT 1`,
+            [finalTableId]
+          );
+          if (activeNow) {
+            await db.run("ROLLBACK");
+            return res.status(400).json({
+              error:
+                "Ya existe una orden activa en esta mesa. Agrega items a la orden existente o cierra la orden actual.",
+            });
+          }
+        }
+
+        // Consecutivo diario dentro de la transacción (anti colisión de daily_no)
+        businessDay = formatYyyyMmDdLocal();
+        const nextDaily = await db.get(
+          "SELECT COALESCE(MAX(daily_no), 0) + 1 as next FROM orders WHERE business_day = ?",
+          [businessDay]
+        );
+        dailyNo = nextDaily?.next || 1;
+        // code debe ser único global (por el UNIQUE). UI mostrará: "ORDEN {dailyNo}"
+        code = `${formatYyyyMmDdCompact(businessDay)}-${dailyNo}`;
 
         result = await db.run(
           `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by)
@@ -754,7 +766,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 router.patch(
   "/:id/status",
   requireAuth,
-  requireRole("COCINA", "CAJA"),
+  requireRole("COCINA", "CAJA", "MESERO"),
   async (req, res) => {
     try {
       const { status } = req.body;
@@ -771,6 +783,29 @@ router.patch(
       ]);
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+
+      // MESERO solo puede empujar su pedido a cocina (NUEVO -> EN_PREP)
+      if (req.user.role === "MESERO" && !(order.status === "NUEVO" && status === "EN_PREP")) {
+        return res.status(403).json({
+          error: "El mesero solo puede enviar órdenes nuevas a preparación",
+        });
+      }
+
+      // FASE F5: máquina de estados — solo transiciones válidas.
+      // Cancelar se hace por los endpoints de cancelación (exigen motivo y verifican pagos).
+      const ALLOWED_TRANSITIONS = {
+        NUEVO: ["EN_PREP"],
+        EN_PREP: ["LISTO", "NUEVO"],
+        LISTO: ["EN_PREP"],
+        PAGADA: [],
+        CANCELADO: [],
+      };
+      if (!ALLOWED_TRANSITIONS[order.status]?.includes(status)) {
+        return res.status(409).json({
+          error: `Transición de estado inválida: ${order.status} → ${status}.${status === "CANCELADO" ? " Usa la cancelación con motivo." : ""}`,
+          status: order.status,
+        });
       }
 
       // Obtener número de mesa para auditoría
@@ -911,8 +946,19 @@ router.patch(
       
       // Validar que solo se puede cancelar si status IN ('NUEVO','EN_PREP','LISTO')
       if (!['NUEVO', 'EN_PREP', 'LISTO'].includes(order.status)) {
-        return res.status(400).json({ 
-          error: `No se puede cancelar una orden con estado ${order.status}` 
+        return res.status(400).json({
+          error: `No se puede cancelar una orden con estado ${order.status}`
+        });
+      }
+
+      // FASE F5: regla unificada con POST /:id/cancel — si hay pagos válidos, anularlos primero
+      const pagosOrden = await db.get(
+        "SELECT COUNT(*) as c FROM payments WHERE order_id = ? AND voided_at IS NULL",
+        [req.params.id]
+      );
+      if (pagosOrden && pagosOrden.c > 0) {
+        return res.status(409).json({
+          error: `La orden tiene ${pagosOrden.c} pago(s) registrados. Anula los pagos antes de cancelar la orden.`,
         });
       }
 
@@ -1133,8 +1179,9 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
       return res.status(404).json({ error: "Orden no encontrada" });
     }
 
-    // FASE 12.4: Bloquear si la orden está en estado bloqueado
-    if (["LISTO", "PAGADA", "CANCELADO"].includes(order.status)) {
+    // FASE 12.4 (ajustado FASE F1): solo PAGADA/CANCELADO bloquean.
+    // Una orden LISTO acepta items nuevos y regresa a EN_PREP (cliente pide algo más).
+    if (["PAGADA", "CANCELADO"].includes(order.status)) {
       // Registrar auditoría de bloqueo
       await logAudit({
         action: 'BLOCKED_ACTION',
@@ -1151,17 +1198,10 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
           endpoint: 'POST /api/orders/:id/items'
         }
       });
-      
-      return res.status(409).json({ 
-        error: "Orden bloqueada. No se puede modificar en estado LISTO/PAGADA/CANCELADO",
+
+      return res.status(409).json({
+        error: "Orden bloqueada. No se puede modificar en estado PAGADA/CANCELADO",
         status: order.status
-      });
-    }
-    
-    // Solo permitir agregar items a órdenes que estén en NUEVO o EN_PREP
-    if (!["NUEVO", "EN_PREP"].includes(order.status)) {
-      return res.status(400).json({ 
-        error: `No se pueden agregar items a una orden con estado ${order.status}. Solo se permite para órdenes NUEVO o EN_PREP.` 
       });
     }
 
@@ -1170,29 +1210,63 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
       return res.status(400).json({ error: "Debe incluir al menos un item" });
     }
 
-    // Validar y agregar items
-    const addedItems = [];
+    // Validar TODOS los items antes de insertar cualquiera
     for (const item of items) {
       if (!item.name || !item.name.trim()) {
         return res.status(400).json({ error: "Todos los items deben tener un nombre" });
       }
-      
+
       if (!item.price || item.price <= 0) {
         return res.status(400).json({ error: `El item "${item.name}" debe tener un precio válido` });
       }
+    }
 
-      const productId = item.product_id || item.productId || null;
-      const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
-      const qty = item.qty || 1;
-      const price = parseFloat(item.price);
+    const wasListo = order.status === "LISTO";
+    const addedItems = [];
 
-      const result = await db.run(
-        "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [orderId, item.name.trim(), qty, price, item.notes || null, productId, isCustom]
-      );
+    await db.run("BEGIN TRANSACTION");
+    try {
+      for (const item of items) {
+        const productId = item.product_id || item.productId || null;
+        const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
+        const qty = item.qty || 1;
+        const price = parseFloat(item.price);
 
-      const newItem = await db.get("SELECT * FROM order_items WHERE id = ?", [result.lastID]);
-      addedItems.push(newItem);
+        const result = await db.run(
+          "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [orderId, item.name.trim(), qty, price, item.notes || null, productId, isCustom]
+        );
+
+        const newItem = await db.get("SELECT * FROM order_items WHERE id = ?", [result.lastID]);
+        addedItems.push(newItem);
+      }
+
+      // Orden LISTO con items nuevos vuelve a cocina
+      if (wasListo) {
+        await db.run(
+          "UPDATE orders SET status = 'EN_PREP', updated_at = ? WHERE id = ?",
+          [toBogotaSQLiteTimestamp(new Date()), orderId]
+        );
+      }
+
+      await db.run("COMMIT");
+    } catch (txError) {
+      try { await db.run("ROLLBACK"); } catch (rbErr) { /* ignore rollback error */ }
+      throw txError;
+    }
+
+    if (wasListo) {
+      await logAudit({
+        action: 'ORDER_STATUS_CHANGED',
+        entity_type: 'order',
+        entity_id: orderId,
+        table_number: order.table_id ? (await db.get("SELECT number FROM tables WHERE id = ?", [order.table_id]))?.number : null,
+        order_id: orderId,
+        user_id: req.user.id,
+        ip: req.ip || req.connection?.remoteAddress || null,
+        summary: `Orden ${order.daily_no || order.code || orderId} volvió a EN_PREP por items agregados`,
+        meta: { from: 'LISTO', to: 'EN_PREP', reason: 'ADD_ITEMS' }
+      });
     }
 
     // Obtener orden completa actualizada
@@ -1205,6 +1279,12 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
       io.emit("order:updated", {
         order: { ...updatedOrder, items: allItems },
       });
+      if (wasListo) {
+        // Cocina escucha este evento: la orden reaparece en EN PREPARACIÓN
+        io.emit("order:status-changed", {
+          order: { ...updatedOrder, items: allItems },
+        });
+      }
       io.emit("table:updated", { tableId: order.table_id });
     }
 
@@ -1658,10 +1738,10 @@ router.post("/:id/cancel", requireAuth, requireRole("CAJA"), async (req, res) =>
     const orderId = parseInt(req.params.id);
     const db = getDb();
 
-    // Validar motivo obligatorio
-    if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
-      return res.status(400).json({ 
-        error: "Motivo de cancelación es obligatorio (mínimo 5 caracteres)" 
+    // Validar motivo obligatorio (FASE F5: unificado a 3 caracteres como PATCH /:id/cancel)
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
+      return res.status(400).json({
+        error: "Motivo de cancelación es obligatorio (mínimo 3 caracteres)"
       });
     }
 
