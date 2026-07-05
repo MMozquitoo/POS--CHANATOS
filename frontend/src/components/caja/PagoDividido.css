@@ -1,0 +1,153 @@
+.pago-dividido-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+
+.pago-dividido-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.pago-dividido-card h3 {
+  margin: 0 0 4px;
+  font-size: 1.3rem;
+  color: #1a1a2e;
+}
+
+.pago-dividido-total {
+  color: #666;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+.pago-dividido-line {
+  border: 1.5px solid #eee;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.pago-dividido-methods {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.pd-method-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border: 1.5px solid #e5e5e5;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.pd-method-btn.active {
+  background: #F5BB4C;
+  border-color: #F5BB4C;
+  color: #1a1a2e;
+}
+
+.pago-dividido-amount {
+  display: flex;
+  gap: 6px;
+}
+
+.pago-dividido-amount input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.pago-dividido-amount input:focus {
+  outline: none;
+  border-color: #F5BB4C;
+}
+
+.pd-fill-btn {
+  padding: 0 12px;
+  border: 1.5px solid #F5BB4C;
+  background: #FFF8E7;
+  color: #B8860B;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pd-remove-btn {
+  width: 44px;
+  border: 1.5px solid #eee;
+  background: white;
+  color: #c0392b;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.pago-dividido-tools {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.pago-dividido-tools button {
+  background: none;
+  border: none;
+  color: #B8860B;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.pago-dividido-restante {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #FFF3D6;
+  color: #B8860B;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.pago-dividido-restante.ok {
+  background: #eafaf1;
+  color: #1e8e50;
+}
+
+.pago-dividido-restante.excede {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.pago-dividido-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pago-dividido-actions button {
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}

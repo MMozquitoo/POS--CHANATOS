@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { formatPriceCOP } from '../utils/currency.js';
 import './CalculadoraVuelto.css';
 
-export default function CalculadoraVuelto({ total = 0, onClose }) {
+export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
   const [recibido, setRecibido] = useState('');
   const [vuelto, setVuelto] = useState(0);
 
@@ -23,6 +23,9 @@ export default function CalculadoraVuelto({ total = 0, onClose }) {
   };
 
   const handleConfirm = () => {
+    // Devolver el monto recibido al flujo de cobro (para vuelto en el recibo)
+    const recibidoNum = parseFloat(recibido) || 0;
+    onConfirm && onConfirm(recibidoNum);
     onClose && onClose();
   };
 

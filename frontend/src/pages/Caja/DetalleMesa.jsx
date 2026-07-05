@@ -384,18 +384,19 @@ export default function DetalleMesa() {
       return;
     }
     
-    // FASE 12.4: Validar status antes de agregar items
-    if (['LISTO', 'PAGADA', 'CANCELADO'].includes(activeOrder.status)) {
+    // FASE 12.4 (ajustado F1): solo PAGADA/CANCELADO bloquean; LISTO acepta items y vuelve a EN_PREP
+    if (['PAGADA', 'CANCELADO'].includes(activeOrder.status)) {
       alert(`Orden bloqueada. No se pueden agregar items cuando la orden está en estado ${activeOrder.status}.`);
       await loadActiveOrder();
       return;
     }
-    
+
     try {
+      const wasListo = activeOrder.status === 'LISTO';
       await axios.post(`/orders/${activeOrder.id}/items`, { items });
       await loadActiveOrder();
       await loadTableData();
-      alert('Items agregados correctamente');
+      alert(wasListo ? 'Items agregados. La orden volvió a cocina para preparar lo nuevo.' : 'Items agregados correctamente');
     } catch (error) {
       console.error('Error agregando items a orden:', error);
       // FASE 12.4: Manejo de error 409 (orden bloqueada)
@@ -1471,7 +1472,7 @@ export default function DetalleMesa() {
                   marginBottom: '1rem',
                   color: '#0c5460'
                 }}>
-                  <strong>Orden bloqueada: {activeOrder.status}.</strong> Solo se permite cobro si está LISTO. No se pueden editar items.
+                  <strong>Orden lista para cobrar.</strong> Puedes cobrarla, o agregar items nuevos (volverá a cocina). Los items existentes ya no se pueden editar.
                 </div>
               )}
               
@@ -1671,8 +1672,8 @@ export default function DetalleMesa() {
                 </div>
               )}
 
-              {/* Formulario para agregar items (solo si orden es NUEVO o EN_PREP) */}
-              {['NUEVO', 'EN_PREP'].includes(activeOrder.status) && (
+              {/* Formulario para agregar items (NUEVO, EN_PREP o LISTO; LISTO vuelve a cocina) */}
+              {['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) && (
                 <div style={{ 
                   background: 'white', 
                   padding: '1.5rem', 
@@ -2333,11 +2334,12 @@ export default function DetalleMesa() {
         </div>
       )}
 
-      {/* Calculadora de vuelto */}
+      {/* Calculadora de vuelto (el monto recibido alimenta el vuelto del recibo) */}
       {showCalculator && activeOrder && (
-        <CalculadoraVuelto 
-          total={activeOrderTotal} 
-          onClose={() => setShowCalculator(false)} 
+        <CalculadoraVuelto
+          total={activeOrderTotal}
+          onClose={() => setShowCalculator(false)}
+          onConfirm={(recibido) => setReceivedAmount(recibido)}
         />
       )}
 

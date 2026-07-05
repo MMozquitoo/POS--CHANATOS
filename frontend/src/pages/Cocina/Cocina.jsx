@@ -1,35 +1,59 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
+import { playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 import './Cocina.css';
+
+const byCreatedAt = (a, b) => new Date(a.created_at) - new Date(b.created_at);
 
 export default function Cocina() {
   const [orders, setOrders] = useState({ NUEVO: [], EN_PREP: [], LISTO: [] });
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem('cocina_sonido') !== 'off');
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+  // Snapshot para detectar trabajo nuevo (órdenes o items agregados) y sonar
+  const snapshotRef = useRef({ ids: new Set(), pendingItems: 0, initialized: false });
   const { socket, logout } = useAuth();
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
 
   useEffect(() => {
     loadOrders();
 
+    // Desbloquear audio en la primera interacción (política de autoplay)
+    document.addEventListener('pointerdown', unlockAudio, { once: true });
+
+    // Cronómetro de espera de los pedidos
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+
     if (socket) {
-      socket.on('order:new', () => {
-        loadOrders();
-      });
-
-      socket.on('order:status-changed', () => {
-        loadOrders();
-      });
-
-      socket.on('order:archived', () => {
-        loadOrders();
-      });
-
-      return () => {
-        socket.off('order:new');
-        socket.off('order:status-changed');
-        socket.off('order:archived');
-      };
+      socket.on('order:new', loadOrders);
+      socket.on('order:status-changed', loadOrders);
+      // Items agregados/editados en una orden ya visible (ej. cliente pide algo más)
+      socket.on('order:updated', loadOrders);
+      socket.on('item:updated', loadOrders);
+      socket.on('item:deleted', loadOrders);
+      socket.on('item:voided', loadOrders);
+      socket.on('order:archived', loadOrders);
     }
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('pointerdown', unlockAudio);
+      if (socket) {
+        socket.off('order:new', loadOrders);
+        socket.off('order:status-changed', loadOrders);
+        socket.off('order:updated', loadOrders);
+        socket.off('item:updated', loadOrders);
+        socket.off('item:deleted', loadOrders);
+        socket.off('item:voided', loadOrders);
+        socket.off('order:archived', loadOrders);
+      }
+    };
   }, [socket]);
 
   const loadOrders = async () => {
@@ -37,16 +61,42 @@ export default function Cocina() {
       // Cocina solo ve pedidos no archivados (kitchen=true filtra archived_at IS NULL)
       const res = await axios.get('/orders?kitchen=true');
       const allOrders = res.data.filter(o => o.status !== 'CANCELADO');
-      
+
       setOrders({
-        NUEVO: allOrders.filter(o => o.status === 'NUEVO'),
-        EN_PREP: allOrders.filter(o => o.status === 'EN_PREP'),
-        LISTO: allOrders.filter(o => o.status === 'LISTO')
+        NUEVO: allOrders.filter(o => o.status === 'NUEVO').sort(byCreatedAt),
+        EN_PREP: allOrders.filter(o => o.status === 'EN_PREP').sort(byCreatedAt),
+        LISTO: allOrders.filter(o => o.status === 'LISTO').sort(byCreatedAt)
       });
+
+      // Detectar trabajo nuevo para la alerta sonora:
+      // una orden desconocida o más items pendientes que antes
+      const pending = allOrders.filter(o => o.status === 'NUEVO' || o.status === 'EN_PREP');
+      const ids = new Set(pending.map(o => o.id));
+      const pendingItems = pending.reduce(
+        (sum, o) => sum + (o.items?.filter(i => !i.voided_at).length || 0), 0
+      );
+      const prev = snapshotRef.current;
+      const hasNewWork =
+        [...ids].some(id => !prev.ids.has(id)) || pendingItems > prev.pendingItems;
+
+      if (prev.initialized && hasNewWork && soundOnRef.current) {
+        playKitchenChime();
+      }
+      snapshotRef.current = { ids, pendingItems, initialized: true };
     } catch (error) {
       console.error('Error cargando pedidos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    localStorage.setItem('cocina_sonido', next ? 'on' : 'off');
+    if (next) {
+      unlockAudio();
+      playKitchenChime();
     }
   };
 
@@ -56,22 +106,21 @@ export default function Cocina() {
       loadOrders();
     } catch (error) {
       console.error('Error archivando pedido:', error);
-      alert('Error al archivar pedido');
+      showAlert('Error al archivar pedido');
     }
   };
 
   const archiveDayOrders = async () => {
-    if (!confirm('¿Archivar todas las órdenes LISTO del día? Esto ocultará las órdenes archivadas de la vista.')) {
-      return;
-    }
-    
+    const ok = await showConfirm('¿Archivar todas las órdenes LISTO del día? Esto ocultará las órdenes archivadas de la vista.');
+    if (!ok) return;
+
     try {
       await axios.post('/orders/archive-day');
       loadOrders();
-      alert('Órdenes del día archivadas correctamente');
+      showAlert('Órdenes del día archivadas correctamente');
     } catch (error) {
       console.error('Error archivando órdenes del día:', error);
-      alert('Error al archivar órdenes del día');
+      showAlert('Error al archivar órdenes del día');
     }
   };
 
@@ -81,11 +130,19 @@ export default function Cocina() {
       loadOrders();
     } catch (error) {
       console.error('Error actualizando estado:', error);
-      alert('Error al actualizar estado');
+      showAlert('Error al actualizar estado');
     }
   };
 
   const OrderCard = ({ order }) => {
+    const elapsedMin = Math.max(0, Math.floor((now - new Date(order.created_at).getTime()) / 60000));
+    const isRecent = (now - new Date(order.created_at).getTime()) < 60000;
+    // Urgencia solo mientras hay trabajo pendiente
+    const urgency = order.status === 'LISTO' ? 'done'
+      : elapsedMin >= 20 ? 'late'
+      : elapsedMin >= 10 ? 'warn'
+      : 'ok';
+
     const getActionButton = () => {
       if (order.status === 'NUEVO') {
         return (
@@ -119,21 +176,23 @@ export default function Cocina() {
     };
 
     return (
-      <div className="order-card-kitchen">
+      <div className={`order-card-kitchen ${isRecent && order.status !== 'LISTO' ? 'order-card-recent' : ''}`}>
         <div className="order-header-kitchen">
           <div className="order-code-kitchen">
             {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
           </div>
-          <div className="order-time-kitchen">
-            {new Date(order.created_at).toLocaleTimeString()}
+          <div className={`order-elapsed order-elapsed-${urgency}`}>
+            {order.status === 'LISTO'
+              ? new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+              : `${elapsedMin} min`}
           </div>
         </div>
         {order.table_label && (
           <div className="order-table-kitchen">Mesa: {order.table_label}</div>
         )}
         <div className="order-items-kitchen">
-          {order.items?.map((item, idx) => (
-            <div key={idx} className="order-item-kitchen">
+          {order.items?.filter(item => !item.voided_at).map((item, idx) => (
+            <div key={item.id ?? idx} className="order-item-kitchen">
               <span className="item-qty">{item.qty}x</span>
               <span className="item-name">{item.name}</span>
               {item.notes && (
@@ -156,6 +215,13 @@ export default function Cocina() {
       <header className="cocina-header">
         <h1>COCINA</h1>
         <div className="header-actions">
+          <button
+            onClick={toggleSound}
+            className="sound-toggle-btn"
+            title={soundOn ? 'Silenciar alertas' : 'Activar alertas sonoras'}
+          >
+            {soundOn ? '🔔' : '🔕'}
+          </button>
           {orders.LISTO.length > 0 && (
             <button onClick={archiveDayOrders} className="archive-day-btn">
               ARCHIVAR DÍA
@@ -205,7 +271,18 @@ export default function Cocina() {
           </div>
         </div>
       </div>
+
+      <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+        actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+        <p>{alertState.message}</p>
+      </Modal>
+      <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+        actions={<>
+          <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+          <button className="btn-chanatos" onClick={acceptConfirm}>Confirmar</button>
+        </>}>
+        <p>{confirmState.message}</p>
+      </Modal>
     </div>
   );
 }
-

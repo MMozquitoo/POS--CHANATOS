@@ -219,6 +219,8 @@ export default function Ventanilla() {
   const closedOrdersList = openOrders.filter((o) => ['PAGADA', 'CANCELADO'].includes(o.status));
   const selectedOrder = openOrders.find((o) => o.id === selectedOrderId);
   const canEdit = selectedOrder && ['NUEVO', 'EN_PREP'].includes(selectedOrder.status);
+  // FASE F4: editar/borrar items y marcar LISTO son acciones de CAJA (el backend las restringe)
+  const isCaja = user?.role === 'CAJA';
 
   return (
     <div className="ventanilla-container">
@@ -325,7 +327,7 @@ export default function Ventanilla() {
                           Enviar a Preparación
                         </button>
                       )}
-                      {order.status === 'EN_PREP' && (
+                      {order.status === 'EN_PREP' && isCaja && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -456,7 +458,7 @@ export default function Ventanilla() {
                         Enviar a Preparación
                       </button>
                     )}
-                    {selectedOrder.status === 'EN_PREP' && (
+                    {selectedOrder.status === 'EN_PREP' && isCaja && (
                       <button
                         onClick={() => {
                           if (confirm('¿Marcar esta orden como LISTO?')) {
@@ -519,7 +521,7 @@ export default function Ventanilla() {
                             {item.notes && <span className="item-notes-detalle"> • {item.notes}</span>}
                           </div>
                         </div>
-                        {canEdit && (
+                        {canEdit && isCaja && (
                           <div className="item-actions-detalle">
                             <button
                               onClick={() => {

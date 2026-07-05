@@ -299,3 +299,58 @@
     hyphens: auto;
   }
 }
+
+/* FASE 2: cronómetro de espera por pedido */
+.order-elapsed {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.order-elapsed-ok {
+  background: #eafaf1;
+  color: #1e8e50;
+}
+
+.order-elapsed-warn {
+  background: #FFF3D6;
+  color: #B8860B;
+}
+
+.order-elapsed-late {
+  background: #fdecea;
+  color: #c0392b;
+  animation: elapsed-blink 1.2s ease-in-out infinite;
+}
+
+.order-elapsed-done {
+  background: #f0f0f0;
+  color: #888;
+}
+
+@keyframes elapsed-blink {
+  50% { opacity: 0.45; }
+}
+
+/* Pedido recién llegado (menos de 1 minuto) */
+.order-card-recent {
+  animation: card-pulse 1.6s ease-in-out 3;
+  border: 2px solid #F5BB4C !important;
+}
+
+@keyframes card-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 187, 76, 0.0); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 187, 76, 0.35); }
+}
+
+/* Botón de sonido */
+.sound-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  font-size: 1.2rem;
+  padding: 4px 10px;
+  cursor: pointer;
+}

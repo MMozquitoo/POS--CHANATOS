@@ -2,7 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import Modal from '../../components/Modal';
+import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
+
+const STATUS_LABELS = {
+  NUEVO: 'Nuevo',
+  EN_PREP: 'En preparación',
+  LISTO: 'Listo',
+  PAGADA: 'Pagada',
+  CANCELADO: 'Cancelado',
+};
 
 // FASE 16.4.3.B: Navegación determinística - usar location.state.from primero, luego fallback por rol
 function getBackRoute(location, user) {
@@ -30,8 +40,10 @@ export default function PedidoMesa() {
   const location = useLocation();
   const { user } = useAuth();
   const backTo = getBackRoute(location, user);
+  const { alertState, showAlert, closeAlert } = useAlert();
   const [table, setTable] = useState(null);
   const [order, setOrder] = useState(null);
+  // items = SOLO los productos nuevos aún no enviados; los ya enviados viven en order.items
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [productsByCategory, setProductsByCategory] = useState({});
@@ -75,6 +87,15 @@ export default function PedidoMesa() {
     try {
       const res = await axios.get(`/tables`);
       const tableData = res.data.find(t => t.id === parseInt(tableId));
+      // FASE F4: ventanilla (9) y domicilios (10) tienen su propio flujo multi-orden
+      if (tableData?.number === 9) {
+        navigate('/ventanilla', { replace: true });
+        return;
+      }
+      if (tableData?.number === 10) {
+        navigate('/domicilios', { replace: true });
+        return;
+      }
       setTable(tableData);
     } catch (error) {
       console.error('Error cargando mesa:', error);
@@ -86,20 +107,15 @@ export default function PedidoMesa() {
       // Para mesas 1-8, usar endpoint de orden activa
       const res = await axios.get(`/orders/table/${tableId}?active=1`);
       if (res.data) {
-        // Cargar items de la orden activa
+        // Cargar items de la orden activa (solo lectura; NO se mezclan con los nuevos)
         const orderRes = await axios.get(`/orders/${res.data.id}`);
         setOrder(orderRes.data);
-        setItems(orderRes.data.items || []);
       } else {
-        // No hay orden activa, empezar con pedido vacío
         setOrder(null);
-        setItems([]);
       }
     } catch (error) {
       console.error('Error cargando pedido activo:', error);
-      // Si hay error, empezar con pedido vacío
       setOrder(null);
-      setItems([]);
     }
   };
 
@@ -122,7 +138,7 @@ export default function PedidoMesa() {
 
   const addCustomItem = () => {
     if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      alert('Ingresa un nombre y precio válido');
+      showAlert('Ingresa un nombre y precio válido');
       return;
     }
 
@@ -148,26 +164,22 @@ export default function PedidoMesa() {
 
   const sendToKitchen = async () => {
     if (items.length === 0) {
-      alert('Agrega al menos un producto');
+      showAlert('Agrega al menos un producto');
       return;
     }
 
     const tableNumber = table?.number ?? null;
 
     try {
-      // GUARDRAIL: one active order per table — si ya hay orden, agregar items (no crear otra)
+      // GUARDRAIL: one active order per table — si ya hay orden, agregar SOLO los items nuevos
       if (order && order.id) {
-        if (import.meta.env.DEV) {
-          console.log('[FASE M8.7] PedidoMesa sendToKitchen: ya existe orden activa, agregando items (no se llama POST /orders).', {
-            tableId,
-            tableNumber,
-            existingActiveOrderId: order.id,
-            channel: 'MESA',
-            service: 'MESA',
-          });
-        }
+        const wasListo = order.status === 'LISTO';
         await axios.post(`/orders/${order.id}/items`, { items });
-        alert('Items agregados a la orden');
+        showAlert(
+          wasListo
+            ? 'Items agregados. La orden volvió a cocina para preparar lo nuevo.'
+            : 'Items agregados a la orden'
+        );
       } else {
         if (import.meta.env.DEV) {
           console.log('[FASE M8.7] PedidoMesa sendToKitchen antes de POST /orders:', {
@@ -188,7 +200,7 @@ export default function PedidoMesa() {
         if (import.meta.env.DEV) {
           console.log('[FASE M8.7] Pedido creado:', response.data);
         }
-        alert('Pedido enviado a cocina');
+        showAlert('Pedido enviado a cocina');
       }
 
       await loadActiveOrder();
@@ -203,24 +215,24 @@ export default function PedidoMesa() {
       }
       console.error('Error enviando pedido:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Error al enviar pedido';
-      alert(`Error: ${errorMessage}`);
+      showAlert(`Error: ${errorMessage}`);
     }
   };
 
   // Función para enviar orden a preparación (cambiar estado a EN_PREP)
   const sendToPreparation = async () => {
     if (!order || !order.id) {
-      alert('No hay orden activa');
+      showAlert('No hay orden activa');
       return;
     }
 
     try {
       await axios.patch(`/orders/${order.id}/status`, { status: 'EN_PREP' });
-      alert('Orden enviada a preparación');
+      showAlert('Orden enviada a preparación');
       await loadActiveOrder();
     } catch (error) {
       console.error('Error enviando a preparación:', error);
-      alert(error.response?.data?.error || 'Error al enviar a preparación');
+      showAlert(error.response?.data?.error || 'Error al enviar a preparación');
     }
   };
 
@@ -234,10 +246,10 @@ export default function PedidoMesa() {
       <div className="pedido-content">
         {/* Información de orden activa si existe */}
         {order && order.id && (
-          <div style={{ 
-            padding: '1rem', 
-            marginBottom: '1rem', 
-            background: '#f8f9fa', 
+          <div style={{
+            padding: '1rem',
+            marginBottom: '1rem',
+            background: '#f8f9fa',
             borderRadius: '8px',
             border: '1px solid #ddd'
           }}>
@@ -247,11 +259,11 @@ export default function PedidoMesa() {
                   {order.daily_no ? `ORDEN ${order.daily_no}` : order.code || `ORDEN ${order.id}`}
                 </strong>
                 <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
-                  Estado: <span style={{ 
-                    color: order.status === 'NUEVO' ? '#ffc107' : 
+                  Estado: <span style={{
+                    color: order.status === 'NUEVO' ? '#ffc107' :
                            order.status === 'EN_PREP' ? '#F5BB4C' : '#28a745',
                     fontWeight: 'bold'
-                  }}>{order.status}</span>
+                  }}>{STATUS_LABELS[order.status] || order.status}</span>
                 </div>
               </div>
               {order.status === 'NUEVO' && (
@@ -272,13 +284,33 @@ export default function PedidoMesa() {
                 </button>
               )}
             </div>
+
+            {/* Items ya enviados (solo lectura) */}
+            {order.items && order.items.length > 0 && (
+              <div style={{ marginTop: '0.75rem', borderTop: '1px dashed #ddd', paddingTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.8rem', color: '#999', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                  YA EN LA ORDEN
+                </div>
+                {order.items.filter(it => !it.voided_at).map(it => (
+                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#555', padding: '0.15rem 0' }}>
+                    <span>{it.qty}× {it.name}{it.notes ? ` • ${it.notes}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {order.status === 'LISTO' && (
+              <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: '#FFF8E7', borderRadius: '6px', fontSize: '0.85rem', color: '#B8860B' }}>
+                Esta orden ya está lista. Si agregas algo más, volverá a cocina solo con lo nuevo.
+              </div>
+            )}
           </div>
         )}
 
         <div className="pedido-items">
-          <h3>Pedido</h3>
+          <h3>{order && order.id ? 'Nuevos items por enviar' : 'Pedido'}</h3>
           {items.length === 0 ? (
-            <p className="empty-state">No hay items en el pedido</p>
+            <p className="empty-state">{order && order.id ? 'Agrega productos para sumarlos a la orden' : 'No hay items en el pedido'}</p>
           ) : (
             <div className="items-list">
               {items.map((item, index) => (
@@ -450,6 +482,11 @@ export default function PedidoMesa() {
           {order && order.id ? 'AGREGAR ITEMS' : 'CREAR Y ENVIAR'}
         </button>
       </div>
+
+      <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+        actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+        <p>{alertState.message}</p>
+      </Modal>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import axios from 'axios';
 import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
+import PagoDividido from '../../components/caja/PagoDividido.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal';
@@ -23,6 +24,7 @@ export default function CobrarPedidos() {
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [loading, setLoading] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showSplit, setShowSplit] = useState(false);
   const [cashSessionActive, setCashSessionActive] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
@@ -156,6 +158,36 @@ export default function CobrarPedidos() {
       } else {
         await showAlert(error.response?.data?.error || 'Error al procesar pago');
       }
+    }
+  };
+
+  // FASE F3: pago dividido en varios métodos
+  const processSplitPayment = async (paymentLines) => {
+    if (!selectedOrder) return;
+
+    if (selectedOrder.status !== 'LISTO') {
+      setShowSplit(false);
+      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+      loadOrders();
+      return;
+    }
+
+    try {
+      await axios.post('/payments', {
+        orderId: selectedOrder.id,
+        payments: paymentLines,
+      });
+
+      setShowSplit(false);
+      const detalle = paymentLines.map(l => `${l.method}: ${formatPriceCOP(l.amount)}`).join(' + ');
+      await showAlert(`Pago dividido procesado (${detalle})`);
+      loadOrders();
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error('Error procesando pago dividido:', error);
+      setShowSplit(false);
+      await showAlert(error.response?.data?.error || 'Error al procesar el pago dividido');
+      if (error.response?.status === 409) loadOrders();
     }
   };
 
@@ -475,8 +507,8 @@ export default function CobrarPedidos() {
               >
                 COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
               </button>
-              <button 
-                onClick={processPaymentFull} 
+              <button
+                onClick={processPaymentFull}
                 disabled={!cashSessionActive}
                 className="process-payment-btn"
                 style={{
@@ -486,11 +518,30 @@ export default function CobrarPedidos() {
               >
                 COBRAR TODO
               </button>
+              <button
+                onClick={() => setShowSplit(true)}
+                disabled={!cashSessionActive || !isOnline}
+                className="process-payment-btn"
+                style={{
+                  background: '#1a1a2e',
+                  opacity: cashSessionActive && isOnline ? 1 : 0.6,
+                  cursor: cashSessionActive ? 'pointer' : 'not-allowed'
+                }}
+              >
+                PAGO DIVIDIDO
+              </button>
             </div>
             {showCalculator && (
-              <CalculadoraVuelto 
-                total={selectedTotal()} 
-                onClose={() => setShowCalculator(false)} 
+              <CalculadoraVuelto
+                total={selectedTotal() || calculateTotal(selectedOrder)}
+                onClose={() => setShowCalculator(false)}
+              />
+            )}
+            {showSplit && (
+              <PagoDividido
+                total={calculateTotal(selectedOrder)}
+                onCancel={() => setShowSplit(false)}
+                onConfirm={processSplitPayment}
               />
             )}
             <div style={{display:'flex', gap:'0.5rem', marginTop:'1rem', flexWrap:'wrap'}}>

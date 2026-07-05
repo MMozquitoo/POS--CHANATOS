@@ -66,7 +66,17 @@ export default function Mesas() {
   }, [socket]);
 
   // FASE 16.4.3.C: useCallback para evitar recrear función en cada render
+  // FASE F4: ventanilla/domicilios van a sus páginas multi-orden, no al flujo de mesa
   const handleMesaClick = useCallback((table) => {
+    const special = getSpecialType(table);
+    if (special === 'VENTANILLA') {
+      navigate('/ventanilla', { state: { from: '/' } });
+      return;
+    }
+    if (special === 'DOMICILIOS') {
+      navigate('/domicilios', { state: { from: '/' } });
+      return;
+    }
     navigate(`/mesa/${table.id}`, { state: { from: '/' } });
   }, [navigate]);
 
