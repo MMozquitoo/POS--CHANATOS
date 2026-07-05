@@ -4,6 +4,7 @@ import { ConnectionProvider } from './contexts/ConnectionContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ConnectionBanner from './components/ConnectionBanner';
 import Login from './pages/Login';
+import ConfigServidor from './pages/ConfigServidor';
 import MeseroRoutes from './pages/Mesero/MeseroRoutes';
 import Cocina from './pages/Cocina/Cocina';
 import CajaRoutes from './pages/Caja/CajaRoutes';
@@ -65,6 +66,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/config-servidor" element={<ConfigServidor />} />
             <Route path="/*" element={<AppRoutes />} />
           </Routes>
         </AuthProvider>

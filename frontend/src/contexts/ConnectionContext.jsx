@@ -190,7 +190,7 @@ export function ConnectionProvider({ children }) {
   // Escuchar cambios en localStorage para actualizar URL
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'pos_server_url') {
+      if (e.key === 'pos_api_url') {
         stopMonitor();
         checkCountRef.current = 0;
         startMonitor();

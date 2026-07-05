@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiBaseUrl } from '../utils/api';
+import { verifyServer, discoverServer } from '../utils/discovery';
 import './Login.css';
 
 export default function Login() {
@@ -8,6 +10,35 @@ export default function Login() {
   const [error, setError] = useState('');
   const [blocked, setBlocked] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveryMsg, setDiscoveryMsg] = useState('');
+  const discoveryStarted = useRef(false);
+
+  // Descubrimiento automático: si el servidor configurado no responde,
+  // escanear la red local buscando el backend (clave para la app instalada).
+  useEffect(() => {
+    if (discoveryStarted.current) return;
+    discoveryStarted.current = true;
+
+    (async () => {
+      const current = getApiBaseUrl();
+      if (await verifyServer(current)) return; // servidor actual responde, nada que hacer
+
+      setDiscovering(true);
+      setDiscoveryMsg('Buscando servidor en la red…');
+      const found = await discoverServer(stage =>
+        setDiscoveryMsg(stage === 'mdns' ? 'Buscando servidor…' : `Buscando servidor en ${stage}.x…`)
+      );
+
+      if (found) {
+        localStorage.setItem('pos_api_url', found);
+        window.location.reload();
+      } else {
+        setDiscovering(false);
+        setDiscoveryMsg('No se encontró el servidor. Verifica el Wi-Fi o configúralo manualmente.');
+      }
+    })();
+  }, []);
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
@@ -112,6 +143,13 @@ export default function Login() {
           </div>
         )}
 
+        {discoveryMsg && (
+          <div className={`discovery-message ${discovering ? 'searching' : 'failed'}`}>
+            {discovering && <span className="discovery-spinner" />}
+            {discoveryMsg}
+          </div>
+        )}
+
         <div className="keypad">
           <div className="keypad-row">
             <button onClick={() => handleNumberClick('1')} disabled={blocked}>1</button>
@@ -135,12 +173,20 @@ export default function Login() {
           </div>
         </div>
 
-        <button 
-          className="enter-btn" 
+        <button
+          className="enter-btn"
           onClick={handleSubmit}
           disabled={pin.length < 4 || blocked}
         >
           ENTRAR
+        </button>
+
+        <button
+          type="button"
+          className="server-config-toggle"
+          onClick={() => navigate('/config-servidor')}
+        >
+          ⚙ Configurar servidor
         </button>
       </div>
     </div>

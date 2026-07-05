@@ -1,0 +1,17 @@
+{
+  "appId": "com.chanatos.pos",
+  "appName": "POS Chanatos",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
