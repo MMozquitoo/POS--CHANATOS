@@ -1866,4 +1866,109 @@ router.post("/:id/cancel", requireAuth, requireRole("CAJA"), async (req, res) =>
   }
 });
 
+// POST /api/orders/:id/merge - Unir otra orden a esta (FASE F6)
+// Mueve los items de la orden origen a la orden destino y cierra la origen.
+// Caso típico: un cliente de ventanilla con dos órdenes quiere un solo ticket.
+router.post("/:id/merge", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const targetId = parseInt(req.params.id);
+    const sourceId = parseInt(req.body.sourceOrderId);
+
+    if (!sourceId || sourceId === targetId) {
+      return res.status(400).json({ error: "Debes indicar otra orden para unir (sourceOrderId)" });
+    }
+
+    const target = await db.get("SELECT * FROM orders WHERE id = ?", [targetId]);
+    const source = await db.get("SELECT * FROM orders WHERE id = ?", [sourceId]);
+    if (!target || !source) {
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+
+    const OPEN_STATUSES = ["NUEVO", "EN_PREP", "LISTO"];
+    if (!OPEN_STATUSES.includes(target.status) || !OPEN_STATUSES.includes(source.status)) {
+      return res.status(409).json({ error: "Solo se pueden unir órdenes abiertas (no pagadas ni canceladas)" });
+    }
+
+    if (target.table_id !== source.table_id) {
+      return res.status(400).json({ error: "Solo se pueden unir órdenes de la misma mesa/canal" });
+    }
+
+    // Sin pagos en ninguna de las dos (los montos ya cobrados no se pueden mezclar)
+    const pagos = await db.get(
+      "SELECT COUNT(*) as c FROM payments WHERE order_id IN (?, ?) AND voided_at IS NULL",
+      [targetId, sourceId]
+    );
+    if (pagos && pagos.c > 0) {
+      return res.status(409).json({ error: "No se pueden unir órdenes con pagos registrados. Anula los pagos primero." });
+    }
+
+    const timestamp = toBogotaSQLiteTimestamp(new Date());
+    // Si lo que llega de la origen aún no está listo, el destino vuelve a cocina
+    const targetNewStatus = target.status === "LISTO" && source.status !== "LISTO" ? "EN_PREP" : target.status;
+
+    let movedCount = 0;
+    await db.run("BEGIN IMMEDIATE");
+    try {
+      const moved = await db.run(
+        "UPDATE order_items SET order_id = ? WHERE order_id = ?",
+        [targetId, sourceId]
+      );
+      movedCount = moved?.changes || 0;
+
+      if (targetNewStatus !== target.status) {
+        await db.run("UPDATE orders SET status = ?, updated_at = ? WHERE id = ?", [targetNewStatus, timestamp, targetId]);
+      } else {
+        await db.run("UPDATE orders SET updated_at = ? WHERE id = ?", [timestamp, targetId]);
+      }
+
+      // La orden origen queda cancelada (sin items) con motivo trazable
+      await db.run(
+        `UPDATE orders
+         SET status = 'CANCELADO', cancelled_at = ?, cancelled_by = ?,
+             cancel_reason = ?, archived_at = ?, updated_at = ?
+         WHERE id = ?`,
+        [timestamp, req.user.id, `Unida a la orden ${target.daily_no || target.code || targetId}`, timestamp, timestamp, sourceId]
+      );
+
+      await db.run("COMMIT");
+    } catch (txError) {
+      try { await db.run("ROLLBACK"); } catch (rbErr) { /* ignore */ }
+      throw txError;
+    }
+
+    await logAudit({
+      action: 'ORDER_MERGED',
+      entity_type: 'order',
+      entity_id: targetId,
+      order_id: targetId,
+      user_id: req.user.id,
+      ip: req.ip || req.connection?.remoteAddress || null,
+      summary: `Orden ${source.daily_no || source.code || sourceId} unida a la orden ${target.daily_no || target.code || targetId} (${movedCount} items)`,
+      meta: { source_order_id: sourceId, target_order_id: targetId, items_moved: movedCount }
+    });
+
+    const updatedTarget = await db.get("SELECT * FROM orders WHERE id = ?", [targetId]);
+    const allItems = await db.all("SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL", [targetId]);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("order:updated", { order: { ...updatedTarget, items: allItems } });
+      io.emit("order:status-changed", { order: { ...updatedTarget, items: allItems } });
+      io.emit("order:archived", { orderId: sourceId });
+      io.emit("table:updated", { tableId: target.table_id });
+    }
+
+    res.json({
+      ok: true,
+      order: { ...updatedTarget, items: allItems },
+      mergedOrderId: sourceId,
+      itemsMoved: movedCount,
+    });
+  } catch (error) {
+    console.error("Error uniendo órdenes:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 export default router;

@@ -27,6 +27,7 @@ export default function Ventanilla() {
   const [newOrderItems, setNewOrderItems] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCustomProduct, setShowCustomProduct] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState(1);
@@ -83,6 +84,20 @@ export default function Ventanilla() {
     setSelectedOrderId(orderId);
     setShowNewOrderForm(false);
     await loadOrderItems(orderId);
+  };
+
+  // FASE F6: unir otra orden a la seleccionada (un solo ticket)
+  const mergeOrder = async (sourceOrderId) => {
+    try {
+      const res = await axios.post(`/orders/${selectedOrderId}/merge`, { sourceOrderId });
+      setShowMerge(false);
+      await refresh();
+      await loadOrderItems(selectedOrderId);
+      alert(`Órdenes unidas: ${res.data.itemsMoved} item(s) agregados a esta cuenta`);
+    } catch (error) {
+      console.error('Error uniendo órdenes:', error);
+      alert(error.response?.data?.error || 'Error al unir órdenes');
+    }
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -480,7 +495,15 @@ export default function Ventanilla() {
                         Marcar Listo
                       </button>
                     )}
-                    <button 
+                    {isCaja && canEdit && openOrdersList.filter(o => o.id !== selectedOrderId).length > 0 && (
+                      <button
+                        onClick={() => setShowMerge(true)}
+                        style={{ padding: '0.5rem 1rem', background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
+                      >
+                        Unir orden
+                      </button>
+                    )}
+                    <button
                       onClick={() => {
                         setSelectedOrderId(null);
                         setSelectedOrderItems([]);
@@ -733,6 +756,38 @@ export default function Ventanilla() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* FASE F6: selector para unir otra orden a la seleccionada */}
+      {showMerge && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', maxWidth: '480px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ marginTop: 0 }}>Unir orden a esta cuenta</h3>
+            <p style={{ color: '#666', fontSize: '0.9rem' }}>
+              Los items de la orden que elijas pasarán a la cuenta actual y la orden elegida se cerrará. Solo órdenes sin pagos.
+            </p>
+            {openOrdersList.filter(o => o.id !== selectedOrderId).map(o => (
+              <button
+                key={o.id}
+                onClick={() => {
+                  if (confirm(`¿Unir la ORDEN ${o.daily_no || o.code || o.id} a esta cuenta?`)) {
+                    mergeOrder(o.id);
+                  }
+                }}
+                style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem', marginBottom: '0.5rem', background: '#FFF8E7', border: '1.5px solid #F5BB4C', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                <strong>{o.daily_no ? `ORDEN ${o.daily_no}` : o.code}</strong>
+                <span>{o.status} • {formatPriceCOP(o.pendingTotal || 0)}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => setShowMerge(false)}
+              style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', background: '#ccc', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>
