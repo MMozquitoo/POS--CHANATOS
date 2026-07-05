@@ -145,3 +145,79 @@
     padding: 14px;
   }
 }
+
+/* --- FASE F9: correcciones tras prueba real en iPhone --- */
+
+/* iOS pinta los <button> de azul por defecto: colores explícitos de marca */
+button {
+  -webkit-tap-highlight-color: rgba(245, 187, 76, 0.25);
+}
+
+.product-btn-caja,
+.product-btn {
+  color: #1a1a2e;
+  background: white;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 12px 8px;
+}
+
+.product-btn-caja .product-name-btn,
+.product-btn .product-name-btn {
+  color: #1a1a2e;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.product-btn-caja .product-price-btn,
+.product-btn .product-price-btn {
+  color: #B8860B;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.product-btn-caja:active,
+.product-btn:active {
+  background: #FFF8E7;
+  border-color: #F5BB4C;
+}
+
+/* Encabezado del detalle de orden: título y acciones que no se aplastan */
+.order-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.order-detail-header h3 {
+  margin: 0;
+}
+
+.order-detail-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.order-detail-actions button {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .order-detail-header > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .order-detail-actions {
+    flex: 1 1 100%;
+    justify-content: stretch;
+  }
+
+  .order-detail-actions button {
+    flex: 1 1 auto;
+  }
+}

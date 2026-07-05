@@ -745,10 +745,8 @@ router.get("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
 
-    // Verificar permisos: mesero solo ve sus pedidos
-    if (req.user.role === "MESERO" && order.created_by !== req.user.id) {
-      return res.status(403).json({ error: "Acceso denegado" });
-    }
+    // FASE F9: los meseros ven cualquier orden (piso compartido: relevos de turno,
+    // ventanilla común, órdenes creadas por caja). Cobrar/anular siguen siendo de CAJA.
 
     const items = await db.all("SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL", [
       order.id,

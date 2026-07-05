@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
 import SalsasChips from '../../components/SalsasChips';
+import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
@@ -322,7 +323,7 @@ export default function Domicilios() {
                         fontSize: '0.85rem',
                         fontWeight: 'bold'
                       }}>
-                        {order.status}
+                        {statusLabel(order.status)}
                       </span>
                       {order.status === 'NUEVO' && (
                         <button
@@ -431,7 +432,7 @@ export default function Domicilios() {
                             fontSize: '0.85rem',
                             fontWeight: 'bold'
                           }}>
-                            {order.status}
+                            {statusLabel(order.status)}
                           </span>
                         </div>
                       </div>
@@ -445,17 +446,17 @@ export default function Domicilios() {
           <div className="order-detail-view">
             {selectedOrder && (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div className="order-detail-header">
                   <div>
                     <h3>
                       {selectedOrder.daily_no ? `ORDEN ${selectedOrder.daily_no}` : selectedOrder.code || 'ORDEN'}
                     </h3>
                     <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
                       Total pendiente: <strong>{formatPriceCOP(selectedOrder.pendingTotal || 0)}</strong>
-                      {` • Estado: ${selectedOrder.status}`}
+                      {` • ${statusLabel(selectedOrder.status)}`}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <div className="order-detail-actions">
                     {selectedOrder.status === 'NUEVO' && (
                       <button
                         onClick={async () => {
