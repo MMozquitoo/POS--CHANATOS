@@ -89,36 +89,43 @@ class ErrorBoundary extends React.Component {
               Recargar
             </button>
 
-            {isDev && this.state.error && (
+            {/* Sistema interno: mostrar siempre el detalle para poder diagnosticar en sitio */}
+            {this.state.error && (
               <div style={{
                 marginTop: '2rem',
                 padding: '1rem',
                 background: '#f8f9fa',
                 borderRadius: '8px',
                 textAlign: 'left',
-                maxHeight: '400px',
+                maxHeight: '300px',
                 overflow: 'auto'
               }}>
                 <h3 style={{
-                  fontSize: '1rem',
+                  fontSize: '0.9rem',
                   fontWeight: 'bold',
                   marginBottom: '0.5rem',
                   color: '#333'
                 }}>
-                  Detalles del error (solo en desarrollo):
+                  Detalle técnico (compártelo para diagnóstico):
                 </h3>
                 <pre style={{
-                  fontSize: '0.85rem',
+                  fontSize: '0.8rem',
                   color: '#dc3545',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   margin: 0
                 }}>
                   {this.state.error.toString()}
-                  {this.state.errorInfo && this.state.errorInfo.componentStack && (
+                  {isDev && this.state.errorInfo?.componentStack && (
                     <>
                       {'\n\n'}
                       {this.state.errorInfo.componentStack}
+                    </>
+                  )}
+                  {!isDev && this.state.errorInfo?.componentStack && (
+                    <>
+                      {'\n'}
+                      {this.state.errorInfo.componentStack.split('\n').slice(0, 4).join('\n')}
                     </>
                   )}
                 </pre>
