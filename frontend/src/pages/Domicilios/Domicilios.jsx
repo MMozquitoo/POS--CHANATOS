@@ -50,14 +50,15 @@ export default function Domicilios() {
     loadProducts();
   }, []);
 
-  const loadOrders = async () => {
+  // Declaración de función (se eleva): useVentanillaRefresh la referencia más arriba
+  async function loadOrders() {
     try {
       const res = await axios.get('/orders/service/DOMICILIO?only_open=1');
       setOpenOrders(res.data);
     } catch (error) {
       console.error('Error cargando órdenes:', error);
     }
-  };
+  }
 
   const loadProducts = async () => {
     try {
