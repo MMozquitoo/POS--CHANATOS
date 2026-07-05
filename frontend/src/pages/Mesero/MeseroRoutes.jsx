@@ -22,6 +22,8 @@ export default function MeseroRoutes() {
         <Route path="/domicilios" element={<Domicilios />} />
         {/* FASE 18.6: /mesas → / (evita pantalla en blanco y "menú viejo" por cache) */}
         <Route path="/mesas" element={<Navigate to="/" replace />} />
+        {/* FASE F11: URL de otro rol tras cambiar de sesión → al home (evita pantalla en blanco) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
     </RequireRole>

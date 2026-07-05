@@ -58,6 +58,8 @@ export default function CajaRoutes() {
         <Route path="/config-servidor" element={<ConfigServidor />} />
         <Route path="/diagnostico" element={<Diagnostico />} />
         <Route path="/apertura-caja" element={<AperturaCaja />} />
+        {/* FASE F11: URL de otro rol tras cambiar de sesión → al home (evita pantalla en blanco) */}
+        <Route path="*" element={<Navigate to="/centro" replace />} />
       </Routes>
       </Suspense>
     </RequireRole>

@@ -155,9 +155,9 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
         {/* FASE 18.1: Título con badge de rol */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <h1 style={titleStyle}>{title}</h1>
-          {user?.role && <RoleBadge role={user.role} />}
+          {user?.role && !compact && <RoleBadge role={user.role} />}
         </div>
-        {subtitle && <div style={subtitleStyle}>{subtitle}</div>}
+        {subtitle && !compact && <div style={subtitleStyle}>{subtitle}</div>}
       </div>
 
       {rightButton ? (

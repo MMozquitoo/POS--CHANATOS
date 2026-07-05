@@ -263,6 +263,8 @@ export function AuthProvider({ children }) {
     }
 
     setUser(null);
+    // FASE F11: URL y estado en cero (evita quedar en rutas del rol anterior)
+    window.location.href = '/';
   };
 
   return (

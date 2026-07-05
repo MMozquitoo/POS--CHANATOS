@@ -264,3 +264,36 @@ button {
     order: 2;
   }
 }
+
+/* --- FASE F11: plano de mesas sin palabras partidas en teléfono --- */
+.mesa-tile {
+  hyphens: none;
+}
+
+.mesa-tile .mesa-label,
+.mesa-tile .mesa-status {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .plano-mesas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .mesa-tile .mesa-number {
+    font-size: 1.4rem;
+  }
+
+  .mesa-tile .mesa-label {
+    font-size: 0.72rem;
+  }
+
+  .mesa-tile .mesa-status {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+  }
+}

@@ -115,9 +115,18 @@ async function probe(url, signal) {
 
 /**
  * Verifica si una URL responde como el POS Chanatos.
+ * Con reintentos: al abrir la app el Wi-Fi del teléfono puede tardar 1-2s
+ * en despertar y un único intento fallido disparaba el escaneo completo
+ * (parecía que "se olvidaba" del servidor).
  */
-export async function verifyServer(url) {
-  return probe(url);
+export async function verifyServer(url, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    if (await probe(url)) return true;
+    if (i < retries - 1) {
+      await new Promise(r => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  return false;
 }
 
 /**
@@ -126,6 +135,13 @@ export async function verifyServer(url) {
  * onProgress(etapa) recibe 'mdns' o el prefijo de subred en curso.
  */
 export async function discoverServer(onProgress) {
+  // 0) El último servidor conocido, con paciencia (el caso más común es que siga ahí)
+  const saved = localStorage.getItem('pos_api_url');
+  if (saved) {
+    if (onProgress) onProgress('mdns');
+    if (await verifyServer(saved, 2)) return saved;
+  }
+
   const viaMdns = await discoverViaMdns(onProgress);
   if (viaMdns) return viaMdns;
 
