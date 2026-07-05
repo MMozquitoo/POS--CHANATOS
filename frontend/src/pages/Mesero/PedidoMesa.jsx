@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
-import SalsasChips from '../../components/SalsasChips';
+import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
@@ -422,9 +422,9 @@ export default function PedidoMesa() {
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ej: Sin cebolla"
+                  placeholder="Ej: Sin azúcar"
                 />
-                <SalsasChips value={notes} onChange={setNotes} />
+                {categoriaLlevaSalsas(selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
               </div>
               <button onClick={addItem} className="add-item-btn">Agregar</button>
             </div>

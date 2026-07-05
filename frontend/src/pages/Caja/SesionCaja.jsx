@@ -121,7 +121,7 @@ export default function SesionCaja() {
       {previousDayPending && previousDaySummary && !session && (
         <div className="modal-overlay">
           <div className="modal-content summary-modal">
-            <h2>⚠️ Cierre Pendiente del Día Anterior</h2>
+            <h2>Cierre Pendiente del Día Anterior</h2>
             <p>Se detectó una sesión sin cerrar del día anterior. Resumen del día:</p>
             <div className="previous-day-summary">
               <div className="summary-section">
@@ -350,7 +350,7 @@ export default function SesionCaja() {
               <h2>Abrir Caja</h2>
               {previousDayPending && previousDaySummary && (
                 <div className="warning-banner">
-                  ⚠️ Hay un cierre pendiente del día anterior. 
+                  Hay un cierre pendiente del día anterior. 
                   Ventas del día anterior: {formatPriceCOP(previousDaySummary.totalSales || 0)}
                 </div>
               )}

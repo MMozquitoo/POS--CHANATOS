@@ -272,7 +272,7 @@ export default function Cocina() {
             className="sound-toggle-btn"
             title={soundOn ? 'Silenciar alertas' : 'Activar alertas sonoras'}
           >
-            {soundOn ? '🔔' : '🔕'}
+            {soundOn ? 'SONIDO: SÍ' : 'SONIDO: NO'}
           </button>
           {orders.LISTO.length > 0 && (
             <button onClick={archiveDayOrders} className="archive-day-btn">

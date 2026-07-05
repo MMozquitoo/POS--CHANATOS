@@ -74,7 +74,7 @@ export default function ConfigImpresora() {
     try {
       setSaving(true);
       localStorage.setItem('pos_printer_deviceName', selectedPrinter);
-      showAlert('✅ Impresora guardada correctamente');
+      showAlert('Impresora guardada correctamente');
     } catch (err) {
       console.error('Error al guardar:', err);
       showAlert(`Error al guardar: ${err.message}`);
@@ -109,7 +109,7 @@ export default function ConfigImpresora() {
         silent: true
       });
 
-      showAlert('✅ Ticket de prueba impreso correctamente');
+      showAlert('Ticket de prueba impreso correctamente');
     } catch (err) {
       console.error('Error al imprimir prueba:', err);
       showAlert(`No se pudo imprimir directo: ${err.message}\n\nUsa "Imprimir" normal como alternativa.`);

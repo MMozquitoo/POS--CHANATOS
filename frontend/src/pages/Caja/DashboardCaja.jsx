@@ -238,7 +238,7 @@ export default function DashboardCaja() {
                 fontSize: '0.9rem',
                 fontWeight: 'bold'
               }}>
-                ✅ Caja abierta
+                Caja abierta
               </span>
             </div>
             

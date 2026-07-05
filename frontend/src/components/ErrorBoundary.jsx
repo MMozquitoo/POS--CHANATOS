@@ -52,7 +52,7 @@ class ErrorBoundary extends React.Component {
               fontSize: '4rem',
               marginBottom: '1rem'
             }}>
-              ⚠️
+              
             </div>
             <h1 style={{
               fontSize: '1.5rem',

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
-import SalsasChips from '../../components/SalsasChips';
+import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
 import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
@@ -195,7 +195,8 @@ export default function Domicilios() {
         qty: 1, 
         price: product.price, 
         notes: '',
-        product_id: product.id
+        product_id: product.id,
+        category: product.category || selectedCategory
       },
     ]);
   };
@@ -676,7 +677,9 @@ export default function Domicilios() {
                       placeholder="Notas (opcional)"
                       onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
                     />
-                    <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                    {categoriaLlevaSalsas(it.category) && (
+                      <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                    )}
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>

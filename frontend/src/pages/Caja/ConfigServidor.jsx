@@ -332,8 +332,8 @@ export default function ConfigServidor() {
               color: status === 'ok' ? '#155724' : status === 'error' ? '#721c24' : '#0c5460'
             }}>
               <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                {status === 'loading' && '⏳ Probando...'}
-                {status === 'ok' && '✅ Conectado'}
+                {status === 'loading' && 'Probando...'}
+                {status === 'ok' && 'Conectado'}
                 {status === 'error' && '❌ Error de conexión'}
               </div>
               {statusMessage && (
@@ -353,7 +353,7 @@ export default function ConfigServidor() {
               border: '2px solid #28a745',
               color: '#155724'
             }}>
-              ✅ Guardado. Se recomienda recargar la página.
+              Guardado. Se recomienda recargar la página.
             </div>
           )}
 

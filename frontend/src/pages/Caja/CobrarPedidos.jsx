@@ -426,7 +426,7 @@ export default function CobrarPedidos() {
             marginBottom: '1rem',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}></div>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#856404' }}>
               Debes ABRIR CAJA antes de cobrar
             </div>

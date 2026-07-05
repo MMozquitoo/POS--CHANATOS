@@ -243,7 +243,7 @@ export default function HistorialSesiones() {
 
               {/* Resumen de Caja */}
               <div className="stats-card cash-summary">
-                <h3>💰 Resumen de Caja</h3>
+                <h3>Resumen de Caja</h3>
                 {dayStats.sessions.length === 0 ? (
                   <p className="no-sessions">No hubo sesiones de caja este día</p>
                 ) : (
@@ -254,7 +254,7 @@ export default function HistorialSesiones() {
                           <div className="session-header">
                             <span className="session-number">Sesión {idx + 1}</span>
                             <span className={`session-status ${session.closed_at ? 'closed' : 'open'}`}>
-                              {session.closed_at ? '✓ Cerrada' : '⏳ Abierta'}
+                              {session.closed_at ? '✓ Cerrada' : 'Abierta'}
                             </span>
                           </div>
                           <div className="session-times">
@@ -305,7 +305,7 @@ export default function HistorialSesiones() {
               {/* Transacciones Manuales (Ingresos/Egresos) */}
               <div className="stats-card manual-transactions">
                 <div className="transactions-header">
-                  <h3>💰 Ingresos / Egresos Manuales</h3>
+                  <h3>Ingresos / Egresos Manuales</h3>
                   {selectedDate && (
                     <button 
                       onClick={() => setShowAddTransaction(!showAddTransaction)} 

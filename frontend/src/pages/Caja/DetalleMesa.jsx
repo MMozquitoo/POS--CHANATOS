@@ -6,7 +6,7 @@ import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
-import SalsasChips from '../../components/SalsasChips';
+import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
 import PagoDividido from '../../components/caja/PagoDividido.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -368,7 +368,7 @@ export default function DetalleMesa() {
       await axios.post('/cash/open', { initialCash: cash });
       setInitialCash('');
       await checkCashSession(); // Recargar estado
-      showAlert('✅ Caja abierta correctamente');
+      showAlert('Caja abierta correctamente');
     } catch (error) {
       console.error('Error abriendo caja:', error);
       showAlert(error.response?.data?.error || 'Error al abrir caja');
@@ -499,7 +499,7 @@ export default function DetalleMesa() {
 
     // FASE 9.1: Verificar sesión de caja antes de cobrar
     if (cashSessionActive === false) {
-      showAlert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      showAlert('Debes ABRIR CAJA antes de cobrar');
       return;
     }
 
@@ -1009,7 +1009,8 @@ export default function DetalleMesa() {
         qty: 1, 
         price: product.price, 
         notes: '',
-        product_id: product.id  // Fase 1: incluir product_id
+        product_id: product.id,
+        category: product.category || selectedCategory  // Fase 1: incluir product_id
       },
     ]);
   };
@@ -1825,7 +1826,9 @@ export default function DetalleMesa() {
                       placeholder="Notas (opcional)"
                       onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
                     />
-                    <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                    {categoriaLlevaSalsas(it.category) && (
+                      <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                    )}
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>
@@ -2002,7 +2005,7 @@ export default function DetalleMesa() {
               marginBottom: '1rem'
             }}>
               <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold', color: '#856404' }}>
-                ⚠️ Debes ABRIR CAJA antes de cobrar
+                Debes ABRIR CAJA antes de cobrar
               </h3>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#856404' }}>
@@ -2306,7 +2309,7 @@ export default function DetalleMesa() {
                   textAlign: 'center'
                 }}>
                   <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold', color: '#dc3545' }}>
-                    ⚠️ Debes ABRIR CAJA para cobrar
+                    Debes ABRIR CAJA para cobrar
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
                     Abre la caja arriba para poder procesar el pago
@@ -2324,7 +2327,7 @@ export default function DetalleMesa() {
                   {activeOrder.status === 'NUEVO' ? (
                     <>
                       <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold', color: '#856404' }}>
-                        ⚠️ Debe enviarse a preparación
+                        Debe enviarse a preparación
                       </h3>
                       <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
                         La orden debe estar en estado LISTO para poder cobrar
@@ -2333,7 +2336,7 @@ export default function DetalleMesa() {
                   ) : activeOrder.status === 'EN_PREP' ? (
                     <>
                       <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold', color: '#856404' }}>
-                        ⏳ La cocina debe marcar como LISTO
+                        La cocina debe marcar como LISTO
                       </h3>
                       <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
                         Espera a que la orden esté LISTA para poder cobrar
@@ -2342,7 +2345,7 @@ export default function DetalleMesa() {
                   ) : (
                     <>
                       <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold', color: '#856404' }}>
-                        ⚠️ No se puede cobrar
+                        No se puede cobrar
                       </h3>
                       <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
                         Solo se puede cobrar cuando la orden está en estado LISTO

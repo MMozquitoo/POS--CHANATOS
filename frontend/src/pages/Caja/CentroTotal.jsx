@@ -624,7 +624,7 @@ export default function CentroTotal() {
   const payOrder = async (order, paymentMethod = 'EFECTIVO') => {
     // Validar sesión activa (FASE 9.5)
     if (!cashSessionActive) {
-      showAlert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      showAlert('Debes ABRIR CAJA antes de cobrar');
       navigate('/mesas');
       return;
     }

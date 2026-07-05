@@ -3,6 +3,14 @@ import './SalsasChips.css';
 // Salsas del restaurante: botones rápidos para mesero y caja.
 // Escriben sobre el campo de notas del item, así cocina y el recibo
 // las muestran sin cambios en el modelo de datos.
+// Categorías donde las salsas no aplican (bebidas): no mostrar los chips
+const CATEGORIAS_SIN_SALSAS = ['BEBIDAS', 'CERVEZAS', 'JUGOS_NATURALES'];
+
+export function categoriaLlevaSalsas(category) {
+  if (!category) return true; // producto personalizado u origen desconocido: mostrar
+  return !CATEGORIAS_SIN_SALSAS.includes(String(category).toUpperCase().replace(/ /g, '_'));
+}
+
 export const SALSAS = [
   'Tomate',
   'Ajo',
