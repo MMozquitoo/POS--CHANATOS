@@ -853,6 +853,11 @@ router.patch(
           "UPDATE order_items SET ready_at = ? WHERE order_id = ? AND voided_at IS NULL AND ready_at IS NULL",
           [statusTimestamp, req.params.id]
         );
+        // FASE F10: primera vez LISTA = tiempo de preparación (pedido → mesa)
+        await db.run(
+          "UPDATE orders SET ready_at = COALESCE(ready_at, ?) WHERE id = ?",
+          [statusTimestamp, req.params.id]
+        );
       }
 
       const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [
@@ -1999,8 +2004,8 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
       );
       if (pendientes.c === 0) {
         await db.run(
-          "UPDATE orders SET status = 'LISTO', updated_at = ? WHERE id = ?",
-          [timestamp, item.order_id]
+          "UPDATE orders SET status = 'LISTO', updated_at = ?, ready_at = COALESCE(ready_at, ?) WHERE id = ?",
+          [timestamp, timestamp, item.order_id]
         );
         orderAdvanced = true;
 

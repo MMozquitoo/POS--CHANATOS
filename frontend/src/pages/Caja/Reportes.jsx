@@ -128,6 +128,18 @@ export default function Reportes() {
                 <div className="rep-kpi-value">{t.cancelled}</div>
                 <div className="rep-kpi-label">Canceladas</div>
               </div>
+              {t.prepCount > 0 && (
+                <>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{t.avgPrepMin} min</div>
+                    <div className="rep-kpi-label">Preparación promedio</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{t.maxPrepMin} min</div>
+                    <div className="rep-kpi-label">Preparación más lenta</div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Top productos */}

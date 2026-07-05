@@ -79,6 +79,18 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
       [from, to]
     );
 
+    // FASE F10: tiempo de preparación (pedido creado → orden LISTA)
+    const prepRow = await db.get(
+      `SELECT COUNT(*) as count,
+              AVG((julianday(ready_at) - julianday(created_at)) * 24 * 60) as avg_min,
+              MAX((julianday(ready_at) - julianday(created_at)) * 24 * 60) as max_min
+       FROM orders
+       WHERE ready_at IS NOT NULL
+         AND substr(created_at, 1, 10) BETWEEN ? AND ?
+         AND julianday(ready_at) >= julianday(created_at)`,
+      [from, to]
+    );
+
     // Pedidos por hora de CREACIÓN (cuándo llega la gente — para staffing).
     // Incluye todas las órdenes creadas: una cancelada o fusionada también fue demanda.
     const ordersByHour = await db.all(
@@ -118,6 +130,9 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
         avgTicket: orders > 0 ? Math.round(totals.sales / orders) : 0,
         discounts: ordersRow?.discounts || 0,
         cancelled: cancelledRow?.cancelled || 0,
+        prepCount: prepRow?.count || 0,
+        avgPrepMin: prepRow?.avg_min != null ? Math.round(prepRow.avg_min) : null,
+        maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       },
       byMethod,
       byDay,

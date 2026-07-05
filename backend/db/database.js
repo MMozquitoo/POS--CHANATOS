@@ -670,6 +670,12 @@ export const initDatabase = async () => {
   // FASE F8: descuentos (por orden) y propinas (por pago) — chequeos incondicionales
   try {
     const ordersCols = await database.all("PRAGMA table_info(orders)");
+    // FASE F10: cuándo quedó LISTA la orden (métrica pedido → mesa)
+    if (!ordersCols.some((c) => c.name === "ready_at")) {
+      console.log("  ➕ Agregando ready_at a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN ready_at DATETIME");
+      console.log("  ✅ Campo ready_at agregado a orders");
+    }
     if (!ordersCols.some((c) => c.name === "discount_amount")) {
       console.log("  ➕ Agregando discount_amount/discount_reason a orders...");
       await database.run("ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0");
