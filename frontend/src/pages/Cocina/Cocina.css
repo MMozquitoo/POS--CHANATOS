@@ -354,3 +354,81 @@
   padding: 4px 10px;
   cursor: pointer;
 }
+
+/* FASE F7: cocina plato por plato */
+.order-progress {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0f0f0;
+  color: #888;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.order-progress.started {
+  background: #FFF3D6;
+  color: #B8860B;
+}
+
+.item-touchable {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1.5px solid #eee;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-size: inherit;
+  transition: all 0.12s;
+}
+
+.item-touchable:active {
+  transform: scale(0.98);
+}
+
+.item-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: white;
+  flex-shrink: 0;
+}
+
+.item-ready {
+  border-color: #2ecc71 !important;
+  background: #f4fcf7 !important;
+}
+
+.item-ready .item-check {
+  background: #2ecc71;
+  border-color: #2ecc71;
+}
+
+.item-ready .item-name,
+.item-ready .item-qty {
+  text-decoration: line-through;
+  color: #999;
+}
+
+/* Plato pendiente cuando otros ya están listos: es lo que falta */
+.item-pending-hot {
+  border-color: #F5BB4C !important;
+  background: #FFFDF5 !important;
+}
+
+.devolver-btn {
+  background: #f0f0f0;
+  color: #555;
+  min-width: 44px;
+}

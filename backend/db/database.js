@@ -134,6 +134,7 @@ export const initDatabase = async () => {
       notes TEXT,
       paid_at DATETIME,
       voided_at DATETIME,
+      ready_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )
@@ -652,6 +653,18 @@ export const initDatabase = async () => {
   } catch (migrateError) {
     console.error("⚠️  Error en migración automática:", migrateError);
     // Continuar de todas formas
+  }
+
+  // FASE F7: ready_at en order_items (cocina plato por plato) — chequeo incondicional
+  try {
+    const itemsCols = await database.all("PRAGMA table_info(order_items)");
+    if (!itemsCols.some((c) => c.name === "ready_at")) {
+      console.log("  ➕ Agregando ready_at a order_items...");
+      await database.run("ALTER TABLE order_items ADD COLUMN ready_at DATETIME");
+      console.log("  ✅ Campo ready_at agregado a order_items");
+    }
+  } catch (readyError) {
+    console.error("⚠️  Error agregando ready_at:", readyError);
   }
 
   console.log("✅ Base de datos inicializada correctamente");
@@ -1191,6 +1204,14 @@ async function migrateDatabase(database) {
       console.log("  ➕ Agregando void_reason a order_items...");
       await database.run("ALTER TABLE order_items ADD COLUMN void_reason TEXT");
       console.log("  ✅ Campo void_reason agregado a order_items");
+    }
+
+    // FASE F7: cocina plato por plato — cuándo se terminó cada item
+    const hasItemReadyAt = orderItemsInfoMigrate.some((col) => col.name === "ready_at");
+    if (!hasItemReadyAt) {
+      console.log("  ➕ Agregando ready_at a order_items...");
+      await database.run("ALTER TABLE order_items ADD COLUMN ready_at DATETIME");
+      console.log("  ✅ Campo ready_at agregado a order_items");
     }
 
     // FASE 12.6: Agregar campos de cancelación a orders

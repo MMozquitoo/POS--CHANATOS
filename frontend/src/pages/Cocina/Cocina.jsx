@@ -134,6 +134,17 @@ export default function Cocina() {
     }
   };
 
+  // FASE F7: marcar/desmarcar un plato terminado (solo órdenes EN_PREP)
+  const toggleItemReady = async (item) => {
+    try {
+      await axios.patch(`/orders/items/${item.id}/ready`, { ready: !item.ready_at });
+      loadOrders();
+    } catch (error) {
+      console.error('Error marcando plato:', error);
+      showAlert(error.response?.data?.error || 'Error al marcar el plato');
+    }
+  };
+
   const OrderCard = ({ order }) => {
     const elapsedMin = Math.max(0, Math.floor((now - new Date(order.created_at).getTime()) / 60000));
     const isRecent = (now - new Date(order.created_at).getTime()) < 60000;
@@ -142,6 +153,10 @@ export default function Cocina() {
       : elapsedMin >= 20 ? 'late'
       : elapsedMin >= 10 ? 'warn'
       : 'ok';
+
+    const activeItems = order.items?.filter(item => !item.voided_at) || [];
+    const readyCount = activeItems.filter(item => item.ready_at).length;
+    const markable = order.status === 'EN_PREP';
 
     const getActionButton = () => {
       if (order.status === 'NUEVO') {
@@ -159,17 +174,27 @@ export default function Cocina() {
             className="action-btn listo-btn"
             onClick={() => updateStatus(order.id, 'LISTO')}
           >
-            LISTO
+            TODO LISTO
           </button>
         );
       } else if (order.status === 'LISTO') {
         return (
-          <button
-            className="action-btn archivar-btn"
-            onClick={() => archiveOrder(order.id)}
-          >
-            ARCHIVAR
-          </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              className="action-btn devolver-btn"
+              onClick={() => updateStatus(order.id, 'EN_PREP')}
+              title="Devolver a preparación"
+            >
+              ↩
+            </button>
+            <button
+              className="action-btn archivar-btn"
+              onClick={() => archiveOrder(order.id)}
+              style={{ flex: 1 }}
+            >
+              ARCHIVAR
+            </button>
+          </div>
         );
       }
       return null;
@@ -180,6 +205,11 @@ export default function Cocina() {
         <div className="order-header-kitchen">
           <div className="order-code-kitchen">
             {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
+            {markable && activeItems.length > 1 && (
+              <span className={`order-progress ${readyCount > 0 ? 'started' : ''}`}>
+                {readyCount}/{activeItems.length}
+              </span>
+            )}
           </div>
           <div className={`order-elapsed order-elapsed-${urgency}`}>
             {order.status === 'LISTO'
@@ -191,15 +221,37 @@ export default function Cocina() {
           <div className="order-table-kitchen">Mesa: {order.table_label}</div>
         )}
         <div className="order-items-kitchen">
-          {order.items?.filter(item => !item.voided_at).map((item, idx) => (
-            <div key={item.id ?? idx} className="order-item-kitchen">
-              <span className="item-qty">{item.qty}x</span>
-              <span className="item-name">{item.name}</span>
-              {item.notes && (
-                <span className="item-notes">({item.notes})</span>
-              )}
-            </div>
-          ))}
+          {activeItems.map((item, idx) => {
+            const isReady = !!item.ready_at;
+            const content = (
+              <>
+                <span className="item-check">{isReady ? '✓' : ''}</span>
+                <span className="item-qty">{item.qty}x</span>
+                <span className="item-name">{item.name}</span>
+                {item.notes && (
+                  <span className="item-notes">({item.notes})</span>
+                )}
+              </>
+            );
+            // FASE F7: en EN_PREP cada plato es un botón (tocar = terminado / deshacer)
+            if (markable) {
+              return (
+                <button
+                  key={item.id ?? idx}
+                  type="button"
+                  className={`order-item-kitchen item-touchable ${isReady ? 'item-ready' : readyCount > 0 ? 'item-pending-hot' : ''}`}
+                  onClick={() => toggleItemReady(item)}
+                >
+                  {content}
+                </button>
+              );
+            }
+            return (
+              <div key={item.id ?? idx} className={`order-item-kitchen ${isReady && order.status === 'LISTO' ? 'item-ready' : ''}`}>
+                {content}
+              </div>
+            );
+          })}
         </div>
         {getActionButton()}
       </div>

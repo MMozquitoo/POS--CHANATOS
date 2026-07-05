@@ -836,12 +836,21 @@ router.patch(
       }
 
       const oldStatus = order.status;
+      const statusTimestamp = toBogotaSQLiteTimestamp(new Date());
 
       // Actualizar estado (usando zona horaria America/Bogota)
       await db.run(
         "UPDATE orders SET status = ?, updated_at = ? WHERE id = ?",
-        [status, toBogotaSQLiteTimestamp(new Date()), req.params.id]
+        [status, statusTimestamp, req.params.id]
       );
+
+      // FASE F7: al marcar la orden LISTO, todos los platos quedan marcados como terminados
+      if (status === "LISTO") {
+        await db.run(
+          "UPDATE order_items SET ready_at = ? WHERE order_id = ? AND voided_at IS NULL AND ready_at IS NULL",
+          [statusTimestamp, req.params.id]
+        );
+      }
 
       const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [
         req.params.id,
@@ -1870,6 +1879,91 @@ router.post("/:id/cancel", requireAuth, requireRole("CAJA"), async (req, res) =>
     });
   } catch (error) {
     console.error("Error cancelando orden:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// PATCH /api/orders/items/:id/ready - Marcar/desmarcar plato terminado (FASE F7)
+// Cocina plato por plato: cuando todos los items quedan listos, la orden pasa a LISTO sola.
+router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const itemId = parseInt(req.params.id);
+    const ready = req.body.ready !== false; // default: marcar como listo
+
+    const item = await db.get("SELECT * FROM order_items WHERE id = ?", [itemId]);
+    if (!item) {
+      return res.status(404).json({ error: "Item no encontrado" });
+    }
+    if (item.voided_at) {
+      return res.status(409).json({ error: "El item está anulado" });
+    }
+
+    const order = await db.get("SELECT * FROM orders WHERE id = ?", [item.order_id]);
+    if (!order || order.status !== "EN_PREP") {
+      return res.status(409).json({
+        error: "Solo se pueden marcar platos de órdenes en preparación",
+        status: order?.status,
+      });
+    }
+
+    const timestamp = toBogotaSQLiteTimestamp(new Date());
+    await db.run(
+      "UPDATE order_items SET ready_at = ? WHERE id = ?",
+      [ready ? timestamp : null, itemId]
+    );
+
+    // ¿Quedaron todos los platos listos? → la orden pasa a LISTO sola
+    let orderAdvanced = false;
+    if (ready) {
+      const pendientes = await db.get(
+        "SELECT COUNT(*) as c FROM order_items WHERE order_id = ? AND voided_at IS NULL AND ready_at IS NULL",
+        [item.order_id]
+      );
+      if (pendientes.c === 0) {
+        await db.run(
+          "UPDATE orders SET status = 'LISTO', updated_at = ? WHERE id = ?",
+          [timestamp, item.order_id]
+        );
+        orderAdvanced = true;
+
+        await logAudit({
+          action: 'ORDER_STATUS_CHANGED',
+          entity_type: 'order',
+          entity_id: item.order_id,
+          order_id: item.order_id,
+          user_id: req.user.id,
+          ip: req.ip || req.connection?.remoteAddress || null,
+          summary: `Orden ${order.daily_no || order.code || item.order_id} LISTA (todos los platos marcados)`,
+          meta: { from: 'EN_PREP', to: 'LISTO', reason: 'ALL_ITEMS_READY' }
+        });
+      }
+    }
+
+    const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [item.order_id]);
+    const allItems = await db.all(
+      "SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL",
+      [item.order_id]
+    );
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("item:updated", { itemId, orderId: item.order_id, ready });
+      io.emit("order:updated", { order: { ...updatedOrder, items: allItems } });
+      if (orderAdvanced) {
+        io.emit("order:status-changed", { order: { ...updatedOrder, items: allItems } });
+      }
+    }
+
+    res.json({
+      ok: true,
+      itemId,
+      ready,
+      orderAdvanced,
+      order: { ...updatedOrder, items: allItems },
+    });
+  } catch (error) {
+    console.error("Error marcando plato:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
