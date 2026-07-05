@@ -57,8 +57,10 @@ export default function Login() {
     }
   }, [blocked, retryAfter]);
 
+  const PIN_LENGTH = 4;
+
   const handleNumberClick = (num) => {
-    if (pin.length < 6 && !blocked) {
+    if (pin.length < PIN_LENGTH && !blocked) {
       setPin(prev => prev + num);
       setError('');
     }
@@ -74,30 +76,40 @@ export default function Login() {
     setError('');
   };
 
+  const submittingRef = useRef(false);
+
   const handleSubmit = async () => {
-    if (pin.length < 4) {
-      setError('PIN debe tener al menos 4 dígitos');
+    if (pin.length < PIN_LENGTH || submittingRef.current) {
       return;
     }
+    submittingRef.current = true;
 
-    const result = await login(pin);
-    
-    if (!result.success) {
-      setError(result.error);
-      
-      // Verificar si hay bloqueo
-      if (result.error.includes('Demasiados intentos')) {
-        const retry = result.retryAfter || 30;
-        setBlocked(true);
-        setRetryAfter(retry);
+    try {
+      const result = await login(pin);
+
+      if (!result.success) {
+        setError(result.error);
+        setPin('');
+
+        // Verificar si hay bloqueo
+        if (result.error.includes('Demasiados intentos')) {
+          const retry = result.retryAfter || 30;
+          setBlocked(true);
+          setRetryAfter(retry);
+        }
       }
-    } else {
-      // FIX 1: Redirección post-login según rol
-      // El user se actualiza en AuthContext, pero necesitamos esperar un momento
-      // o leerlo del resultado. Como login() retorna { success: true }, 
-      // usamos useEffect para detectar cuando user cambia
+      // Redirección post-login: el useEffect de abajo detecta cuando user cambia
+    } finally {
+      submittingRef.current = false;
     }
   };
+
+  // Entrar automáticamente al completar el cuarto dígito
+  useEffect(() => {
+    if (pin.length === PIN_LENGTH && !blocked) {
+      handleSubmit();
+    }
+  }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // FASE 18.3: Redirección post-login según rol (home por rol).
   // replace: true evita que "Atrás" vuelva al estado post-login y reduzca race/cache "menú viejo".
@@ -122,9 +134,9 @@ export default function Login() {
         
         <div className="pin-display">
           <div className="pin-dots">
-            {[0, 1, 2, 3, 4, 5].map(i => (
-              <span 
-                key={i} 
+            {[0, 1, 2, 3].map(i => (
+              <span
+                key={i}
                 className={`pin-dot ${i < pin.length ? 'filled' : ''}`}
               />
             ))}
@@ -172,14 +184,6 @@ export default function Login() {
             <button onClick={handleDelete} className="delete-btn" disabled={blocked}>⌫</button>
           </div>
         </div>
-
-        <button
-          className="enter-btn"
-          onClick={handleSubmit}
-          disabled={pin.length < 4 || blocked}
-        >
-          ENTRAR
-        </button>
 
         <button
           type="button"
