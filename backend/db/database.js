@@ -180,6 +180,17 @@ export const initDatabase = async () => {
     )
   `);
 
+  // FASE F5 (naranja): sesiones persistentes — sobreviven reinicios del servidor
+  await database.run(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      role TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Crear índices
   await database.run(
     `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`

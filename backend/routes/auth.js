@@ -5,16 +5,40 @@ import { getDb } from '../db/database.js';
 
 const router = express.Router();
 
-// Almacenamiento simple de sesiones (en producción usar Redis o JWT)
-const sessions = new Map(); // userId -> { userId, role, createdAt }
+// Sesiones: caché en memoria (validateSession debe ser síncrona) + persistencia
+// en SQLite para que sobrevivan reinicios del servidor.
+const sessions = new Map(); // token -> { userId, role, createdAt }
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
 
-// Limpiar sesiones antiguas cada 5 minutos
+// Cargar sesiones vigentes desde la BD al arrancar (llamada desde server.js)
+export async function loadSessionsFromDb() {
+  const db = getDb();
+  const cutoff = Date.now() - SESSION_TTL_MS;
+  await db.run('DELETE FROM sessions WHERE created_at <= ?', [cutoff]);
+  const rows = await db.all('SELECT token, user_id, role, created_at FROM sessions');
+  for (const row of rows) {
+    sessions.set(row.token, {
+      userId: row.user_id,
+      role: row.role,
+      createdAt: row.created_at,
+    });
+  }
+  console.log(`🔑 ${rows.length} sesión(es) restauradas desde la base de datos`);
+}
+
+// Limpiar sesiones antiguas cada 5 minutos (memoria y BD)
 setInterval(() => {
   const now = Date.now();
+  const expired = [];
   for (const [token, session] of sessions.entries()) {
-    if (now - session.createdAt > 8 * 60 * 60 * 1000) { // 8 horas
+    if (now - session.createdAt > SESSION_TTL_MS) {
       sessions.delete(token);
+      expired.push(token);
     }
+  }
+  if (expired.length > 0) {
+    const db = getDb();
+    db.run('DELETE FROM sessions WHERE created_at <= ?', [now - SESSION_TTL_MS]).catch(() => {});
   }
 }, 5 * 60 * 1000);
 
@@ -74,13 +98,18 @@ router.post('/pin', async (req, res) => {
     // Limpiar intentos fallidos al tener éxito
     failedAttempts.delete(clientId);
 
-    // Crear sesión
+    // Crear sesión (memoria + BD para sobrevivir reinicios)
     const token = crypto.randomBytes(32).toString('hex');
+    const createdAt = Date.now();
     sessions.set(token, {
       userId: user.id,
       role: user.role,
-      createdAt: Date.now()
+      createdAt
     });
+    await db.run(
+      'INSERT INTO sessions (token, user_id, role, created_at) VALUES (?, ?, ?, ?)',
+      [token, user.id, user.role, createdAt]
+    );
 
     res.json({
       token,
@@ -126,13 +155,18 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.headers['x-session-token'];
-  
+
   if (token) {
     sessions.delete(token);
+    try {
+      await getDb().run('DELETE FROM sessions WHERE token = ?', [token]);
+    } catch (error) {
+      console.error('Error eliminando sesión persistida:', error);
+    }
   }
-  
+
   res.json({ message: 'Sesión cerrada' });
 });
 

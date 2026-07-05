@@ -8,6 +8,7 @@ import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import PagoDividido from '../../components/caja/PagoDividido.jsx';
+import Recibo from '../../components/Recibo.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal';
@@ -25,6 +26,8 @@ export default function CobrarPedidos() {
   const [loading, setLoading] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
+  const [reciboData, setReciboData] = useState(null);
+  const [receivedAmount, setReceivedAmount] = useState(0);
   const [cashSessionActive, setCashSessionActive] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
@@ -140,13 +143,21 @@ export default function CobrarPedidos() {
     }
 
     try {
-      await axios.post('/payments', {
+      const res = await axios.post('/payments', {
         orderId: selectedOrder.id,
         method: paymentMethod,
         amount: total
       });
 
-      await showAlert('Pago procesado correctamente');
+      // Mostrar recibo con vuelto (si se usó la calculadora con efectivo)
+      const vuelto = paymentMethod === 'EFECTIVO' && receivedAmount > total ? receivedAmount - total : 0;
+      setReciboData({
+        order: selectedOrder,
+        payment: res.data?.payment || { method: paymentMethod, amount: total, created_at: new Date().toISOString() },
+        items: selectedOrder.items || [],
+        changeAmount: vuelto,
+      });
+      setReceivedAmount(0);
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
@@ -179,8 +190,17 @@ export default function CobrarPedidos() {
       });
 
       setShowSplit(false);
-      const detalle = paymentLines.map(l => `${l.method}: ${formatPriceCOP(l.amount)}`).join(' + ');
-      await showAlert(`Pago dividido procesado (${detalle})`);
+      const total = calculateTotal(selectedOrder);
+      setReciboData({
+        order: selectedOrder,
+        payment: {
+          method: paymentLines.map(l => l.method).join(' + '),
+          amount: total,
+          created_at: new Date().toISOString(),
+        },
+        items: selectedOrder.items || [],
+        changeAmount: 0,
+      });
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
@@ -263,7 +283,13 @@ export default function CobrarPedidos() {
       }
 
       await axios.post('/payments/items', payload);
-      await showAlert('Pago parcial procesado');
+      const paidItems = selectedOrder.items?.filter(item => itemIds.includes(item.id)) || [];
+      setReciboData({
+        order: selectedOrder,
+        payment: { method: paymentMethod, amount: total, created_at: new Date().toISOString() },
+        items: paidItems,
+        changeAmount: 0,
+      });
       loadOrders();
       setSelectedItemIds(new Set());
     } catch (error) {
@@ -535,6 +561,7 @@ export default function CobrarPedidos() {
               <CalculadoraVuelto
                 total={selectedTotal() || calculateTotal(selectedOrder)}
                 onClose={() => setShowCalculator(false)}
+                onConfirm={(recibido) => setReceivedAmount(recibido)}
               />
             )}
             {showSplit && (
@@ -580,6 +607,15 @@ export default function CobrarPedidos() {
       </>}>
       <p>{confirmState.message}</p>
     </Modal>
+    {reciboData && (
+      <Recibo
+        order={reciboData.order}
+        payment={reciboData.payment}
+        items={reciboData.items}
+        changeAmount={reciboData.changeAmount}
+        onClose={() => setReciboData(null)}
+      />
+    )}
     </>
   );
 }

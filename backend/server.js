@@ -6,8 +6,10 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
+import fs from "fs";
+
 // Importar rutas
-import { validateSession } from "./routes/auth.js";
+import { validateSession, loadSessionsFromDb } from "./routes/auth.js";
 import authRoutes from "./routes/auth.js";
 import ordersRoutes from "./routes/orders.js";
 import paymentsRoutes from "./routes/payments.js";
@@ -21,7 +23,7 @@ import inventoryMovementsRoutes from "./routes/inventoryMovements.js";
 import auditRoutes from "./routes/audit.js";
 
 // Importar base de datos
-import { initDatabase } from "./db/database.js";
+import { initDatabase, getDb } from "./db/database.js";
 
 // Configuración
 const __filename = fileURLToPath(import.meta.url);
@@ -90,10 +92,40 @@ try {
   console.log(
     "✅ Base de datos lista (migración automática ejecutada si fue necesario)"
   );
+  // FASE F5 (naranja): restaurar sesiones persistidas (sobreviven reinicios)
+  await loadSessionsFromDb();
 } catch (error) {
   console.error("❌ Error inicializando base de datos:", error);
   process.exit(1);
 }
+
+// FASE F5 (naranja): respaldo automático de la base de datos.
+// VACUUM INTO produce una copia consistente aunque el servidor esté en uso.
+// Un respaldo por día, conserva los últimos 14, corre al arrancar y cada 6 horas.
+const BACKUPS_DIR = join(__dirname, "data", "backups");
+const BACKUPS_TO_KEEP = 14;
+
+async function backupDatabase() {
+  try {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+    const stamp = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Bogota" }); // YYYY-MM-DD
+    const file = join(BACKUPS_DIR, `pos_chanatos-${stamp}.db`);
+    if (fs.existsSync(file)) return; // ya existe el respaldo de hoy
+
+    await getDb().run(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    console.log(`💾 Respaldo de base de datos creado: ${file}`);
+
+    const backups = fs.readdirSync(BACKUPS_DIR).filter((f) => f.endsWith(".db")).sort();
+    while (backups.length > BACKUPS_TO_KEEP) {
+      fs.unlinkSync(join(BACKUPS_DIR, backups.shift()));
+    }
+  } catch (error) {
+    console.error("⚠️  Error creando respaldo de base de datos:", error);
+  }
+}
+
+backupDatabase();
+setInterval(backupDatabase, 6 * 60 * 60 * 1000);
 
 // Rutas API - IMPORTANTE: Estas deben estar ANTES del middleware estático
 app.use("/api/auth", authRoutes);
