@@ -1,103 +1,159 @@
 # POS Chanatos
 
-Sistema POS web para el restaurante **Chanatos**. Aplicacion monorepo con backend y frontend separados.
+Sistema POS para el restaurante **Chanatos** (hamburguesas, Colombia). Monorepo con backend y frontend separados. Corre en un computador local ("el servidor" del restaurante); meseros/cocina/caja lo usan desde celulares (APK Android o PWA) y navegador, todos en la misma red Wi-Fi.
 
 ## Stack
 
-- **Backend:** Node.js (ES modules), Express 4, SQLite3 (archivo `backend/data/pos_chanatos.db`), Socket.IO, bcrypt
+- **Backend:** Node.js (ES modules), Express 4, SQLite3 (archivo `backend/data/pos_chanatos.db`), Socket.IO, bcryptjs (JS puro — NO usar bcrypt nativo, rompe el empaquetado Windows), bonjour-service (anuncio mDNS)
 - **Frontend:** React 18, Vite 5, React Router 6, Axios, Socket.IO Client, PWA (vite-plugin-pwa)
-- **Sin TypeScript, sin tests, sin ORM**
+- **Móvil:** Capacitor 6 (Android; `frontend/android/`), CapacitorHttp nativo habilitado (evita bloqueos del WebView hacia la LAN), plugin capacitor-zeroconf v3 (mDNS)
+- **Sin TypeScript, sin tests unitarios** (verificación: curl contra la API + capturas con Playwright, ver abajo)
 
 ## Estructura
 
 ```
 backend/
-  server.js              # Entry point, Express + Socket.IO setup, puerto 3000
-  db/database.js         # Conexion SQLite, schema, seed data, migraciones (~1200 lineas)
-  middleware/auth.js      # Middleware requireAuth (valida token de sesion)
+  server.js              # Express + Socket.IO puerto 3000; sirve frontend/dist si NODE_ENV != production;
+                         #   cola de ESCRITURAS serializadas (SQLite = 1 conexión; ver Concurrencia);
+                         #   respaldo automático de BD (VACUUM INTO data/backups/, diario, conserva 14);
+                         #   anuncio mDNS _pos-chanatos._tcp; endpoint /api/discover con firma
+  db/database.js         # Schema, seed, migraciones. Las migraciones NUEVAS van como "chequeo
+                         #   incondicional" al final de initDatabase (la sección migrateDatabase vieja
+                         #   solo corre si faltan columnas de una lista antigua — trampa conocida)
   routes/
-    auth.js              # Login por PIN, sesiones en memoria (Map)
-    orders.js            # CRUD ordenes, items, cancelacion (~1800 lineas)
-    payments.js          # Pagos por item y por orden completa
-    cash.js              # Sesiones de caja, apertura/cierre, reportes
-    tables.js            # Mesas del restaurante
-    products.js          # Menu, categorias, precios
-    ingredients.js       # Ingredientes para recetas
-    recipes.js           # Recetas (producto -> ingredientes)
-    inventory.js         # Stock de ingredientes
-    inventoryMovements.js # Movimientos de inventario, deduccion automatica
-    audit.js             # Log de auditoria
-  utils/                 # Helpers: timezone (Bogota), currency (COP), audit logger
-  scripts/               # init-db, migrate, reset-day, update-menu-prices
-  data/                  # SQLite DB y products.json (seed)
+    auth.js              # Login por PIN (4 dígitos). Sesiones: Map en memoria + tabla sessions
+                         #   (SOBREVIVEN reinicios; loadSessionsFromDb al boot). validateSession es síncrona.
+    orders.js            # CRUD órdenes. Máquina de estados NUEVO→EN_PREP→LISTO (reversas de 1 paso);
+                         #   agregar items a LISTO la regresa a EN_PREP; /:id/merge (unir cuentas);
+                         #   /:id/discount (descuento con motivo, bloqueado si hay pagos);
+                         #   /items/:id/ready (cocina plato por plato; al completar todos → LISTO solo);
+                         #   MESERO puede: crear, agregar items, NUEVO→EN_PREP, cancelar NUEVO/EN_PREP,
+                         #   ver cualquier orden (piso compartido). Cancelar exige motivo ≥3 y cero pagos.
+    payments.js          # /payments (orden completa; acepta payments:[{method,amount}] dividido y
+                         #   tipAmount); /payments/items (por items; incompatible con descuento → 409);
+                         #   valida montos contra el saldo REAL; pago parcial NO libera la mesa;
+                         #   inventario se descuenta solo al quedar PAGADA; anular pago: bloqueado si
+                         #   su caja ya cerró, repone inventario y devuelve items a pendiente
+    cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash}
+                         #   (OJO: /cash/session/open NO existe). Arqueo excluye pagos anulados e
+                         #   incluye propinas en efectivo en el esperado.
+    reports.js           # /reports/summary?from&to: ventas/propinas/descuentos/canceladas, ticket
+                         #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
+                         #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
+    inventory.js         # /inventory/low-stock ya existe (stock <= min_stock)
+    inventoryMovements.js # deduct/restoreInventoryFromOrderItems; stock negativo permitido pero
+                         #   auditado (STOCK_NEGATIVE); errores auditados (INVENTORY_ERROR)
+  scripts/               # init-db, migrate, reset-day
+  data/                  # pos_chanatos.db (gitignored), products.json (seed), backups/
 
 frontend/
   src/
-    App.jsx              # Router principal, RequireRole para proteccion por rol
-    styles/
-      chanatos-theme.css # Design tokens CSS (colores, spacing, typography, componentes)
-    contexts/
-      AuthContext.jsx    # Auth state, token en localStorage, axios interceptors (con cleanup)
-      ConnectionContext.jsx # Estado de conexion al backend
-    pages/
-      Login.jsx          # Login por PIN
-      Mesero/            # Vista mesero: mesas, pedidos, estado pedidos, ventanilla
-      Cocina/            # Vista cocina: pedidos pendientes
-      Caja/              # Vista caja: dashboard, cobrar, cierre, historial, auditoria (lazy loaded)
-      Ventanilla/        # Pedidos para llevar
-      Domicilios/        # Pedidos a domicilio
-    components/
-      Modal.jsx          # Modal reutilizable con accesibilidad (focus trap, ESC)
-      Recibo.jsx, Comanda, Calculadora, etc.
+    App.jsx              # Rutas: /login, /config-servidor (pública), catch-all por rol
     utils/
-      api.js             # getApiBaseUrl centralizado
-      payments.js        # normalizePaymentItemsPayload compartido
-      timezone.js, currency.js, roleTheme.js, tables.js
-    hooks/
-      useModal.js        # useAlert y useConfirm (reemplazan alert/confirm nativos)
-      useDebounce.js     # Debounce para inputs de busqueda
-      useReconnectRefresh.js, useOrdersRefresh.js
-    layouts/             # tablesLayout (disposicion de mesas)
+      api.js             # getApiBaseUrl: localStorage pos_api_url > VITE_API_URL > hostname:3000
+      discovery.js       # Encuentra el servidor: 1) último conocido con 3 reintentos (el Wi-Fi del
+                         #   teléfono tarda en despertar) 2) mDNS 3) escaneo de subredes. En nativo usa
+                         #   CapacitorHttp con timeouts. Verifica firma {app:"pos-chanatos"}.
+      statusLabels.js    # Enums → texto legible. NUNCA mostrar EN_PREP etc. al usuario.
+      kitchenSound.js    # Chime Web Audio (sin archivos); unlockAudio en primer toque
+    components/
+      Modal.jsx          # OJO: efecto de foco con deps [open] y onCloseRef — NO agregar onClose a las
+                         #   deps (robaba el foco al input en cada tecla: bug "solo deja una letra")
+      ModalHost.jsx      # Render de alert/confirm/prompt de marca (useAlert/useConfirm/usePrompt)
+      SalsasChips.jsx    # Chips de salsas → escriben en notes del item. categoriaLlevaSalsas()
+                         #   las oculta en BEBIDAS/CERVEZAS/JUGOS_NATURALES. Lista central aquí.
+      CajaHeader.jsx     # En compacto (<480px) oculta RoleBadge y subtítulo
+      caja/PagoDividido.jsx # Split multi-método con botón "Resto" y validación exacta
+    pages/
+      Login.jsx          # PIN 4 dígitos con auto-ingreso (sin botón ENTRAR); autodescubrimiento al abrir
+      ConfigServidor.jsx # Búsqueda automática + manual con prueba (pública, /config-servidor)
+      Mesero/            # Mesas (tarjetas 9/10 → /ventanilla y /domicilios), PedidoMesa (separa
+                         #   "Ya en la orden" de "Nuevos items" — NUNCA reenviar items existentes),
+                         #   MeseroRoutes con catch-all → "/" (evita pantalla en blanco al cambiar rol)
+      Ventanilla/ Domicilios/  # Multi-orden (fila de clientes), unir cuentas (caja), importan Caja.css
+                         #   OJO: loadOrders es function declaration (hoisting) — useVentanillaRefresh
+                         #   la referencia antes de su línea (TDZ crasheaba la página)
+      Cocina/            # Plato por plato (tocar item = listo, N/M, auto-LISTO), sonido con toggle,
+                         #   cronómetro con semáforo (10/20 min), orden por antigüedad
+      Caja/              # DetalleMesa (layout altura natural + rieles sticky desktop / apilado móvil,
+                         #   propina y descuento en el panel de cobro; con descuento COBRAR usa orden
+                         #   completa), CobrarPedidos (split/propina/descuento/recibo), CocinaCaja
+                         #   (vista cocina de caja, también plato por plato), Reportes, CajaRoutes
+                         #   con catch-all → /centro
+    styles/
+      chanatos-theme.css # Design tokens (modales z-index 3000: SIEMPRE encima de recibos)
+      mobile-polish.css  # Capa global móvil: targets 46px, safe-areas (notch), grillas de categorías
+                         #   TODAS visibles (no carrusel), colores explícitos en botones (iOS los pinta
+                         #   azul), headers sticky. Los ajustes móviles nuevos van AQUÍ.
+  android/               # Proyecto Capacitor (generado, committeado). usesCleartextTraffic=true.
+  assets/logo.png        # Fuente del icono (C oscura; @capacitor/assets genera los 74 recursos)
+
+scripts/build-windows.sh # Genera POS-Chanatos-Windows.zip (Node portable win-x64 + binario sqlite3
+                         #   de Windows vía prebuild-install + INSTALAR.bat con arranque automático)
 ```
 
 ## Comandos
 
 ```bash
-# Backend
-cd backend && npm install
-npm run dev          # Inicia servidor en puerto 3000
-npm run init-db      # Inicializa base de datos
-npm run migrate      # Ejecuta migraciones
+# Backend (desarrollo)
+cd backend && npm install && npm run init-db && npm run dev   # puerto 3000, sirve también el frontend build
 
 # Frontend
 cd frontend && npm install
-npm run dev          # Inicia dev server en puerto 5173
-npm run build        # Build de produccion
+npm run build        # OBLIGATORIO tras cambios de UI (el backend sirve dist/)
+
+# APK Android (tras npm run build)
+cd frontend && npx cap sync android && cd android && \
+  ANDROID_HOME=/opt/homebrew/share/android-commandlinetools ./gradlew assembleDebug
+# → android/app/build/outputs/apk/debug/app-debug.apk (se copia al Escritorio del usuario)
+
+# Paquete Windows instalable
+./scripts/build-windows.sh   # → ~/Desktop/POS-Chanatos-Windows.zip
+
+# Servidor de producción en la Mac del dueño (launchd, arranque automático + revive)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.chanatos.pos-servidor.plist  # encender
+launchctl bootout   gui/$(id -u)/com.chanatos.pos-servidor                               # apagar
+# logs: /tmp/pos-chanatos-servidor.log
 ```
 
-## Roles y acceso
+## Verificación visual (Playwright)
 
-- **MESERO** (PIN default: 1234) — Mesas, crear pedidos, ver estado
-- **COCINA** (PIN default: 5678) — Ver pedidos pendientes, marcar listos
-- **CAJA** (PIN default: 9012) — Cobrar, abrir/cerrar caja, historial, auditoria, reportes
+Hay un harness en el scratchpad de sesiones anteriores; recrearlo es barato:
+navegador chromium de Playwright + script que hace login por API (POST /api/auth/pin),
+mete el token en localStorage y captura pantallas (390px teléfono / 1920px desktop).
+**Regla: cambio de UI = captura antes de entregar.** El ErrorBoundary muestra el
+detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 
-## Branding
+## Roles y acceso (PIN de 4 dígitos, auto-ingreso)
 
-- Nombre: **Chanatos** (siempre con esta ortografia)
-- Colores: amarillo/ambar como color principal
-- Moneda: COP (pesos colombianos), zona horaria America/Bogota
+- **MESERO** (1234) — Mesas, pedidos, ventanilla/domicilios multi-orden, enviar a preparación, cancelar pedidos NUEVO/EN_PREP, ver cualquier orden
+- **COCINA** (5678) — Pedidos plato por plato, devolver a preparación, archivar
+- **CAJA** (9012) — Todo: cobrar (dividido/parcial/propina/descuento), unir cuentas, anular, caja, reportes, auditoría
+
+## Reglas de negocio clave
+
+- **Una mesa (1-8) = una orden activa = una cuenta.** Ventanilla (mesa 9) y Domicilios (10) permiten múltiples órdenes.
+- Agregar items a una orden LISTO la **regresa a EN_PREP** (solo lo nuevo se resalta en cocina).
+- **PAGADA y CANCELADO son terminales** para modificaciones; cancelar exige motivo y cero pagos válidos.
+- Todo lo monetario de reportes/arqueo cuenta **al pagar**, no al pedir.
+- Propina separada de la venta (payments.tip_amount); descuento por orden (orders.discount_amount + motivo, auditado).
+- **Timestamps SIEMPRE explícitos en hora Bogotá** (`toBogotaSQLiteTimestamp`) — el DEFAULT CURRENT_TIMESTAMP de SQLite es UTC y ya causó un bug de +5h. Nunca confiar en el default.
+
+## Concurrencia (importante)
+
+SQLite usa **una sola conexión compartida**: dos transacciones simultáneas se entrelazan y corrompen. `server.js` serializa todas las escrituras (POST/PATCH/PUT/DELETE) en una cola. Las transacciones usan `BEGIN IMMEDIATE`. No quitar la cola ni abrir segundas conexiones.
 
 ## Convenciones
 
-- Archivos en espanol (nombres de componentes, variables mixtas espanol/ingles)
-- API REST bajo `/api/` sin versionado
-- WebSocket para actualizaciones en tiempo real (ordenes, cocina), con autenticacion
-- Base de datos SQLite single-file, PRAGMA foreign_keys ON, migraciones manuales
-- Sesiones en memoria (Map) con tokens criptograficos (crypto.randomBytes)
-- CSS design tokens en `chanatos-theme.css` (--chanatos-primary, etc.)
-- Colores: amber #F5BB4C como primario en toda la UI
-- Modales custom (Modal.jsx + useModal) en vez de alert()/confirm()
-- Lazy loading en CajaRoutes y MeseroRoutes
-- getApiBaseUrl centralizado en utils/api.js
-- Indices en tablas principales (orders, payments, cash_sessions, etc.)
-- Transacciones en creacion de ordenes
+- Archivos y UI en español; sin emojis en la interfaz (el dueño los detesta); enums nunca visibles (usar `statusLabels.js`)
+- UX móvil primero: el personal no debe pensar (targets ≥46px, todo visible sin deslizar, auto-avances, botón principal a ancho completo) — ver memoria "ux-movil-filosofia"
+- Cambios de UI ⇒ `npm run build` + regenerar APK + actualizar zip de Windows si aplica; el usuario recibe los artefactos en su Escritorio
+- Branding: ámbar #F5BB4C (los rellenos de barras/datos usan #B8860B, validado para contraste); moneda COP (`formatPriceCOP`); zona America/Bogota
+- Commits en español con Co-Authored-By de Claude; push a `main` de https://github.com/MMozquitoo/POS--CHANATOS
+
+## Pendientes conocidos (decisión del dueño)
+
+- Impresora térmica de cocina (no hay impresora aún)
+- Facturación electrónica DIAN (no están registrados aún)
+- Usuarios por empleado (PIN individual), ficha de clientes para domicilios, resumen remoto del dueño
+- Datáfono: el dueño evalúa Bold/Wompi (persona natural con RUT); el método TARJETA ya existe en el POS
