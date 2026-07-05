@@ -1704,7 +1704,7 @@ export default function DetalleMesa() {
               className="custom-product-btn"
               style={{ marginBottom: '1rem', padding: '0.75rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
             >
-              + OTRO (Producto Personalizado)
+              + Otro producto
             </button>
           
           {/* Selector de categorías */}
@@ -1817,7 +1817,7 @@ export default function DetalleMesa() {
                   fontSize: '1rem'
                 }}
               >
-                + OTRO (Producto Personalizado)
+                + Otro producto
               </button>
             
               {/* Selector de categorías */}

@@ -625,7 +625,7 @@ export default function Domicilios() {
             className="custom-product-btn"
             style={{ marginBottom: '1rem', padding: '0.75rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
           >
-            + OTRO (Producto Personalizado)
+            + Otro producto
           </button>
 
           <div className="category-tabs">

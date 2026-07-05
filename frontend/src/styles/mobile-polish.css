@@ -222,3 +222,13 @@ button {
     flex: 1 1 auto;
   }
 }
+
+/* Botón de producto personalizado: texto corto y aire respecto al título */
+.custom-product-btn {
+  margin-top: 10px !important;
+  margin-bottom: 14px !important;
+}
+
+.new-order-form h3 {
+  margin: 0 0 4px;
+}
