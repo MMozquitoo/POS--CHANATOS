@@ -1721,7 +1721,7 @@ export default function DetalleMesa() {
               {productsByCategory[selectedCategory].map((p) => (
                 <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
                   <div className="product-name-btn">{p.displayName || p.name}</div>
-                  <div className="product-price-btn">${p.price}k</div>
+                  <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
                 </button>
               ))}
             </div>
@@ -1834,7 +1834,7 @@ export default function DetalleMesa() {
                   {productsByCategory[selectedCategory].map((p) => (
                     <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
                       <div className="product-name-btn">{p.displayName || p.name}</div>
-                      <div className="product-price-btn">${p.price}k</div>
+                      <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
                     </button>
                   ))}
                 </div>

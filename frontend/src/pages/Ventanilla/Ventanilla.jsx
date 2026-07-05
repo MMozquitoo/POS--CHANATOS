@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
 import SalsasChips from '../../components/SalsasChips';
+import Modal from '../../components/Modal';
+import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
 import '../Mesero/Mesero.css';
 
@@ -18,6 +20,8 @@ export default function Ventanilla() {
   const location = useLocation();
   const { user } = useAuth();
   const backTo = getBackRoute(location, user?.role);
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const [openOrders, setOpenOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState([]);
@@ -76,7 +80,7 @@ export default function Ventanilla() {
       setSelectedOrderData(res.data);
     } catch (error) {
       console.error('Error cargando items de orden:', error);
-      alert('Error al cargar items de la orden');
+      showAlert('Error al cargar items de la orden');
     }
   };
 
@@ -93,10 +97,10 @@ export default function Ventanilla() {
       setShowMerge(false);
       await refresh();
       await loadOrderItems(selectedOrderId);
-      alert(`Órdenes unidas: ${res.data.itemsMoved} item(s) agregados a esta cuenta`);
+      showAlert(`Órdenes unidas: ${res.data.itemsMoved} item(s) agregados a esta cuenta`);
     } catch (error) {
       console.error('Error uniendo órdenes:', error);
-      alert(error.response?.data?.error || 'Error al unir órdenes');
+      showAlert(error.response?.data?.error || 'Error al unir órdenes');
     }
   };
 
@@ -113,13 +117,13 @@ export default function Ventanilla() {
       }
     } catch (error) {
       console.error('Error actualizando estado:', error);
-      alert(error.response?.data?.error || 'Error al actualizar estado');
+      showAlert(error.response?.data?.error || 'Error al actualizar estado');
     }
   };
 
   const createNewOrder = async () => {
     if (newOrderItems.length === 0) {
-      alert('Agrega al menos un producto');
+      showAlert('Agrega al menos un producto');
       return;
     }
 
@@ -139,7 +143,7 @@ export default function Ventanilla() {
         await selectOrder(res.data.order.id);
       }
 
-      alert('Pedido creado');
+      showAlert('Pedido creado');
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('[FASE M9.1] Ventanilla createNewOrder catch:', {
@@ -149,7 +153,7 @@ export default function Ventanilla() {
         });
       }
       console.error('Error creando pedido:', error);
-      alert(error.response?.data?.error || 'Error al crear pedido');
+      showAlert(error.response?.data?.error || 'Error al crear pedido');
     } finally {
       setCreatingOrder(false);
     }
@@ -162,15 +166,15 @@ export default function Ventanilla() {
         await loadOrderItems(orderId);
       }
       await loadOrders();
-      alert('Items agregados correctamente');
+      showAlert('Items agregados correctamente');
     } catch (error) {
       console.error('Error agregando items:', error);
-      alert(error.response?.data?.error || 'Error al agregar items');
+      showAlert(error.response?.data?.error || 'Error al agregar items');
     }
   };
 
   const deleteOrderItem = async (itemId, orderId) => {
-    if (!confirm('¿Eliminar este item de la orden?')) return;
+    if (!(await showConfirm('¿Eliminar este item de la orden?'))) return;
     
     try {
       await axios.delete(`/orders/items/${itemId}`);
@@ -180,7 +184,7 @@ export default function Ventanilla() {
       await loadOrders();
     } catch (error) {
       console.error('Error eliminando item:', error);
-      alert(error.response?.data?.error || 'Error al eliminar item');
+      showAlert(error.response?.data?.error || 'Error al eliminar item');
     }
   };
 
@@ -209,7 +213,7 @@ export default function Ventanilla() {
 
   const addCustomItem = () => {
     if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      alert('Ingresa un nombre y precio válido');
+      showAlert('Ingresa un nombre y precio válido');
       return;
     }
     setNewOrderItems((prev) => [
@@ -323,9 +327,9 @@ export default function Ventanilla() {
                       </span>
                       {order.status === 'NUEVO' && (
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm('¿Enviar esta orden a preparación?')) {
+                            if (await showConfirm('¿Enviar esta orden a preparación?')) {
                               updateOrderStatus(order.id, 'EN_PREP');
                             }
                           }}
@@ -345,9 +349,9 @@ export default function Ventanilla() {
                       )}
                       {order.status === 'EN_PREP' && isCaja && (
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm('¿Marcar esta orden como LISTO?')) {
+                            if (await showConfirm('¿Marcar esta orden como LISTO?')) {
                               updateOrderStatus(order.id, 'LISTO');
                             }
                           }}
@@ -455,8 +459,8 @@ export default function Ventanilla() {
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     {selectedOrder.status === 'NUEVO' && (
                       <button
-                        onClick={() => {
-                          if (confirm('¿Enviar esta orden a preparación?')) {
+                        onClick={async () => {
+                          if (await showConfirm('¿Enviar esta orden a preparación?')) {
                             updateOrderStatus(selectedOrderId, 'EN_PREP');
                           }
                         }}
@@ -476,8 +480,8 @@ export default function Ventanilla() {
                     )}
                     {selectedOrder.status === 'EN_PREP' && isCaja && (
                       <button
-                        onClick={() => {
-                          if (confirm('¿Marcar esta orden como LISTO?')) {
+                        onClick={async () => {
+                          if (await showConfirm('¿Marcar esta orden como LISTO?')) {
                             updateOrderStatus(selectedOrderId, 'LISTO');
                           }
                         }}
@@ -553,7 +557,7 @@ export default function Ventanilla() {
                                 axios.patch(`/orders/items/${item.id}`, { qty: newQty })
                                   .then(() => loadOrderItems(selectedOrderId))
                                   .then(() => loadOrders())
-                                  .catch(err => alert(err.response?.data?.error || 'Error al actualizar cantidad'));
+                                  .catch(err => showAlert(err.response?.data?.error || 'Error al actualizar cantidad'));
                               }}
                               style={{ padding: '0.25rem 0.5rem', marginRight: '0.5rem', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                             >
@@ -565,7 +569,7 @@ export default function Ventanilla() {
                                 axios.patch(`/orders/items/${item.id}`, { qty: newQty })
                                   .then(() => loadOrderItems(selectedOrderId))
                                   .then(() => loadOrders())
-                                  .catch(err => alert(err.response?.data?.error || 'Error al actualizar cantidad'));
+                                  .catch(err => showAlert(err.response?.data?.error || 'Error al actualizar cantidad'));
                               }}
                               style={{ padding: '0.25rem 0.5rem', marginRight: '0.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                             >
@@ -629,7 +633,7 @@ export default function Ventanilla() {
               {productsByCategory[selectedCategory].map((p) => (
                 <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
                   <div className="product-name-btn">{p.displayName || p.name}</div>
-                  <div className="product-price-btn">${p.price}k</div>
+                  <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
                 </button>
               ))}
             </div>
@@ -770,8 +774,8 @@ export default function Ventanilla() {
             {openOrdersList.filter(o => o.id !== selectedOrderId).map(o => (
               <button
                 key={o.id}
-                onClick={() => {
-                  if (confirm(`¿Unir la ORDEN ${o.daily_no || o.code || o.id} a esta cuenta?`)) {
+                onClick={async () => {
+                  if (await showConfirm(`¿Unir la ORDEN ${o.daily_no || o.code || o.id} a esta cuenta?`)) {
                     mergeOrder(o.id);
                   }
                 }}
@@ -790,6 +794,18 @@ export default function Ventanilla() {
           </div>
         </div>
       )}
+
+      <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
+        actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
+        <p>{alertState.message}</p>
+      </Modal>
+      <Modal open={confirmState.open} onClose={cancelConfirm} title={confirmState.title}
+        actions={<>
+          <button className="btn-secondary" onClick={cancelConfirm}>Cancelar</button>
+          <button className="btn-chanatos" onClick={acceptConfirm}>Aceptar</button>
+        </>}>
+        <p>{confirmState.message}</p>
+      </Modal>
     </div>
   );
 }

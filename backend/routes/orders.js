@@ -889,7 +889,7 @@ router.patch(
 router.patch(
   "/:id/cancel",
   requireAuth,
-  requireRole("CAJA"),
+  requireRole("CAJA", "MESERO"),
   async (req, res) => {
     try {
       const { reason } = req.body;
@@ -897,8 +897,8 @@ router.patch(
 
       // Validar motivo obligatorio
       if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
-        return res.status(400).json({ 
-          error: "Motivo de cancelación es obligatorio (mínimo 3 caracteres)" 
+        return res.status(400).json({
+          error: "Motivo de cancelación es obligatorio (mínimo 3 caracteres)"
         });
       }
 
@@ -908,6 +908,14 @@ router.patch(
       ]);
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+
+      // FASE F6: el mesero solo cancela pedidos aún no preparados (cliente se arrepiente).
+      // Un pedido LISTO tiene comida hecha: esa cancelación es decisión de caja.
+      if (req.user.role === "MESERO" && !["NUEVO", "EN_PREP"].includes(order.status)) {
+        return res.status(403).json({
+          error: "El mesero solo puede cancelar pedidos que aún no están listos. Pide a caja cancelar este.",
+        });
       }
 
       // FASE 12.4: Bloquear cancelación si la orden está PAGADA

@@ -16,7 +16,7 @@ export default function DashboardCaja() {
   const { socket, logout } = useAuth();
   const { isOnline } = useConnection();
   
-  // PASO 14.4: Recuperaciรณn automรกtica al reconectar
+  // PASO 14.4: Recuperación automática al reconectar
   const { isRefreshing: isRefreshingOnReconnect } = useReconnectRefresh({
     enabled: true,
     onReconnect: async () => {
@@ -24,7 +24,7 @@ export default function DashboardCaja() {
     }
   });
   
-  // Estados para sesiรณn de caja
+  // Estados para sesión de caja
   const [session, setSession] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +69,7 @@ export default function DashboardCaja() {
         setSummary(null);
       }
     } catch (error) {
-      console.error('Error cargando sesiรณn:', error);
+      console.error('Error cargando sesión:', error);
       setSession(null);
     } finally {
       setLoading(false);
@@ -166,7 +166,7 @@ export default function DashboardCaja() {
         rightButton={{ label: "OPCIONES", to: "/mas" }}
       />
       
-      {/* PASO 14.4: Mensaje cuando se estรก refrescando tras reconectar */}
+      {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
       {isOnline && isRefreshingOnReconnect && (
         <div style={{
           padding: '0.5rem 1rem',
@@ -182,7 +182,7 @@ export default function DashboardCaja() {
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
-        {/* Bloque informativo: Sesiรณn de Caja Abierta (SOLO INFO, sin botones) */}
+        {/* Bloque informativo: Sesión de Caja Abierta (SOLO INFO, sin botones) */}
         {session ? (
           <div style={{
             background: 'white',
@@ -232,7 +232,7 @@ export default function DashboardCaja() {
             <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Ventas Teรณricas</div>
+                  <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Ventas Teóricas</div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F5BB4C' }}>
                     {formatPriceCOP(totalSales)}
                   </div>
@@ -303,7 +303,7 @@ export default function DashboardCaja() {
           </button>
         </div>
 
-        {/* Botรณn SALIR (FASE 13.4) */}
+        {/* Botón SALIR (FASE 13.4) */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -314,7 +314,7 @@ export default function DashboardCaja() {
         }}>
           <button
             onClick={() => {
-              if (window.confirm('ยฟCerrar sesiรณn?')) {
+              if (window.confirm('¿Cerrar sesión?')) {
                 logout();
               }
             }}

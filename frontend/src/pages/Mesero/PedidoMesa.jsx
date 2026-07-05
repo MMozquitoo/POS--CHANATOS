@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
 import SalsasChips from '../../components/SalsasChips';
+import { formatPriceCOP } from '../../utils/currency.js';
 import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
 
@@ -53,6 +54,8 @@ export default function PedidoMesa() {
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
   const [showCustomProduct, setShowCustomProduct] = useState(false);
+  const [showCancelOrder, setShowCancelOrder] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState(1);
@@ -220,6 +223,26 @@ export default function PedidoMesa() {
     }
   };
 
+  // FASE F6: el mesero puede cancelar pedidos aún no preparados (cliente se arrepiente)
+  const cancelOrder = async () => {
+    const reason = cancelReason.trim();
+    if (reason.length < 3) {
+      showAlert('Escribe el motivo de la cancelación (mínimo 3 caracteres)');
+      return;
+    }
+    try {
+      await axios.patch(`/orders/${order.id}/cancel`, { reason });
+      setShowCancelOrder(false);
+      setCancelReason('');
+      showAlert('Pedido cancelado. La mesa quedó libre.');
+      await loadActiveOrder();
+      setItems([]);
+    } catch (error) {
+      console.error('Error cancelando pedido:', error);
+      showAlert(error.response?.data?.error || 'Error al cancelar el pedido');
+    }
+  };
+
   // Función para enviar orden a preparación (cambiar estado a EN_PREP)
   const sendToPreparation = async () => {
     if (!order || !order.id) {
@@ -305,6 +328,16 @@ export default function PedidoMesa() {
                 Esta orden ya está lista. Si agregas algo más, volverá a cocina solo con lo nuevo.
               </div>
             )}
+
+            {['NUEVO', 'EN_PREP'].includes(order.status) && (
+              <button
+                type="button"
+                onClick={() => setShowCancelOrder(true)}
+                style={{ marginTop: '0.75rem', background: 'transparent', border: '1px solid #dc3545', color: '#dc3545', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                Cancelar pedido
+              </button>
+            )}
           </div>
         )}
 
@@ -367,7 +400,7 @@ export default function PedidoMesa() {
                   onClick={() => setSelectedProduct(product)}
                 >
                   <div className="product-name-btn">{product.displayName || product.name}</div>
-                  <div className="product-price-btn">${product.price}k</div>
+                  <div className="product-price-btn">{formatPriceCOP(product.price)}</div>
                 </button>
               ))}
             </div>
@@ -489,6 +522,22 @@ export default function PedidoMesa() {
       <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
         actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
         <p>{alertState.message}</p>
+      </Modal>
+
+      <Modal open={showCancelOrder} onClose={() => setShowCancelOrder(false)} title="Cancelar pedido"
+        actions={<>
+          <button className="btn-secondary" onClick={() => setShowCancelOrder(false)}>Volver</button>
+          <button className="btn-chanatos" onClick={cancelOrder}>Cancelar pedido</button>
+        </>}>
+        <p>El pedido se cancelará y la mesa quedará libre. Escribe el motivo:</p>
+        <input
+          type="text"
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Ej: El cliente se fue"
+          autoFocus
+          style={{ width: '100%', padding: '0.6rem', border: '1.5px solid #e5e5e5', borderRadius: '8px', fontSize: '0.95rem' }}
+        />
       </Modal>
     </div>
   );
