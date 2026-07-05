@@ -37,6 +37,9 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
   };
 
   const totalItems = order.items?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0;
+  // FASE F7: avance plato por plato
+  const activeItems = order.items?.filter(item => !item.voided_at) || [];
+  const readyCount = activeItems.filter(item => item.ready_at).length;
 
   return (
     <div
@@ -52,6 +55,11 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
           {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
+          {order.status === 'EN_PREP' && activeItems.length > 1 && (
+            <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700, background: readyCount > 0 ? '#FFF3D6' : '#f0f0f0', color: readyCount > 0 ? '#B8860B' : '#888' }}>
+              {readyCount}/{activeItems.length}
+            </span>
+          )}
         </div>
         <div style={{ color: '#666', fontSize: '0.85rem' }}>
           {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
@@ -169,6 +177,19 @@ export default function CocinaCaja({ hideHeader = false }) {
   const handleConfirmStatus = async (orderId, newStatus, message) => {
     if (await showConfirm(message)) {
       updateStatus(orderId, newStatus);
+    }
+  };
+
+  // FASE F7: marcar/desmarcar un plato terminado desde el detalle (solo EN_PREP)
+  const toggleItemReady = async (item) => {
+    try {
+      const res = await axios.patch(`/orders/items/${item.id}/ready`, { ready: !item.ready_at });
+      // Refrescar el modal con la orden actualizada (incluye auto-avance a LISTO)
+      setSelectedOrder(res.data.order);
+      loadOrders();
+    } catch (error) {
+      console.error('Error marcando plato:', error);
+      await showAlert(error.response?.data?.error || 'Error al marcar el plato');
     }
   };
 
@@ -361,33 +382,58 @@ export default function CocinaCaja({ hideHeader = false }) {
             </div>
 
             <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 'bold' }}>Items:</h3>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 'bold' }}>Items:</h3>
+              {selectedOrder.status === 'EN_PREP' && (
+                <p style={{ color: '#B8860B', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
+                  Toca un plato para marcarlo como terminado. Al completar todos, la orden pasa a LISTO sola.
+                </p>
+              )}
               {selectedOrder.items && selectedOrder.items.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {selectedOrder.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        padding: '0.75rem',
-                        background: '#f8f9fa',
-                        borderRadius: '6px',
-                        border: '1px solid #ddd'
-                      }}
-                    >
-                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                        <span style={{ color: '#F5BB4C', marginRight: '0.5rem' }}>{item.qty}x</span>
-                        {item.name}
-                      </div>
-                      {item.notes && (
-                        <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                          Notas: {item.notes}
+                  {selectedOrder.items.filter(item => !item.voided_at).map((item, idx) => {
+                    const isReady = !!item.ready_at;
+                    const markable = selectedOrder.status === 'EN_PREP';
+                    return (
+                      <div
+                        key={item.id ?? idx}
+                        onClick={markable ? () => toggleItemReady(item) : undefined}
+                        style={{
+                          padding: '0.75rem',
+                          background: isReady ? '#f4fcf7' : '#f8f9fa',
+                          borderRadius: '6px',
+                          border: isReady ? '1.5px solid #2ecc71' : '1px solid #ddd',
+                          cursor: markable ? 'pointer' : 'default',
+                          display: 'flex',
+                          gap: '0.6rem',
+                          alignItems: 'flex-start'
+                        }}
+                      >
+                        {markable || isReady ? (
+                          <span style={{
+                            width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                            border: isReady ? '2px solid #2ecc71' : '2px solid #ccc',
+                            background: isReady ? '#2ecc71' : 'white',
+                            color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.8rem', fontWeight: 900, marginTop: '2px'
+                          }}>{isReady ? '✓' : ''}</span>
+                        ) : null}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', textDecoration: isReady ? 'line-through' : 'none', color: isReady ? '#999' : '#333' }}>
+                            <span style={{ color: '#F5BB4C', marginRight: '0.5rem' }}>{item.qty}x</span>
+                            {item.name}
+                          </div>
+                          {item.notes && (
+                            <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                              Notas: {item.notes}
+                            </div>
+                          )}
+                          <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                            {formatPriceCOP(item.price)} c/u
+                          </div>
                         </div>
-                      )}
-                      <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                        {formatPriceCOP(item.price)} c/u
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p style={{ color: '#999', textAlign: 'center', padding: '1rem' }}>No hay items</p>
