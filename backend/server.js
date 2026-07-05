@@ -21,6 +21,7 @@ import recipesRoutes from "./routes/recipes.js";
 import inventoryRoutes from "./routes/inventory.js";
 import inventoryMovementsRoutes from "./routes/inventoryMovements.js";
 import auditRoutes from "./routes/audit.js";
+import reportsRoutes from "./routes/reports.js";
 
 // Importar base de datos
 import { initDatabase, getDb } from "./db/database.js";
@@ -139,6 +140,7 @@ app.use("/api/recipes", recipesRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/inventory-movements", inventoryMovementsRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/reports", reportsRoutes);
 
 // Health check (Render/Railway)
 app.get("/api/health", (req, res) => {

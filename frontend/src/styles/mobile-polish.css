@@ -232,3 +232,35 @@ button {
 .new-order-form h3 {
   margin: 0 0 4px;
 }
+
+/* --- FASE F10: DetalleMesa con altura natural (adiós franja muerta) --- */
+/* Desktop: los rieles laterales (mesas y cobro) quedan fijos al hacer scroll */
+@media (min-width: 901px) {
+  .detalle-mesa-grid > :nth-child(1),
+  .detalle-mesa-grid > :nth-child(3) {
+    position: sticky;
+    top: 76px;
+    max-height: calc(100vh - 92px);
+    overflow-y: auto;
+  }
+}
+
+/* Teléfono: columnas apiladas — primero la orden, luego el cobro, mesas al final */
+@media (max-width: 900px) {
+  .detalle-mesa-grid {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .detalle-mesa-grid > :nth-child(1) {
+    order: 3;
+  }
+
+  .detalle-mesa-grid > :nth-child(2) {
+    order: 1;
+  }
+
+  .detalle-mesa-grid > :nth-child(3) {
+    order: 2;
+  }
+}

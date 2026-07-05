@@ -1,0 +1,151 @@
+.rep-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.rep-periods {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.rep-period-btn {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1.5px solid #e5e5e5;
+  background: white;
+  border-radius: 10px;
+  font-weight: 700;
+  color: #666;
+  cursor: pointer;
+}
+
+.rep-period-btn.active {
+  background: #F5BB4C;
+  border-color: #F5BB4C;
+  color: #1a1a2e;
+}
+
+.rep-low-stock {
+  background: #FFF3D6;
+  border: 1.5px solid #E0B84E;
+  color: #7a5d00;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.rep-loading {
+  text-align: center;
+  color: #999;
+  padding: 3rem 0;
+}
+
+.rep-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.rep-kpi {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.rep-kpi-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.rep-kpi-label {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.rep-section {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.rep-section h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #1a1a2e;
+}
+
+.rep-empty {
+  color: #999;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.rep-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) 1fr minmax(110px, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.rep-bar-label {
+  font-size: 0.85rem;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rep-bar-track {
+  height: 10px;
+  background: #F1ECE0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Una sola magnitud → un solo tono (validado contra fondo claro) */
+.rep-bar-fill {
+  height: 100%;
+  background: #B8860B;
+  border-radius: 4px;
+}
+
+.rep-bar-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rep-bar-extra {
+  margin-left: 6px;
+  font-weight: 400;
+  color: #999;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .rep-bar-row {
+    grid-template-columns: minmax(80px, 110px) 1fr minmax(90px, auto);
+    gap: 6px;
+  }
+
+  .rep-bar-value {
+    font-size: 0.78rem;
+  }
+}

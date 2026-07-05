@@ -35,10 +35,21 @@ export default function DashboardCaja() {
   const [loading, setLoading] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [openingCash, setOpeningCash] = useState(false);
+  const [lowStock, setLowStock] = useState([]);
+
+  const loadLowStock = async () => {
+    try {
+      const res = await axios.get('/inventory/low-stock');
+      setLowStock(res.data || []);
+    } catch (error) {
+      console.error('Error cargando stock bajo:', error);
+    }
+  };
 
   useEffect(() => {
     loadSession();
     loadSummary();
+    loadLowStock();
 
     if (socket) {
       socket.on('payment:created', () => {
@@ -165,12 +176,29 @@ export default function DashboardCaja() {
 
   return (
     <div className="caja-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <CajaHeader 
+      <CajaHeader
         title="CAJA"
         subtitle="Dashboard"
         rightButton={{ label: "OPCIONES", to: "/mas" }}
       />
-      
+
+      {/* FASE F10: alerta de stock bajo (estado con icono y texto, no solo color) */}
+      {lowStock.length > 0 && (
+        <div style={{
+          padding: '0.6rem 1rem',
+          background: '#FFF3D6',
+          borderBottom: '1.5px solid #E0B84E',
+          color: '#7a5d00',
+          fontSize: '0.85rem',
+          lineHeight: 1.5
+        }}>
+          <strong>⚠ Stock bajo ({lowStock.length}):</strong>{' '}
+          {lowStock.slice(0, 5).map(i => `${i.ingredient_name} (${i.stock_qty} ${i.unit})`).join(' · ')}
+          {lowStock.length > 5 && ` · y ${lowStock.length - 5} más`}
+        </div>
+      )}
+
+
       {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
       {isOnline && isRefreshingOnReconnect && (
         <div style={{

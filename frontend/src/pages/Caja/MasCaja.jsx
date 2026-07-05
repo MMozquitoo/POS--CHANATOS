@@ -47,6 +47,13 @@ export default function MasCaja() {
             <>
               <button
                 className="caja-menu-option"
+                onClick={() => navigate('/reportes')}
+                style={{ background: '#F5BB4C', color: '#1a1a2e', fontWeight: 'bold' }}
+              >
+                REPORTES DE VENTAS
+              </button>
+              <button
+                className="caja-menu-option"
                 onClick={() => navigate('/historial-cierres')}
               >
                 HISTORIAL DE CIERRES

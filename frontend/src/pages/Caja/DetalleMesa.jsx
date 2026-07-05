@@ -1226,7 +1226,7 @@ export default function DetalleMesa() {
   };
 
   return (
-    <div className="detalle-mesa-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="detalle-mesa-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header className="detalle-mesa-header" style={{ flexShrink: 0 }}>
         <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
         <h1>
@@ -1236,12 +1236,12 @@ export default function DetalleMesa() {
         </h1>
       </header>
 
-      <div className="detalle-mesa-content" style={{ 
-        flex: 1, 
-        display: 'grid', 
-        gridTemplateColumns: '250px 1fr 350px', 
-        gap: '1rem', 
-        overflow: 'hidden',
+      <div className="detalle-mesa-content detalle-mesa-grid" style={{
+        flex: 1,
+        display: 'grid',
+        gridTemplateColumns: '250px 1fr 350px',
+        alignItems: 'start',
+        gap: '1rem',
         padding: '1rem'
       }}>
         {/* COLUMNA IZQUIERDA: Selector de Mesas */}

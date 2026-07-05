@@ -18,6 +18,7 @@ const DashboardCaja = lazy(() => import('./DashboardCaja'));
 const ConfigImpresora = lazy(() => import('./ConfigImpresora'));
 const CierreCaja = lazy(() => import('./CierreCaja'));
 const HistorialCierres = lazy(() => import('./HistorialCierres'));
+const Reportes = lazy(() => import('./Reportes'));
 const Auditoria = lazy(() => import('./Auditoria'));
 const ConfigServidor = lazy(() => import('./ConfigServidor'));
 const Diagnostico = lazy(() => import('./Diagnostico'));
@@ -53,6 +54,7 @@ export default function CajaRoutes() {
         <Route path="/cierre" element={<CierreCaja />} />
         <Route path="/historial-cierres" element={<HistorialCierres />} />
         <Route path="/auditoria" element={<Auditoria />} />
+        <Route path="/reportes" element={<Reportes />} />
         <Route path="/config-servidor" element={<ConfigServidor />} />
         <Route path="/diagnostico" element={<Diagnostico />} />
         <Route path="/apertura-caja" element={<AperturaCaja />} />
