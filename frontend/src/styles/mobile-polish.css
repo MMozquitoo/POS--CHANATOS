@@ -1,0 +1,147 @@
+/* =====================================================
+   Pulido móvil global — POS Chanatos
+   Se carga al final de los estilos globales: da aire,
+   targets táctiles cómodos y respeta el notch (safe area)
+   en toda la aplicación.
+   ===================================================== */
+
+/* --- Ventanilla / Domicilios: estructura base (no tenían estilos propios) --- */
+.ventanilla-container {
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.ventanilla-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border-bottom: 1px solid #ececec;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+}
+
+.ventanilla-header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: 0.5px;
+}
+
+.ventanilla-content {
+  padding: 16px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.order-detail-view {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* --- Safe area (notch) en los headers principales de la app --- */
+.caja-header,
+.cocina-header,
+.pedido-header,
+.pedidos-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)) !important;
+}
+
+/* --- Ajustes de móvil --- */
+@media (max-width: 768px) {
+  /* Targets táctiles cómodos en los botones de acción */
+  .btn-chanatos,
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .process-payment-btn,
+  .action-btn,
+  .method-btn,
+  .send-btn,
+  .footer-btn,
+  .custom-product-btn,
+  .pay-all-btn,
+  .back-btn,
+  .archive-day-btn,
+  .logout-btn {
+    min-height: 46px;
+  }
+
+  /* Encabezado de sección (título + botón principal): apilar con aire */
+  .section-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .section-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    flex: 1 1 auto;
+  }
+
+  .section-header > button {
+    flex: 1 1 100%;
+  }
+
+  /* Categorías: carrusel horizontal deslizable en vez de bloque que empuja todo */
+  .category-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 2px 2px 10px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Grillas de productos: tarjetas uniformes de dos columnas en teléfono */
+  .products-grid-caja,
+  .products-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .product-btn-caja,
+  .product-btn {
+    min-height: 64px;
+  }
+
+  /* Filas de item nuevo (cantidad, notas, salsas, quitar): que respiren */
+  .new-order-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+  }
+
+  /* Modales cómodos en pantallas pequeñas */
+  .chanatos-modal {
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  /* Tarjetas de orden: aire consistente */
+  .order-card,
+  .caja-list-item {
+    padding: 14px;
+  }
+}

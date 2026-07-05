@@ -8,6 +8,7 @@ import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
 import '../Mesero/Mesero.css';
+import '../Caja/Caja.css';
 
 function getBackRoute(location, role) {
   const from = location?.state?.from;

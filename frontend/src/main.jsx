@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles/chanatos-theme.css';
+import './styles/mobile-polish.css';
 import './index.css';
 import './styles/posMobile.css';
 
