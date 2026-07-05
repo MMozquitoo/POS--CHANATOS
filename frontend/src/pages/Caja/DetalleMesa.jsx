@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import { useDetalleMesaRefresh } from '../../hooks/useOrdersRefresh.js';
 import ModalHost from '../../components/ModalHost';
+import Modal from '../../components/Modal';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 // FASE M9.1: helper para Ventanilla (9) / Domicilios (10) — múltiples órdenes permitidas
@@ -136,6 +137,9 @@ export default function DetalleMesa() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [tipAmount, setTipAmount] = useState('');
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   
   // Validar tableId al inicio
   const isValidTableId = tableId && !isNaN(parseInt(tableId)) && parseInt(tableId) > 0;
@@ -473,6 +477,20 @@ export default function DetalleMesa() {
     }
   };
 
+  // FASE F10: aplicar/quitar descuento desde la vista de mesa
+  const applyDiscount = async (amount, reason) => {
+    try {
+      await axios.patch(`/orders/${activeOrder.id}/discount`, { amount, reason });
+      setShowDiscount(false);
+      setDiscountValue('');
+      setDiscountReason('');
+      await loadActiveOrder();
+    } catch (error) {
+      console.error('Error aplicando descuento:', error);
+      showAlert(error.response?.data?.error || 'Error al aplicar el descuento');
+    }
+  };
+
   const payActiveOrder = async () => {
     // Evitar doble click (FASE 10)
     if (loadingPay) {
@@ -552,9 +570,12 @@ export default function DetalleMesa() {
         console.log("[DEBUG payments/items] paymentMethod =", paymentMethod);
       }
 
-      // FASE F10: propina opcional
+      // FASE F10: propina opcional; con descuento el cobro va por orden completa
       const tip = Math.max(0, parseFloat(tipAmount) || 0);
-      const paymentRes = await axios.post('/payments/items', { ...payload, tipAmount: tip });
+      const discountNow = activeOrder?.discount_amount || 0;
+      const paymentRes = discountNow > 0
+        ? await axios.post('/payments', { orderId: activeOrder.id, method: paymentMethod, amount: Math.max(0, total - discountNow), tipAmount: tip })
+        : await axios.post('/payments/items', { ...payload, tipAmount: tip });
       setTipAmount('');
 
       let reciboShown = false;
@@ -1204,6 +1225,8 @@ export default function DetalleMesa() {
 
   // Calcular total de la orden activa (proteger contra null/undefined)
   const safeActiveOrderItems = activeOrderItems || [];
+  // FASE F10: total a cobrar con descuento de la orden
+  const orderDiscount = activeOrder?.discount_amount || 0;
   const activeOrderTotal = safeActiveOrderItems.reduce((sum, item) => {
     if (!item || !item.qty || !item.price) return sum;
     return sum + (item.qty * item.price);
@@ -2058,10 +2081,22 @@ export default function DetalleMesa() {
                   paddingTop: '1rem',
                   marginTop: '1rem'
                 }}>
+                  {orderDiscount > 0 && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#666' }}>
+                        <span>Subtotal:</span>
+                        <span>{formatPriceCOP(activeOrderTotal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#B8860B', marginBottom: '0.5rem' }}>
+                        <span>Descuento ({activeOrder.discount_reason}):</span>
+                        <span>-{formatPriceCOP(orderDiscount)}</span>
+                      </div>
+                    </>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>TOTAL:</span>
                     <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#F5BB4C' }}>
-                      {formatPriceCOP(activeOrderTotal)}
+                      {formatPriceCOP(Math.max(0, activeOrderTotal - orderDiscount))}
                     </span>
                   </div>
                 </div>
@@ -2147,7 +2182,7 @@ export default function DetalleMesa() {
                     CALCULADORA
                   </button>
 
-                  {/* FASE F10: propina opcional */}
+                  {/* FASE F10: propina opcional + descuento */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina:</label>
                     <input
@@ -2159,6 +2194,13 @@ export default function DetalleMesa() {
                       onChange={(e) => setTipAmount(e.target.value)}
                       style={{ flex: 1, minWidth: 0, height: '42px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscount(true)}
+                      style={{ padding: '0 12px', height: '42px', background: 'transparent', border: '1.5px solid #B8860B', color: '#B8860B', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      {orderDiscount > 0 ? 'DESC. ✓' : 'DESCUENTO'}
+                    </button>
                   </div>
 
                   {/* PASO 14.3: Mensaje cuando no hay conexión */}
@@ -2423,10 +2465,52 @@ export default function DetalleMesa() {
         </div>
       )}
 
+      {/* FASE F10: modal de descuento */}
+      {activeOrder && (
+        <Modal open={showDiscount} onClose={() => setShowDiscount(false)} title="Descuento de la orden"
+          actions={<>
+            {orderDiscount > 0 && (
+              <button className="btn-secondary" onClick={() => applyDiscount(0, '')}>Quitar descuento</button>
+            )}
+            <button className="btn-secondary" onClick={() => setShowDiscount(false)}>Volver</button>
+            <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseFloat(discountValue) || 0), discountReason.trim())}>
+              Aplicar
+            </button>
+          </>}>
+          <p>Subtotal de la orden: <strong>{formatPriceCOP(activeOrderTotal)}</strong></p>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              placeholder="Monto del descuento"
+              value={discountValue}
+              onChange={(e) => setDiscountValue(e.target.value)}
+              autoFocus
+              style={{ flex: 1, height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+            />
+            {[10, 20, 50].map(pct => (
+              <button key={pct} type="button"
+                onClick={() => setDiscountValue(String(Math.round(activeOrderTotal * pct / 100)))}
+                style={{ padding: '0 10px', border: '1.5px solid #F5BB4C', background: '#FFF8E7', color: '#B8860B', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+                {pct}%
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            placeholder="Motivo (obligatorio, ej: cliente frecuente)"
+            value={discountReason}
+            onChange={(e) => setDiscountReason(e.target.value)}
+            style={{ width: '100%', height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+          />
+        </Modal>
+      )}
+
       {/* Pago dividido (varios métodos en un cobro) */}
       {showSplit && activeOrder && (
         <PagoDividido
-          total={activeOrderTotal}
+          total={Math.max(0, activeOrderTotal - orderDiscount)}
           onCancel={() => setShowSplit(false)}
           onConfirm={processSplitPayment}
         />
@@ -2435,7 +2519,7 @@ export default function DetalleMesa() {
       {/* Calculadora de vuelto (el monto recibido alimenta el vuelto del recibo) */}
       {showCalculator && activeOrder && (
         <CalculadoraVuelto
-          total={activeOrderTotal}
+          total={Math.max(0, activeOrderTotal - orderDiscount)}
           onClose={() => setShowCalculator(false)}
           onConfirm={(recibido) => setReceivedAmount(recibido)}
         />
