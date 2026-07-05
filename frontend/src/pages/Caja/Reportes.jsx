@@ -21,16 +21,18 @@ const PERIODS = [
 const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
 
 // Fila con barra horizontal (una sola magnitud → un solo tono validado #B8860B)
-function BarRow({ label, value, max, extra }) {
+// money=false para magnitudes que son conteos, no plata
+function BarRow({ label, value, max, extra, money = true }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
+  const display = money ? formatPriceCOP(value) : String(value);
   return (
-    <div className="rep-bar-row" title={`${label}: ${formatPriceCOP(value)}`}>
+    <div className="rep-bar-row" title={`${label}: ${display}`}>
       <div className="rep-bar-label">{label}</div>
       <div className="rep-bar-track">
         <div className="rep-bar-fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="rep-bar-value">
-        {formatPriceCOP(value)}
+        {display}
         {extra && <span className="rep-bar-extra">{extra}</span>}
       </div>
     </div>
@@ -66,6 +68,7 @@ export default function Reportes() {
   const maxProduct = Math.max(0, ...(data?.topProducts || []).map(p => p.total));
   const maxMethod = Math.max(0, ...(data?.byMethod || []).map(m => m.total));
   const maxHour = Math.max(0, ...(data?.byHour || []).map(h => h.total));
+  const maxOrdersHour = Math.max(0, ...(data?.ordersByHour || []).map(h => h.count));
   const maxDay = Math.max(0, ...(data?.byDay || []).map(d => d.total));
 
   return (
@@ -161,14 +164,26 @@ export default function Reportes() {
               </section>
             )}
 
-            {/* Horas pico */}
+            {/* Horas pico de cobro */}
             <section className="rep-section">
-              <h3>Ventas por hora</h3>
+              <h3>Ventas por hora <span className="rep-section-hint">(cuándo se cobra)</span></h3>
               {data.byHour.length === 0 ? (
                 <p className="rep-empty">Sin pagos en este periodo</p>
               ) : (
                 data.byHour.map(h => (
                   <BarRow key={h.hour} label={`${h.hour}:00`} value={h.total} max={maxHour} extra={`${h.count} pagos`} />
+                ))
+              )}
+            </section>
+
+            {/* Horas pico de llegada */}
+            <section className="rep-section">
+              <h3>Pedidos por hora <span className="rep-section-hint">(cuándo llega la gente)</span></h3>
+              {(data.ordersByHour || []).length === 0 ? (
+                <p className="rep-empty">Sin pedidos en este periodo</p>
+              ) : (
+                data.ordersByHour.map(h => (
+                  <BarRow key={h.hour} label={`${h.hour}:00`} value={h.count} max={maxOrdersHour} money={false} extra="pedidos" />
                 ))
               )}
             </section>

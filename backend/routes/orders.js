@@ -222,9 +222,13 @@ router.post(
         // code debe ser único global (por el UNIQUE). UI mostrará: "ORDEN {dailyNo}"
         code = `${formatYyyyMmDdCompact(businessDay)}-${dailyNo}`;
 
+        // FASE F10: created_at explícito en hora de Bogotá (el DEFAULT de SQLite es UTC
+        // y descuadraba los reportes por hora y la hora mostrada en pantalla)
+        const createdAt = toBogotaSQLiteTimestamp(new Date());
+
         result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             code,
             finalTableId || null,
@@ -234,6 +238,7 @@ router.post(
             dailyNo,
             initialStatus,
             req.user.id,
+            createdAt,
           ]
         );
 
@@ -256,8 +261,8 @@ router.post(
           const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
 
           await db.run(
-            "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [orderId, item.name, item.qty || 1, itemPrice, item.notes || null, productId, isCustom]
+            "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [orderId, item.name, item.qty || 1, itemPrice, item.notes || null, productId, isCustom, createdAt]
           );
         }
 
@@ -1241,6 +1246,7 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
 
     await db.run("BEGIN TRANSACTION");
     try {
+      const itemsCreatedAt = toBogotaSQLiteTimestamp(new Date());
       for (const item of items) {
         const productId = item.product_id || item.productId || null;
         const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
@@ -1248,8 +1254,8 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
         const price = parseFloat(item.price);
 
         const result = await db.run(
-          "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [orderId, item.name.trim(), qty, price, item.notes || null, productId, isCustom]
+          "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [orderId, item.name.trim(), qty, price, item.notes || null, productId, isCustom, itemsCreatedAt]
         );
 
         const newItem = await db.get("SELECT * FROM order_items WHERE id = ?", [result.lastID]);

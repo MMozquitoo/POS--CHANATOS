@@ -79,6 +79,17 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
       [from, to]
     );
 
+    // Pedidos por hora de CREACIÓN (cuándo llega la gente — para staffing).
+    // Incluye todas las órdenes creadas: una cancelada o fusionada también fue demanda.
+    const ordersByHour = await db.all(
+      `SELECT substr(created_at, 12, 2) as hour, COUNT(*) as count
+       FROM orders
+       WHERE substr(created_at, 1, 10) BETWEEN ? AND ?
+       GROUP BY hour
+       ORDER BY hour`,
+      [from, to]
+    );
+
     // Top productos por venta (items pagados, no anulados)
     const topProducts = await db.all(
       `SELECT name,
@@ -111,6 +122,7 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
       byMethod,
       byDay,
       byHour,
+      ordersByHour,
       topProducts,
     });
   } catch (error) {

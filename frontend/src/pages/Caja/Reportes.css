@@ -149,3 +149,9 @@
     font-size: 0.78rem;
   }
 }
+
+.rep-section-hint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: #999;
+}
