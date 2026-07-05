@@ -277,13 +277,15 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     }
 
     // 2. Calcular resumen desde payments usando cash_session_id
+    // FASE F8: excluir pagos anulados (antes inflaban el arqueo) y sumar propinas
     const paymentsByMethodResult = await db.all(
-      `SELECT 
+      `SELECT
          method,
          COUNT(*) as count,
-         COALESCE(SUM(amount), 0) as total
+         COALESCE(SUM(amount), 0) as total,
+         COALESCE(SUM(tip_amount), 0) as tips
        FROM payments
-       WHERE cash_session_id = ?
+       WHERE cash_session_id = ? AND voided_at IS NULL
        GROUP BY method`,
       [session.id]
     );
@@ -293,11 +295,15 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     let totalCard = 0;
     let totalTransfer = 0;
     let paymentCount = 0;
+    let tipsCash = 0;
+    let totalTips = 0;
 
     paymentsByMethodResult.forEach((row) => {
       paymentCount += row.count;
+      totalTips += row.tips || 0;
       if (row.method === 'EFECTIVO') {
         totalCash = row.total;
+        tipsCash = row.tips || 0;
       } else if (row.method === 'TARJETA') {
         totalCard = row.total;
       } else if (row.method === 'TRANSFERENCIA') {
@@ -307,8 +313,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
 
     const totalSales = totalCash + totalCard + totalTransfer;
 
-    // 4. Calcular expected_cash
-    const expectedCash = (session.initial_cash || 0) + totalCash;
+    // 4. Calcular expected_cash (las propinas en efectivo también entran al cajón)
+    const expectedCash = (session.initial_cash || 0) + totalCash + tipsCash;
 
     // 5. Calcular diff_cash
     const diffCash = closingCash - expectedCash;
@@ -328,6 +334,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_card: totalCard,
         total_transfer: totalTransfer,
         total_sales: totalSales,
+        total_tips: totalTips,
+        tips_cash: tipsCash,
         payment_count: paymentCount
       },
       closed_by: req.user.id
@@ -411,6 +419,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_card: totalCard,
         total_transfer: totalTransfer,
         total_sales: totalSales,
+        total_tips: totalTips,
+        tips_cash: tipsCash,
         payment_count: paymentCount
       },
       snapshot: closedSession.close_snapshot ? JSON.parse(closedSession.close_snapshot) : null

@@ -667,6 +667,25 @@ export const initDatabase = async () => {
     console.error("⚠️  Error agregando ready_at:", readyError);
   }
 
+  // FASE F8: descuentos (por orden) y propinas (por pago) — chequeos incondicionales
+  try {
+    const ordersCols = await database.all("PRAGMA table_info(orders)");
+    if (!ordersCols.some((c) => c.name === "discount_amount")) {
+      console.log("  ➕ Agregando discount_amount/discount_reason a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0");
+      await database.run("ALTER TABLE orders ADD COLUMN discount_reason TEXT");
+      console.log("  ✅ Campos de descuento agregados a orders");
+    }
+    const paymentsCols = await database.all("PRAGMA table_info(payments)");
+    if (!paymentsCols.some((c) => c.name === "tip_amount")) {
+      console.log("  ➕ Agregando tip_amount a payments...");
+      await database.run("ALTER TABLE payments ADD COLUMN tip_amount REAL NOT NULL DEFAULT 0");
+      console.log("  ✅ Campo tip_amount agregado a payments");
+    }
+  } catch (discountError) {
+    console.error("⚠️  Error agregando descuento/propina:", discountError);
+  }
+
   console.log("✅ Base de datos inicializada correctamente");
 };
 

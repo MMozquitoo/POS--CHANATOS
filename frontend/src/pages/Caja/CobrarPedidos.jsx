@@ -30,6 +30,10 @@ export default function CobrarPedidos() {
   const [showSplit, setShowSplit] = useState(false);
   const [reciboData, setReciboData] = useState(null);
   const [receivedAmount, setReceivedAmount] = useState(0);
+  const [tipAmount, setTipAmount] = useState('');
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   const [cashSessionActive, setCashSessionActive] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
@@ -119,6 +123,25 @@ export default function CobrarPedidos() {
     }, 0) || 0;
   };
 
+  // FASE F8: total a cobrar con el descuento de la orden aplicado
+  const discountOf = (order) => order?.discount_amount || 0;
+  const totalConDescuento = (order) => Math.max(0, calculateTotal(order) - discountOf(order));
+
+  // FASE F8: aplicar/quitar descuento
+  const applyDiscount = async (amount, reason) => {
+    try {
+      const res = await axios.patch(`/orders/${selectedOrder.id}/discount`, { amount, reason });
+      setShowDiscount(false);
+      setDiscountValue('');
+      setDiscountReason('');
+      setSelectedOrder({ ...selectedOrder, ...res.data.order, items: selectedOrder.items });
+      loadOrders();
+    } catch (error) {
+      console.error('Error aplicando descuento:', error);
+      await showAlert(error.response?.data?.error || 'Error al aplicar el descuento');
+    }
+  };
+
   const processPaymentFull = async () => {
     if (!selectedOrder) return;
 
@@ -129,7 +152,7 @@ export default function CobrarPedidos() {
       return;
     }
 
-    const total = calculateTotal(selectedOrder);
+    const total = totalConDescuento(selectedOrder);
 
     // Validar total > 0 (FASE 9.5)
     if (total <= 0) {
@@ -145,21 +168,24 @@ export default function CobrarPedidos() {
     }
 
     try {
+      const tip = Math.max(0, parseFloat(tipAmount) || 0);
       const res = await axios.post('/payments', {
         orderId: selectedOrder.id,
         method: paymentMethod,
-        amount: total
+        amount: total,
+        tipAmount: tip,
       });
 
       // Mostrar recibo con vuelto (si se usó la calculadora con efectivo)
       const vuelto = paymentMethod === 'EFECTIVO' && receivedAmount > total ? receivedAmount - total : 0;
       setReciboData({
         order: selectedOrder,
-        payment: res.data?.payment || { method: paymentMethod, amount: total, created_at: new Date().toISOString() },
+        payment: res.data?.payment || { method: paymentMethod, amount: total, tip_amount: tip, created_at: new Date().toISOString() },
         items: selectedOrder.items || [],
         changeAmount: vuelto,
       });
       setReceivedAmount(0);
+      setTipAmount('');
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
@@ -186,23 +212,27 @@ export default function CobrarPedidos() {
     }
 
     try {
+      const tip = Math.max(0, parseFloat(tipAmount) || 0);
       await axios.post('/payments', {
         orderId: selectedOrder.id,
         payments: paymentLines,
+        tipAmount: tip,
       });
 
       setShowSplit(false);
-      const total = calculateTotal(selectedOrder);
+      const total = totalConDescuento(selectedOrder);
       setReciboData({
         order: selectedOrder,
         payment: {
           method: paymentLines.map(l => l.method).join(' + '),
           amount: total,
+          tip_amount: tip,
           created_at: new Date().toISOString(),
         },
         items: selectedOrder.items || [],
         changeAmount: 0,
       });
+      setTipAmount('');
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
@@ -441,7 +471,10 @@ export default function CobrarPedidos() {
                     <div className="order-table-cobrar">Mesa: {order.table_label}</div>
                   )}
                   <div className="order-total-cobrar">
-                    {formatPriceCOP(calculateTotal(order))}
+                    {formatPriceCOP(totalConDescuento(order))}
+                    {discountOf(order) > 0 && (
+                      <span style={{ fontSize: '0.75rem', color: '#B8860B', display: 'block' }}>desc. -{formatPriceCOP(discountOf(order))}</span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -469,10 +502,43 @@ export default function CobrarPedidos() {
                   </label>
                 ))}
               </div>
+              {discountOf(selectedOrder) > 0 && (
+                <>
+                  <div className="payment-total" style={{ fontSize: '0.9rem', color: '#666' }}>
+                    <span>Subtotal:</span>
+                    <span>{formatPriceCOP(calculateTotal(selectedOrder))}</span>
+                  </div>
+                  <div className="payment-total" style={{ fontSize: '0.9rem', color: '#B8860B' }}>
+                    <span>Descuento ({selectedOrder.discount_reason}):</span>
+                    <span>-{formatPriceCOP(discountOf(selectedOrder))}</span>
+                  </div>
+                </>
+              )}
               <div className="payment-total">
                 <span>Total:</span>
-                <span className="total-amount">{formatPriceCOP(calculateTotal(selectedOrder))}</span>
+                <span className="total-amount">{formatPriceCOP(totalConDescuento(selectedOrder))}</span>
               </div>
+            </div>
+
+            {/* FASE F8: propina opcional */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.75rem 0' }}>
+              <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina (opcional):</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                placeholder="0"
+                value={tipAmount}
+                onChange={(e) => setTipAmount(e.target.value)}
+                style={{ width: '120px', height: '38px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowDiscount(true)}
+                style={{ marginLeft: 'auto', padding: '8px 14px', background: 'transparent', border: '1.5px solid #B8860B', color: '#B8860B', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {discountOf(selectedOrder) > 0 ? 'EDITAR DESCUENTO' : 'DESCUENTO'}
+              </button>
             </div>
 
             <div className="payment-methods">
@@ -523,14 +589,15 @@ export default function CobrarPedidos() {
                   No hay conexión. Operación no disponible.
                 </div>
               )}
-              <button 
-                onClick={processPaymentPartial} 
-                disabled={!cashSessionActive || !isOnline}
-                className="process-payment-btn" 
+              <button
+                onClick={processPaymentPartial}
+                disabled={!cashSessionActive || !isOnline || discountOf(selectedOrder) > 0}
+                title={discountOf(selectedOrder) > 0 ? 'Orden con descuento: cóbrala completa o con pago dividido' : undefined}
+                className="process-payment-btn"
                 style={{
-                  background: cashSessionActive && isOnline ? '#F5BB4C' : '#6c757d',
-                  opacity: cashSessionActive && isOnline ? 1 : 0.6,
-                  cursor: cashSessionActive ? 'pointer' : 'not-allowed'
+                  background: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? '#F5BB4C' : '#6c757d',
+                  opacity: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? 1 : 0.6,
+                  cursor: cashSessionActive && discountOf(selectedOrder) === 0 ? 'pointer' : 'not-allowed'
                 }}
               >
                 COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
@@ -568,11 +635,51 @@ export default function CobrarPedidos() {
             )}
             {showSplit && (
               <PagoDividido
-                total={calculateTotal(selectedOrder)}
+                total={totalConDescuento(selectedOrder)}
                 onCancel={() => setShowSplit(false)}
                 onConfirm={processSplitPayment}
               />
             )}
+
+            {/* FASE F8: modal de descuento */}
+            <Modal open={showDiscount} onClose={() => setShowDiscount(false)} title="Descuento de la orden"
+              actions={<>
+                {discountOf(selectedOrder) > 0 && (
+                  <button className="btn-secondary" onClick={() => applyDiscount(0, '')}>Quitar descuento</button>
+                )}
+                <button className="btn-secondary" onClick={() => setShowDiscount(false)}>Volver</button>
+                <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseFloat(discountValue) || 0), discountReason.trim())}>
+                  Aplicar
+                </button>
+              </>}>
+              <p>Subtotal de la orden: <strong>{formatPriceCOP(calculateTotal(selectedOrder))}</strong></p>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  placeholder="Monto del descuento"
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  autoFocus
+                  style={{ flex: 1, height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+                />
+                {[10, 20, 50].map(pct => (
+                  <button key={pct} type="button"
+                    onClick={() => setDiscountValue(String(Math.round(calculateTotal(selectedOrder) * pct / 100)))}
+                    style={{ padding: '0 10px', border: '1.5px solid #F5BB4C', background: '#FFF8E7', color: '#B8860B', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="Motivo (obligatorio, ej: cliente frecuente)"
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                style={{ width: '100%', height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+              />
+            </Modal>
             <div style={{display:'flex', gap:'0.5rem', marginTop:'1rem', flexWrap:'wrap'}}>
               {/* FASE 20.C: Botones secundarios con colores más suaves */}
               <button onClick={() => archiveOrder(selectedOrder.id)} className="method-btn" style={{

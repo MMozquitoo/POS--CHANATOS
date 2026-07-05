@@ -1883,6 +1883,79 @@ router.post("/:id/cancel", requireAuth, requireRole("CAJA"), async (req, res) =>
   }
 });
 
+// PATCH /api/orders/:id/discount - Aplicar/quitar descuento a una orden (FASE F8)
+router.patch("/:id/discount", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const orderId = parseInt(req.params.id);
+    const amount = Number(req.body.amount);
+    const reason = (req.body.reason || '').trim();
+
+    if (isNaN(amount) || amount < 0) {
+      return res.status(400).json({ error: "El descuento debe ser un monto de 0 o más (0 lo quita)" });
+    }
+    if (amount > 0 && reason.length < 3) {
+      return res.status(400).json({ error: "Escribe el motivo del descuento (mínimo 3 caracteres)" });
+    }
+
+    const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    if (!order) {
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+    if (!["NUEVO", "EN_PREP", "LISTO"].includes(order.status)) {
+      return res.status(409).json({ error: "Solo se puede aplicar descuento a órdenes abiertas" });
+    }
+
+    // Con pagos registrados el saldo ya está comprometido: anular pagos primero
+    const pagos = await db.get(
+      "SELECT COUNT(*) as c FROM payments WHERE order_id = ? AND voided_at IS NULL",
+      [orderId]
+    );
+    if (pagos && pagos.c > 0) {
+      return res.status(409).json({ error: "La orden ya tiene pagos. Anúlalos antes de cambiar el descuento." });
+    }
+
+    const totalItems = await db.get(
+      "SELECT COALESCE(SUM(qty * price), 0) as total FROM order_items WHERE order_id = ? AND voided_at IS NULL",
+      [orderId]
+    );
+    if (amount > (totalItems?.total || 0)) {
+      return res.status(400).json({
+        error: `El descuento (${amount}) no puede superar el total de la orden (${totalItems?.total || 0})`,
+      });
+    }
+
+    await db.run(
+      "UPDATE orders SET discount_amount = ?, discount_reason = ?, updated_at = ? WHERE id = ?",
+      [amount, amount > 0 ? reason : null, toBogotaSQLiteTimestamp(new Date()), orderId]
+    );
+
+    await logAudit({
+      action: 'ORDER_DISCOUNT_SET',
+      entity_type: 'order',
+      entity_id: orderId,
+      order_id: orderId,
+      user_id: req.user.id,
+      ip: req.ip || req.connection?.remoteAddress || null,
+      summary: amount > 0
+        ? `Descuento de ${amount} aplicado a orden ${order.daily_no || order.code || orderId} (${reason})`
+        : `Descuento retirado de orden ${order.daily_no || order.code || orderId}`,
+      meta: { amount, reason, previous_amount: order.discount_amount || 0 }
+    });
+
+    const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("order:updated", { order: updatedOrder });
+    }
+
+    res.json({ ok: true, order: updatedOrder });
+  } catch (error) {
+    console.error("Error aplicando descuento:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 // PATCH /api/orders/items/:id/ready - Marcar/desmarcar plato terminado (FASE F7)
 // Cocina plato por plato: cuando todos los items quedan listos, la orden pasa a LISTO sola.
 router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), async (req, res) => {

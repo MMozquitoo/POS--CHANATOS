@@ -364,16 +364,14 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
               <span>Subtotal:</span>
               <span>{formatPriceCOP(total)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-              <span>Descuento:</span>
-              <span>{formatPriceCOP(0)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span>Impuesto:</span>
-              <span>{formatPriceCOP(0)}</span>
-            </div>
-            <div className="receipt-total" style={{ 
-              display: 'flex', 
+            {(order?.discount_amount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                <span>Descuento{order?.discount_reason ? ` (${order.discount_reason})` : ''}:</span>
+                <span>-{formatPriceCOP(order.discount_amount)}</span>
+              </div>
+            )}
+            <div className="receipt-total" style={{
+              display: 'flex',
               justifyContent: 'space-between',
               borderTop: '1px solid #333',
               paddingTop: '0.5rem',
@@ -382,8 +380,14 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
               fontSize: '1.1rem'
             }}>
               <span>TOTAL:</span>
-              <span>{formatPriceCOP(total)}</span>
+              <span>{formatPriceCOP(Math.max(0, total - (order?.discount_amount || 0)))}</span>
             </div>
+            {(payment?.tip_amount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem' }}>
+                <span>Propina:</span>
+                <span>{formatPriceCOP(payment.tip_amount)}</span>
+              </div>
+            )}
           </div>
 
           {/* Separador */}

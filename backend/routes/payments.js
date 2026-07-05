@@ -253,9 +253,25 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
           }
         }
         
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Solo se puede cobrar cuando la orden está LISTO",
           status: status,
+          errorId
+        });
+      }
+    }
+
+    // FASE F8: una orden con descuento se cobra completa (el descuento es sobre
+    // el total; repartirlo item por item generaría descuadres)
+    const affectedOrderIdsSet = [...new Set(items.map(it => it.order_id))];
+    for (const oid of affectedOrderIdsSet) {
+      const orderDiscount = await db.get(
+        "SELECT discount_amount FROM orders WHERE id = ?",
+        [oid]
+      );
+      if ((orderDiscount?.discount_amount || 0) > 0) {
+        return res.status(409).json({
+          error: "Esta orden tiene descuento aplicado: cóbrala completa o con pago dividido (no por items).",
           errorId
         });
       }
@@ -644,11 +660,13 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       [orderId]
     );
 
-    const totalOrden = orderItems.reduce((sum, item) => {
+    const totalItems = orderItems.reduce((sum, item) => {
       const qty = item.qty || 0;
       const price = item.price || 0;
       return sum + (qty * price);
     }, 0);
+    // FASE F8: el total a cobrar descuenta el descuento de la orden
+    const totalOrden = Math.max(0, totalItems - (order.discount_amount || 0));
 
     const yaPagado = await db.get(
       `SELECT COALESCE(SUM(amount), 0) as total
@@ -658,6 +676,12 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     );
     const yaPagadoNum = yaPagado?.total || 0;
     const saldoPendiente = totalOrden - yaPagadoNum;
+
+    // FASE F8: propina opcional (se registra aparte, no infla las ventas)
+    const tipAmount = Number(req.body.tipAmount) || 0;
+    if (tipAmount < 0) {
+      return res.status(400).json({ error: "La propina no puede ser negativa" });
+    }
 
     if (saldoPendiente <= 0) {
       return res.status(400).json({ error: "El pedido ya está pagado" });
@@ -679,12 +703,15 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     await db.run("BEGIN IMMEDIATE");
     try {
+      let first = true;
       for (const line of normalizedLines) {
+        // La propina se registra en el primer pago del cobro
         const result = await db.run(
-          "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id) VALUES (?, ?, ?, ?, ?, ?)",
-          [orderId, line.method, line.amount, req.user.id, paymentTimestamp, cashSessionId]
+          "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [orderId, line.method, line.amount, req.user.id, paymentTimestamp, cashSessionId, first ? tipAmount : 0]
         );
         insertedIds.push(result.lastID);
+        first = false;
       }
 
       if (quedaPagada) {
