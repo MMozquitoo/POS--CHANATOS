@@ -4,12 +4,17 @@ import axios from 'axios';
 import { getApiBaseUrl } from '../../utils/api';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 /**
  * FASE 14.2: Configuración de servidor
  * Permite cambiar la URL del backend y probar la conexión
  */
 export default function ConfigServidor() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const [serverUrl, setServerUrl] = useState('');
   const [status, setStatus] = useState('idle'); // idle, loading, ok, error
@@ -50,7 +55,7 @@ export default function ConfigServidor() {
     const normalized = normalizeUrl(serverUrl);
     
     if (!normalized) {
-      alert('URL inválida. Debe empezar con http:// o https://');
+      showAlert('URL inválida. Debe empezar con http:// o https://');
       return;
     }
     
@@ -106,15 +111,15 @@ export default function ConfigServidor() {
   };
 
   // Recargar página
-  const handleReload = () => {
-    if (window.confirm('¿Recargar la página para aplicar los cambios?')) {
+  const handleReload = async () => {
+    if (await showConfirm('¿Recargar la página para aplicar los cambios?')) {
       window.location.reload();
     }
   };
 
   // Resetear a default
-  const handleReset = () => {
-    if (window.confirm('¿Restaurar URL por defecto?')) {
+  const handleReset = async () => {
+    if (await showConfirm('¿Restaurar URL por defecto?')) {
       const defaultUrl = getApiBaseUrl();
       setServerUrl(defaultUrl);
       localStorage.removeItem('pos_server_url');
@@ -428,6 +433,7 @@ export default function ConfigServidor() {
           </div>
         </div>
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

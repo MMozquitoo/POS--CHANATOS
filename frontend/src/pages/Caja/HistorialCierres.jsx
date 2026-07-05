@@ -6,6 +6,8 @@ import { formatBogotaDateTime } from '../../utils/timezone.js';
 import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 // Helpers locales para diferencias de cierre
 function getDiffLabel(diff) {
@@ -21,6 +23,9 @@ function getDiffColor(diff) {
 }
 
 export default function HistorialCierres() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
@@ -39,7 +44,7 @@ export default function HistorialCierres() {
       setSessions(res.data.sessions || []);
     } catch (error) {
       console.error('Error cargando sesiones:', error);
-      alert('Error al cargar historial de cierres');
+      showAlert('Error al cargar historial de cierres');
     } finally {
       setLoading(false);
     }
@@ -53,7 +58,7 @@ export default function HistorialCierres() {
       setSelectedSession(sessionId);
     } catch (error) {
       console.error('Error cargando reporte:', error);
-      alert('Error al cargar reporte de cierre');
+      showAlert('Error al cargar reporte de cierre');
     } finally {
       setLoadingReport(false);
     }
@@ -229,6 +234,7 @@ export default function HistorialCierres() {
           </div>
         )}
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ import TableCard from '../../components/TableCard.jsx';
 import CocinaCaja from './CocinaCaja.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 const FROM_CENTRO_TOTAL = { state: { from: '/centro-total' } };
 
@@ -93,6 +95,9 @@ function normalizePaymentItemsPayload({
 }
 
 export default function CentroTotal() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const { socket } = useAuth();
   const { isOnline } = useConnection();
@@ -461,7 +466,7 @@ export default function CentroTotal() {
       }
     } catch (error) {
       console.error('Error cargando órdenes:', error);
-      alert(error.response?.data?.error || 'Error al cargar órdenes');
+      showAlert(error.response?.data?.error || 'Error al cargar órdenes');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -475,7 +480,7 @@ export default function CentroTotal() {
       setSelectedOrderItems(res.data.items?.filter(item => !item.paid_at && !item.voided_at) || []);
     } catch (error) {
       console.error('Error cargando detalle de orden:', error);
-      alert(error.response?.data?.error || 'Error al cargar detalle');
+      showAlert(error.response?.data?.error || 'Error al cargar detalle');
     }
   }, [isOnline]);
 
@@ -483,7 +488,7 @@ export default function CentroTotal() {
     // Buscar el tableId real basado en el número
     const table = tables.find(t => t.number === tableNumber);
     if (!table) {
-      alert('Mesa no encontrada');
+      showAlert('Mesa no encontrada');
       return;
     }
     setSelectedType('MESA');
@@ -530,7 +535,7 @@ export default function CentroTotal() {
         const items = order.items || [];
         const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
         if (pendingItems.length === 0) {
-          alert('No se puede cambiar estado: la orden no tiene items.');
+          showAlert('No se puede cambiar estado: la orden no tiene items.');
           return;
         }
       }
@@ -545,7 +550,7 @@ export default function CentroTotal() {
       await loadReadyToPay();
     } catch (error) {
       console.error('Error actualizando estado:', error);
-      alert(error.response?.data?.error || 'Error al actualizar estado');
+      showAlert(error.response?.data?.error || 'Error al actualizar estado');
     }
   };
 
@@ -569,12 +574,12 @@ export default function CentroTotal() {
 
   const saveNewItems = async () => {
     if (newItems.length === 0) {
-      alert('Agrega al menos un item');
+      showAlert('Agrega al menos un item');
       return;
     }
     
     if (!selectedOrder) {
-      alert('Selecciona una orden primero');
+      showAlert('Selecciona una orden primero');
       return;
     }
 
@@ -584,10 +589,10 @@ export default function CentroTotal() {
       setShowAddItems(false);
       await loadOrderDetail(selectedOrder.id);
       await loadOrders();
-      alert('Items agregados correctamente');
+      showAlert('Items agregados correctamente');
     } catch (error) {
       console.error('Error agregando items:', error);
-      alert(error.response?.data?.error || 'Error al agregar items');
+      showAlert(error.response?.data?.error || 'Error al agregar items');
     }
   };
 
@@ -599,12 +604,12 @@ export default function CentroTotal() {
       await loadOrders();
     } catch (error) {
       console.error('Error editando item:', error);
-      alert(error.response?.data?.error || 'Error al editar item');
+      showAlert(error.response?.data?.error || 'Error al editar item');
     }
   };
 
   const deleteItem = async (itemId) => {
-    if (!confirm('¿Eliminar este item?')) return;
+    if (!(await showConfirm('¿Eliminar este item?'))) return;
     
     try {
       await axios.delete(`/orders/items/${itemId}`);
@@ -612,14 +617,14 @@ export default function CentroTotal() {
       await loadOrders();
     } catch (error) {
       console.error('Error eliminando item:', error);
-      alert(error.response?.data?.error || 'Error al eliminar item');
+      showAlert(error.response?.data?.error || 'Error al eliminar item');
     }
   };
 
   const payOrder = async (order, paymentMethod = 'EFECTIVO') => {
     // Validar sesión activa (FASE 9.5)
     if (!cashSessionActive) {
-      alert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      showAlert('⚠️ Debes ABRIR CAJA antes de cobrar');
       navigate('/mesas');
       return;
     }
@@ -646,13 +651,13 @@ export default function CentroTotal() {
 
       // Validar que el total > 0 (FASE 9.5 - Fix bug cobrar por $0)
       if (total <= 0) {
-        alert('Total inválido. Revisa precios o items.');
+        showAlert('Total inválido. Revisa precios o items.');
         return;
       }
 
       // Confirmar con el total calculado
       const orderCode = order.daily_no || order.code || `#${order.id}`;
-      if (!confirm(`¿Cobrar ORDEN ${orderCode} por ${formatPriceCOP(total)}?`)) {
+      if (!(await showConfirm(`¿Cobrar ORDEN ${orderCode} por ${formatPriceCOP(total)}?`))) {
         return;
       }
 
@@ -662,7 +667,7 @@ export default function CentroTotal() {
         .map(item => item.id);
 
       if (pendingItems.length === 0) {
-        alert('Esta orden no tiene items pendientes');
+        showAlert('Esta orden no tiene items pendientes');
         return;
       }
 
@@ -679,7 +684,7 @@ export default function CentroTotal() {
 
       // FASE 12.4: Validar que la orden esté en estado LISTO
       if (order.status !== 'LISTO') {
-        alert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${order.status}`);
+        showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${order.status}`);
         await loadOrders();
         await loadReadyToPay();
         return;
@@ -697,7 +702,7 @@ export default function CentroTotal() {
           amount: finalTotal
         });
       } catch (normalizeError) {
-        alert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
+        showAlert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
         return;
       }
 
@@ -733,18 +738,18 @@ export default function CentroTotal() {
       console.error('Error procesando pago:', error);
       // FASE 12.4: Manejo de error 409 (orden bloqueada)
       if (error.response?.status === 409) {
-        alert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
+        showAlert(error.response?.data?.error || 'Solo se puede cobrar cuando la orden está LISTO.');
         await loadOrders();
         await loadReadyToPay();
       } else {
-        alert(error.response?.data?.error || 'Error al procesar pago');
+        showAlert(error.response?.data?.error || 'Error al procesar pago');
       }
     }
   };
 
   const addCustomItem = () => {
     if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      alert('Ingresa un nombre y precio válido');
+      showAlert('Ingresa un nombre y precio válido');
       return;
     }
 
@@ -774,7 +779,7 @@ export default function CentroTotal() {
         const items = order.items || [];
         const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
         if (pendingItems.length === 0) {
-          alert('No se puede cambiar estado: la orden no tiene items.');
+          showAlert('No se puede cambiar estado: la orden no tiene items.');
           return;
         }
       }
@@ -785,7 +790,7 @@ export default function CentroTotal() {
       await loadKitchenOrders();
     } catch (error) {
       console.error('Error actualizando estado:', error);
-      alert(error.response?.data?.error || 'Error al actualizar estado');
+      showAlert(error.response?.data?.error || 'Error al actualizar estado');
     }
   };
 
@@ -795,27 +800,27 @@ export default function CentroTotal() {
       await loadKitchenOrders();
     } catch (error) {
       console.error('Error archivando pedido:', error);
-      alert(error.response?.data?.error || 'Error al archivar pedido');
+      showAlert(error.response?.data?.error || 'Error al archivar pedido');
     }
   };
 
   const cancelOrder = async (order) => {
-    const reason = prompt('Motivo de cancelación (mínimo 3 caracteres):');
+    const reason = await showPrompt('Motivo de cancelación (mínimo 3 caracteres):');
     if (!reason || reason.trim().length < 3) {
       if (reason !== null) {
-        alert('El motivo debe tener al menos 3 caracteres');
+        showAlert('El motivo debe tener al menos 3 caracteres');
       }
       return;
     }
 
     const orderCode = order.daily_no || order.code || `#${order.id}`;
-    if (!confirm(`¿Cancelar ORDEN ${orderCode}?\n\nMotivo: ${reason}`)) {
+    if (!(await showConfirm(`¿Cancelar ORDEN ${orderCode}?\n\nMotivo: ${reason}`))) {
       return;
     }
 
     try {
       await axios.patch(`/orders/${order.id}/cancel`, { reason: reason.trim() });
-      alert('Orden cancelada correctamente');
+      showAlert('Orden cancelada correctamente');
       
       // FASE 16.4.3.A: Refresh optimista - quitar orden de listas locales inmediatamente
       // Esto incluye: readyToPayOrders, openOrdersVentanilla, openOrdersDomicilio
@@ -829,22 +834,22 @@ export default function CentroTotal() {
       }
     } catch (error) {
       console.error('Error cancelando orden:', error);
-      alert(error.response?.data?.error || 'Error al cancelar orden');
+      showAlert(error.response?.data?.error || 'Error al cancelar orden');
     }
   };
 
   const archiveDayKitchenOrders = async () => {
-    if (!confirm('¿Archivar todas las órdenes LISTO del día? Esto ocultará las órdenes archivadas de la vista.')) {
+    if (!(await showConfirm('¿Archivar todas las órdenes LISTO del día? Esto ocultará las órdenes archivadas de la vista.'))) {
       return;
     }
     
     try {
       await axios.post('/orders/archive-day');
       await loadKitchenOrders();
-      alert('Órdenes del día archivadas correctamente');
+      showAlert('Órdenes del día archivadas correctamente');
     } catch (error) {
       console.error('Error archivando órdenes del día:', error);
-      alert(error.response?.data?.error || 'Error al archivar órdenes del día');
+      showAlert(error.response?.data?.error || 'Error al archivar órdenes del día');
     }
   };
 
@@ -1474,6 +1479,7 @@ export default function CentroTotal() {
           </div>
         </div>
       )}
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

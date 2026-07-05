@@ -12,13 +12,15 @@ import Recibo from '../../components/Recibo.jsx';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal';
-import { useAlert, useConfirm } from '../../hooks/useModal';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
+import ModalHost from '../../components/ModalHost';
 import { normalizePaymentItemsPayload } from '../../utils/payments';
 
 export default function CobrarPedidos() {
   const { isOnline } = useConnection();
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
@@ -331,7 +333,7 @@ export default function CobrarPedidos() {
   };
 
   const cancelOrder = async (order) => {
-    const reason = prompt('Motivo de cancelación (mínimo 3 caracteres):');
+    const reason = await showPrompt('Motivo de cancelación (mínimo 3 caracteres):', 'Cancelar orden');
     if (!reason || reason.trim().length < 3) {
       if (reason !== null) {
         await showAlert('El motivo debe tener al menos 3 caracteres');
@@ -607,6 +609,7 @@ export default function CobrarPedidos() {
       </>}>
       <p>{confirmState.message}</p>
     </Modal>
+    <ModalHost promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     {reciboData && (
       <Recibo
         order={reciboData.order}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useConnection } from '../../contexts/ConnectionContext';
+import ModalHost from '../ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 /**
  * Modal para abrir caja
@@ -7,6 +9,9 @@ import { useConnection } from '../../contexts/ConnectionContext';
  * FASE 17.8: Persistencia de monto sugerido
  */
 export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = false }) {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const { isOnline } = useConnection();
   const [initialCash, setInitialCash] = useState('');
 
@@ -29,7 +34,7 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
     e.preventDefault();
     const cash = parseFloat(initialCash);
     if (isNaN(cash) || cash < 0) {
-      alert('Ingresa un monto válido (>= 0)');
+      showAlert('Ingresa un monto válido (>= 0)');
       return;
     }
     onConfirm(cash);
@@ -169,6 +174,7 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
           </div>
         </form>
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

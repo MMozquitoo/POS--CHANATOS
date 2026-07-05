@@ -11,6 +11,8 @@ import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import { useDetalleMesaRefresh } from '../../hooks/useOrdersRefresh.js';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 // FASE M9.1: helper para Ventanilla (9) / Domicilios (10) — múltiples órdenes permitidas
 const isSpecialTable = (tableNumber) => {
@@ -113,6 +115,9 @@ function normalizePaymentItemsPayload({
 }
 
 export default function DetalleMesa() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const { tableId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -230,7 +235,7 @@ export default function DetalleMesa() {
       return data;
     } catch (error) {
       console.error('Error cargando detalle de mesa:', error);
-      alert('Error al cargar la mesa');
+      showAlert('Error al cargar la mesa');
       return null;
     } finally {
       setLoading(false);
@@ -347,7 +352,7 @@ export default function DetalleMesa() {
   async function openCashSession() {
     const cash = parseFloat(initialCash) || 0;
     if (cash < 0) {
-      alert('El efectivo inicial no puede ser negativo');
+      showAlert('El efectivo inicial no puede ser negativo');
       return;
     }
 
@@ -356,10 +361,10 @@ export default function DetalleMesa() {
       await axios.post('/cash/open', { initialCash: cash });
       setInitialCash('');
       await checkCashSession(); // Recargar estado
-      alert('✅ Caja abierta correctamente');
+      showAlert('✅ Caja abierta correctamente');
     } catch (error) {
       console.error('Error abriendo caja:', error);
-      alert(error.response?.data?.error || 'Error al abrir caja');
+      showAlert(error.response?.data?.error || 'Error al abrir caja');
     } finally {
       setOpeningCash(false);
     }
@@ -381,13 +386,13 @@ export default function DetalleMesa() {
   // Agregar items a la orden activa
   const addItemsToActiveOrder = async (items) => {
     if (!activeOrder || !activeOrder.id) {
-      alert('No hay orden activa');
+      showAlert('No hay orden activa');
       return;
     }
     
     // FASE 12.4 (ajustado F1): solo PAGADA/CANCELADO bloquean; LISTO acepta items y vuelve a EN_PREP
     if (['PAGADA', 'CANCELADO'].includes(activeOrder.status)) {
-      alert(`Orden bloqueada. No se pueden agregar items cuando la orden está en estado ${activeOrder.status}.`);
+      showAlert(`Orden bloqueada. No se pueden agregar items cuando la orden está en estado ${activeOrder.status}.`);
       await loadActiveOrder();
       return;
     }
@@ -397,22 +402,22 @@ export default function DetalleMesa() {
       await axios.post(`/orders/${activeOrder.id}/items`, { items });
       await loadActiveOrder();
       await loadTableData();
-      alert(wasListo ? 'Items agregados. La orden volvió a cocina para preparar lo nuevo.' : 'Items agregados correctamente');
+      showAlert(wasListo ? 'Items agregados. La orden volvió a cocina para preparar lo nuevo.' : 'Items agregados correctamente');
     } catch (error) {
       console.error('Error agregando items a orden:', error);
       // FASE 12.4: Manejo de error 409 (orden bloqueada)
       if (error.response?.status === 409) {
-        alert(error.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
+        showAlert(error.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
         await loadActiveOrder();
       } else {
-        alert(error.response?.data?.error || 'Error al agregar items');
+        showAlert(error.response?.data?.error || 'Error al agregar items');
       }
     }
   };
 
   // Eliminar item de la orden activa
   const deleteOrderItem = async (itemId) => {
-    if (!confirm('¿Eliminar este item de la orden?')) return;
+    if (!(await showConfirm('¿Eliminar este item de la orden?'))) return;
     
     try {
       await axios.delete(`/orders/items/${itemId}`);
@@ -420,7 +425,7 @@ export default function DetalleMesa() {
       await loadTableData();
     } catch (error) {
       console.error('Error eliminando item:', error);
-      alert(error.response?.data?.error || 'Error al eliminar item');
+      showAlert(error.response?.data?.error || 'Error al eliminar item');
     }
   };
 
@@ -433,12 +438,12 @@ export default function DetalleMesa() {
 
     // FASE 9.1: Verificar sesión de caja antes de cobrar
     if (cashSessionActive === false) {
-      alert('⚠️ Debes ABRIR CAJA antes de cobrar');
+      showAlert('⚠️ Debes ABRIR CAJA antes de cobrar');
       return;
     }
 
     if (!activeOrder || !activeOrder.id) {
-      alert('No hay orden activa para cobrar');
+      showAlert('No hay orden activa para cobrar');
       return;
     }
     
@@ -456,7 +461,7 @@ export default function DetalleMesa() {
       });
 
       if (pendingItems.length === 0) {
-        alert('No hay items pendientes para cobrar. Actualiza la mesa.');
+        showAlert('No hay items pendientes para cobrar. Actualiza la mesa.');
         setLoadingPay(false);
         return;
       }
@@ -469,12 +474,12 @@ export default function DetalleMesa() {
 
       // Validar total > 0 (FASE 9.5)
       if (total <= 0) {
-        alert('Total inválido. Revisa precios o items.');
+        showAlert('Total inválido. Revisa precios o items.');
         setLoadingPay(false);
         return;
       }
 
-      if (!confirm(`¿Cobrar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(total)}?`)) {
+      if (!(await showConfirm(`¿Cobrar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(total)}?`))) {
         setLoadingPay(false);
         return;
       }
@@ -490,7 +495,7 @@ export default function DetalleMesa() {
           amount: total
         });
       } catch (normalizeError) {
-        alert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
+        showAlert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
         setLoadingPay(false);
         return;
       }
@@ -548,7 +553,7 @@ export default function DetalleMesa() {
         reciboShown = true;
       } catch (error) {
         console.error('Error obteniendo datos para recibo:', error);
-        alert('Pago procesado correctamente');
+        showAlert('Pago procesado correctamente');
       }
 
       // FASE 16.3: Verificar estado de la orden después del pago (para refresh/navigate al cerrar recibo)
@@ -584,13 +589,13 @@ export default function DetalleMesa() {
         console.error('Error procesando pago:', error);
         
         if (error.response?.status === 409) {
-          alert(error.response?.data?.error || 'La orden no está en estado LISTO. No se puede cobrar.');
+          showAlert(error.response?.data?.error || 'La orden no está en estado LISTO. No se puede cobrar.');
         } else if (error.response?.status === 400 &&
             (error.response?.data?.error?.includes('no son válidos') ||
              error.response?.data?.error?.includes('ya están pagados'))) {
-          alert('Los items cambiaron (ya fueron pagados/anulados). Se actualizará la orden.');
+          showAlert('Los items cambiaron (ya fueron pagados/anulados). Se actualizará la orden.');
         } else {
-          alert(error.response?.data?.error || 'No se pudo procesar el pago. Intenta nuevamente.');
+          showAlert(error.response?.data?.error || 'No se pudo procesar el pago. Intenta nuevamente.');
         }
         const data = await loadTableData();
         if (data?.table && isSpecialTable(data.table?.number)) {
@@ -605,7 +610,7 @@ export default function DetalleMesa() {
   // Actualizar estado de la orden activa
   const updateActiveOrderStatus = async (newStatus) => {
     if (!activeOrder || !activeOrder.id) {
-      alert('No hay orden activa');
+      showAlert('No hay orden activa');
       return;
     }
 
@@ -614,7 +619,7 @@ export default function DetalleMesa() {
       const items = activeOrderItems || [];
       const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
       if (pendingItems.length === 0) {
-        alert('No se puede cambiar estado: la orden no tiene items.');
+        showAlert('No se puede cambiar estado: la orden no tiene items.');
         return;
       }
     }
@@ -625,13 +630,13 @@ export default function DetalleMesa() {
       await loadTableData();
     } catch (error) {
       console.error('Error actualizando estado de orden:', error);
-      alert(error.response?.data?.error || 'Error al actualizar estado');
+      showAlert(error.response?.data?.error || 'Error al actualizar estado');
     }
   };
 
   const createOrderFromCaja = async () => {
     if (newOrderItems.length === 0) {
-      alert('Agrega al menos un producto');
+      showAlert('Agrega al menos un producto');
       return;
     }
 
@@ -650,12 +655,12 @@ export default function DetalleMesa() {
           existingActiveOrderId: activeOrder?.id,
         });
       }
-      alert('Ya existe una orden activa en esta mesa. Agrega items a la orden existente.');
+      showAlert('Ya existe una orden activa en esta mesa. Agrega items a la orden existente.');
       return;
     }
     // Si es mesa especial (Ventanilla/Domicilios), permitir múltiples órdenes activas sin bloqueo
 
-    if (!confirm('¿Crear pedido y enviarlo a cocina?')) {
+    if (!(await showConfirm('¿Crear pedido y enviarlo a cocina?'))) {
       setCreatingOrder(false);
       return;
     }
@@ -683,7 +688,7 @@ export default function DetalleMesa() {
 
       setNewOrderItems([]);
       setCreatingNewOrder(false);
-      alert('Pedido creado');
+      showAlert('Pedido creado');
       if (isSpecial && tableData?.table) {
         await loadOpenOrdersByService(tableData.table);
         const newId = res.data?.order?.id ?? res.data?.id;
@@ -709,9 +714,9 @@ export default function DetalleMesa() {
       // FASE 16.3: El mensaje "Ya hay una orden activa" solo aplica para mesas normales (1-8)
       // Para Ventanilla/Domicilios, el backend ya permite múltiples órdenes (FASE M9.0)
       if ((status === 400 || status === 409) && !isSpecial) {
-        alert('Ya hay una orden activa. Debes cerrarla o cobrarla.');
+        showAlert('Ya hay una orden activa. Debes cerrarla o cobrarla.');
       } else {
-        alert(msg || 'Error al crear pedido');
+        showAlert(msg || 'Error al crear pedido');
       }
     } finally {
       setCreatingOrder(false);
@@ -782,7 +787,7 @@ export default function DetalleMesa() {
       }
 
       if (itemsToPay.length === 0) {
-        alert('No hay items pendientes para cobrar. Actualiza la mesa.');
+        showAlert('No hay items pendientes para cobrar. Actualiza la mesa.');
         setLoadingPay(false);
         return;
       }
@@ -796,12 +801,12 @@ export default function DetalleMesa() {
 
       // Validar total > 0 (FASE 9.5)
       if (total <= 0) {
-        alert('Total inválido. Revisa precios o items.');
+        showAlert('Total inválido. Revisa precios o items.');
         setLoadingPay(false);
         return;
       }
 
-      if (!confirm(`¿Cobrar ${itemsToPay.length} item(s) por ${formatPriceCOP(total)}?`)) {
+      if (!(await showConfirm(`¿Cobrar ${itemsToPay.length} item(s) por ${formatPriceCOP(total)}?`))) {
         setLoadingPay(false);
         return;
       }
@@ -817,7 +822,7 @@ export default function DetalleMesa() {
           amount: total
         });
       } catch (normalizeError) {
-        alert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
+        showAlert(normalizeError.message || 'Error al preparar el pago. Verifica los items seleccionados.');
         setLoadingPay(false);
         return;
       }
@@ -833,7 +838,7 @@ export default function DetalleMesa() {
 
       await axios.post('/payments/items', payload);
 
-      alert('Pago procesado correctamente');
+      showAlert('Pago procesado correctamente');
       await loadTableData();
       setSelectedItems(new Set());
       setLoadingPay(false);
@@ -844,34 +849,34 @@ export default function DetalleMesa() {
       if (error.response?.status === 400 && 
           (error.response?.data?.error?.includes('no son válidos') || 
            error.response?.data?.error?.includes('ya están pagados'))) {
-        alert('Los items cambiaron (ya fueron pagados/anulados). Se actualizará la orden.');
+        showAlert('Los items cambiaron (ya fueron pagados/anulados). Se actualizará la orden.');
         // Forzar recarga
         await loadTableData();
         setSelectedItems(new Set());
       } else {
-        alert(error.response?.data?.error || 'No se pudo procesar el pago. Intenta nuevamente.');
+        showAlert(error.response?.data?.error || 'No se pudo procesar el pago. Intenta nuevamente.');
       }
       setLoadingPay(false);
     }
   };
 
   const voidItem = async (itemId) => {
-    if (!confirm('¿Anular este item? Esta acción no se puede deshacer.')) {
+    if (!(await showConfirm('¿Anular este item? Esta acción no se puede deshacer.'))) {
       return;
     }
 
     try {
       await axios.patch(`/cash/items/${itemId}/void`);
-      alert('Item anulado correctamente');
+      showAlert('Item anulado correctamente');
       loadTableData();
     } catch (error) {
       console.error('Error anulando item:', error);
-      alert(error.response?.data?.error || 'Error al anular item');
+      showAlert(error.response?.data?.error || 'Error al anular item');
     }
   };
 
   const disableOrder = async (orderId) => {
-    if (!confirm('¿Deshabilitar esta comanda? Se ocultará para mesero/cocina.')) return;
+    if (!(await showConfirm('¿Deshabilitar esta comanda? Se ocultará para mesero/cocina.'))) return;
     try {
       await axios.patch(`/orders/${orderId}/disable`, { reason: disableReason || null });
       setDisableReason('');
@@ -879,53 +884,53 @@ export default function DetalleMesa() {
       await loadActiveOrder();
     } catch (error) {
       console.error('Error deshabilitando comanda:', error);
-      alert(error.response?.data?.error || 'Error al deshabilitar comanda');
+      showAlert(error.response?.data?.error || 'Error al deshabilitar comanda');
     }
   };
 
   const enableOrder = async (orderId) => {
-    if (!confirm('¿Habilitar esta comanda? Volverá a aparecer.')) return;
+    if (!(await showConfirm('¿Habilitar esta comanda? Volverá a aparecer.'))) return;
     try {
       await axios.patch(`/orders/${orderId}/enable`);
       await loadTableData();
       await loadActiveOrder();
     } catch (error) {
       console.error('Error habilitando comanda:', error);
-      alert(error.response?.data?.error || 'Error al habilitar comanda');
+      showAlert(error.response?.data?.error || 'Error al habilitar comanda');
     }
   };
 
   const cancelOrder = async (orderId) => {
-    const reason = prompt('Motivo de cancelación (mínimo 3 caracteres):');
+    const reason = await showPrompt('Motivo de cancelación (mínimo 3 caracteres):');
     if (!reason || reason.trim().length < 3) {
       if (reason !== null) {
-        alert('El motivo debe tener al menos 3 caracteres');
+        showAlert('El motivo debe tener al menos 3 caracteres');
       }
       return;
     }
 
-    if (!confirm(`¿Cancelar este pedido?\n\nMotivo: ${reason}`)) return;
+    if (!(await showConfirm(`¿Cancelar este pedido?\n\nMotivo: ${reason}`))) return;
     try {
       await axios.patch(`/orders/${orderId}/cancel`, { reason: reason.trim() });
-      alert('Pedido cancelado correctamente');
+      showAlert('Pedido cancelado correctamente');
       
       // FASE 16.3: Refresh inteligente - navegar si quedó archivada (CANCELADO)
       await refreshAfterPayment(orderId, 'CANCELADO');
     } catch (error) {
       console.error('Error cancelando pedido:', error);
-      alert(error.response?.data?.error || 'Error al cancelar pedido');
+      showAlert(error.response?.data?.error || 'Error al cancelar pedido');
     }
   };
 
   const deleteOrder = async (orderId) => {
-    if (!confirm('¿BORRAR este pedido? (Acción irreversible, solo permitido si no tiene pagos)')) return;
+    if (!(await showConfirm('¿BORRAR este pedido? (Acción irreversible, solo permitido si no tiene pagos)'))) return;
     try {
       await axios.delete(`/orders/${orderId}`);
       await loadTableData();
       await loadActiveOrder();
     } catch (error) {
       console.error('Error borrando pedido:', error);
-      alert(error.response?.data?.error || 'Error al borrar pedido');
+      showAlert(error.response?.data?.error || 'Error al borrar pedido');
     }
   };
 
@@ -954,7 +959,7 @@ export default function DetalleMesa() {
 
   const addCustomItem = () => {
     if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      alert('Ingresa un nombre y precio válido');
+      showAlert('Ingresa un nombre y precio válido');
       return;
     }
 
@@ -1003,7 +1008,7 @@ export default function DetalleMesa() {
 
   const saveEditedItem = async () => {
     if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      alert('Ingresa un nombre y precio válido');
+      showAlert('Ingresa un nombre y precio válido');
       return;
     }
 
@@ -1016,7 +1021,7 @@ export default function DetalleMesa() {
           qty: customQty,
           notes: customNotes
         });
-        alert('Item actualizado correctamente');
+        showAlert('Item actualizado correctamente');
         await loadTableData();
         setShowCustomProduct(false);
         setEditingItem(null);
@@ -1029,10 +1034,10 @@ export default function DetalleMesa() {
         console.error('Error actualizando item:', error);
         // FASE 12.4: Manejo de error 409 (orden bloqueada)
         if (error.response?.status === 409) {
-          alert(error.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
+          showAlert(error.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
           await loadActiveOrder();
         } else {
-          alert(error.response?.data?.error || 'Error al actualizar el item');
+          showAlert(error.response?.data?.error || 'Error al actualizar el item');
         }
       }
     } else {
@@ -1380,8 +1385,8 @@ export default function DetalleMesa() {
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {activeOrder.status === 'NUEVO' && (
                     <button
-                      onClick={() => {
-                        if (confirm('¿Enviar esta orden a preparación?')) {
+                      onClick={async () => {
+                        if (await showConfirm('¿Enviar esta orden a preparación?')) {
                           updateActiveOrderStatus('EN_PREP');
                         }
                       }}
@@ -1401,8 +1406,8 @@ export default function DetalleMesa() {
                   )}
                   {activeOrder.status === 'EN_PREP' && (
                     <button
-                      onClick={() => {
-                        if (confirm('¿Marcar esta orden como LISTO?')) {
+                      onClick={async () => {
+                        if (await showConfirm('¿Marcar esta orden como LISTO?')) {
                           updateActiveOrderStatus('LISTO');
                         }
                       }}
@@ -1542,10 +1547,10 @@ export default function DetalleMesa() {
                                 .catch(err => {
                                   // FASE 12.4: Manejo de error 409 (orden bloqueada)
                                   if (err.response?.status === 409) {
-                                    alert(err.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
+                                    showAlert(err.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
                                     loadActiveOrder();
                                   } else {
-                                    alert(err.response?.data?.error || 'Error al actualizar cantidad');
+                                    showAlert(err.response?.data?.error || 'Error al actualizar cantidad');
                                   }
                                 });
                             }}
@@ -1572,10 +1577,10 @@ export default function DetalleMesa() {
                                 .catch(err => {
                                   // FASE 12.4: Manejo de error 409 (orden bloqueada)
                                   if (err.response?.status === 409) {
-                                    alert(err.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
+                                    showAlert(err.response?.data?.error || 'Orden bloqueada. No se puede modificar.');
                                     loadActiveOrder();
                                   } else {
-                                    alert(err.response?.data?.error || 'Error al actualizar cantidad');
+                                    showAlert(err.response?.data?.error || 'Error al actualizar cantidad');
                                   }
                                 });
                             }}
@@ -2442,11 +2447,11 @@ export default function DetalleMesa() {
               <button
                 onClick={async () => {
                   if (!cancelOrderReason.trim() || cancelOrderReason.trim().length < 5) {
-                    alert('El motivo debe tener al menos 5 caracteres');
+                    showAlert('El motivo debe tener al menos 5 caracteres');
                     return;
                   }
 
-                  if (!confirm(`¿Confirma cancelar esta orden?\n\nMotivo: ${cancelOrderReason.trim()}`)) {
+                  if (!(await showConfirm(`¿Confirma cancelar esta orden?\n\nMotivo: ${cancelOrderReason.trim()}`))) {
                     return;
                   }
 
@@ -2484,9 +2489,9 @@ export default function DetalleMesa() {
                   } catch (error) {
                     console.error('Error cancelando orden:', error);
                     if (error.response?.status === 409) {
-                      alert(error.response?.data?.error || 'No se puede cancelar la orden. Hay pagos registrados.');
+                      showAlert(error.response?.data?.error || 'No se puede cancelar la orden. Hay pagos registrados.');
                     } else {
-                      alert(error.response?.data?.error || 'Error al cancelar orden');
+                      showAlert(error.response?.data?.error || 'Error al cancelar orden');
                     }
                   } finally {
                     setCancellingOrder(false);
@@ -2588,11 +2593,11 @@ export default function DetalleMesa() {
               <button
                 onClick={async () => {
                   if (!voidItemReason.trim() || voidItemReason.trim().length < 5) {
-                    alert('El motivo debe tener al menos 5 caracteres');
+                    showAlert('El motivo debe tener al menos 5 caracteres');
                     return;
                   }
 
-                  if (!confirm(`¿Confirma anular este item?\n\nMotivo: ${voidItemReason.trim()}`)) {
+                  if (!(await showConfirm(`¿Confirma anular este item?\n\nMotivo: ${voidItemReason.trim()}`))) {
                     return;
                   }
 
@@ -2627,9 +2632,9 @@ export default function DetalleMesa() {
                   } catch (error) {
                     console.error('Error anulando item:', error);
                     if (error.response?.status === 409) {
-                      alert(error.response?.data?.error || 'No se puede anular el item. Ya está pagado o anulado.');
+                      showAlert(error.response?.data?.error || 'No se puede anular el item. Ya está pagado o anulado.');
                     } else {
-                      alert(error.response?.data?.error || 'Error al anular item');
+                      showAlert(error.response?.data?.error || 'Error al anular item');
                     }
                   } finally {
                     setVoidingItem(false);
@@ -2697,6 +2702,7 @@ export default function DetalleMesa() {
           </div>
         </div>
       )}
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

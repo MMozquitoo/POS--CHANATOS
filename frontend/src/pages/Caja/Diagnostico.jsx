@@ -6,12 +6,17 @@ import { useConnection } from '../../contexts/ConnectionContext';
 import { getApiBaseUrl } from '../../utils/api';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 /**
  * PASO 14.5: Pantalla de diagnóstico rápido
  * Permite verificar conectividad, latencia y estado del sistema
  */
 export default function Diagnostico() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const { socket } = useAuth();
   const { isOnline, lastError } = useConnection();
@@ -87,10 +92,10 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
 
     try {
       await navigator.clipboard.writeText(report);
-      alert('Reporte copiado al portapapeles');
+      showAlert('Reporte copiado al portapapeles');
     } catch (error) {
       console.error('Error copiando al portapapeles:', error);
-      alert('No se pudo copiar. Usa Ctrl+C manualmente.');
+      showAlert('No se pudo copiar. Usa Ctrl+C manualmente.');
     }
   };
 
@@ -273,6 +278,7 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
           </div>
         </div>
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

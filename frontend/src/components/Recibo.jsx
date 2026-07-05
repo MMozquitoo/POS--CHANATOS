@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { formatPriceCOP } from '../utils/currency.js';
 import { formatBogotaDateTime } from '../utils/timezone.js';
+import ModalHost from './ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../hooks/useModal';
 
 export default function Recibo({ order, payment, items, onClose, onPrint, changeAmount }) {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   // ALL hooks must be declared before any conditional returns
   // Estado para formato de impresión (default: 80mm)
   const [printFormat, setPrintFormat] = useState(() => {
@@ -54,12 +59,12 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
   };
 
   const handleSavePDF = () => {
-    alert('Para guardar como PDF:\n\n1. Haz clic en "🖨️ Imprimir"\n2. En el diálogo de impresión, elige "Guardar como PDF"\n3. Selecciona la ubicación y guarda');
+    showAlert('Para guardar como PDF:\n\n1. Haz clic en "🖨️ Imprimir"\n2. En el diálogo de impresión, elige "Guardar como PDF"\n3. Selecciona la ubicación y guarda');
   };
 
   const handleThermalPrint = async () => {
     if (!isElectron) {
-      alert('Impresión térmica solo disponible en la aplicación Electron');
+      showAlert('Impresión térmica solo disponible en la aplicación Electron');
       return;
     }
 
@@ -68,7 +73,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
       const printers = await window.posElectron.getPrinters();
       
       if (!printers || printers.length === 0) {
-        alert('No se encontraron impresoras disponibles.\n\nSe abrirá el diálogo de impresión normal.');
+        showAlert('No se encontraron impresoras disponibles.\n\nSe abrirá el diálogo de impresión normal.');
         handlePrint();
         return;
       }
@@ -126,7 +131,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
     } catch (error) {
       console.error('Error en impresión térmica:', error);
       // Fallback a impresión normal
-      alert(`Error al imprimir en térmica: ${error.message}\n\nSe abrirá el diálogo de impresión normal.`);
+      showAlert(`Error al imprimir en térmica: ${error.message}\n\nSe abrirá el diálogo de impresión normal.`);
       handlePrint();
     }
   };
@@ -704,6 +709,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
           }
         `
       }} />
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

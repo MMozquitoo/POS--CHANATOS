@@ -10,8 +10,13 @@ import { formatBogotaDateTime } from '../../utils/timezone.js';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import OpenCashModal from '../../components/caja/OpenCashModal.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 export default function DashboardCaja() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const { socket, logout } = useAuth();
   const { isOnline } = useConnection();
@@ -100,7 +105,7 @@ export default function DashboardCaja() {
       localStorage.setItem('last_initial_cash', initialCash.toString());
       await loadSession();
       setShowOpenModal(false);
-      alert('Caja abierta correctamente');
+      showAlert('Caja abierta correctamente');
       // Opcional: redirigir a centro-total
       // navigate('/centro-total');
     } catch (error) {
@@ -131,7 +136,7 @@ export default function DashboardCaja() {
         errorMessage = error.response.data?.error || 'Error al abrir caja';
       }
       
-      alert(errorMessage);
+      showAlert(errorMessage);
       // FASE 17.7: Mantener modal abierto si falla (para que no pierda el valor)
       // No cerramos el modal aquí, solo mostramos el error
     } finally {
@@ -283,7 +288,7 @@ export default function DashboardCaja() {
           <button
             onClick={() => {
               if (!session) {
-                alert('Debes abrir caja antes de continuar');
+                showAlert('Debes abrir caja antes de continuar');
                 return;
               }
               navigate('/cobrar');
@@ -313,8 +318,8 @@ export default function DashboardCaja() {
           marginTop: '1rem'
         }}>
           <button
-            onClick={() => {
-              if (window.confirm('¿Cerrar sesión?')) {
+            onClick={async () => {
+              if (await showConfirm('¿Cerrar sesión?')) {
                 logout();
               }
             }}
@@ -333,6 +338,7 @@ export default function DashboardCaja() {
         onConfirm={handleOpenCash}
         loading={openingCash}
       />
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

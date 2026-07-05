@@ -2,8 +2,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 export default function MasCaja() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   
@@ -24,8 +29,8 @@ export default function MasCaja() {
         borderBottom: '1px solid #ddd'
       }}>
         <button
-          onClick={() => {
-            if (window.confirm('¿Cerrar sesión?')) {
+          onClick={async () => {
+            if (await showConfirm('¿Cerrar sesión?')) {
               logout();
             }
           }}
@@ -99,6 +104,7 @@ export default function MasCaja() {
           )}
         </div>
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

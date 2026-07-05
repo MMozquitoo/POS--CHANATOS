@@ -4,8 +4,13 @@ import axios from 'axios';
 import './Caja.css';
 import { formatBogotaTime, formatBogotaDate, getBogotaDateString } from '../../utils/timezone.js';
 import { formatPriceCOP, formatPriceSimplified } from '../../utils/currency.js';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 export default function HistorialSesiones() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [sessions, setSessions] = useState([]);
@@ -63,7 +68,7 @@ export default function HistorialSesiones() {
   const addManualTransaction = async () => {
     if (!selectedDate) return;
     if (!newTransaction.description.trim() || !newTransaction.amount || parseFloat(newTransaction.amount) <= 0) {
-      alert('Completa todos los campos correctamente');
+      showAlert('Completa todos los campos correctamente');
       return;
     }
 
@@ -81,24 +86,24 @@ export default function HistorialSesiones() {
       // Resetear formulario
       setNewTransaction({ type: 'INGRESO', description: '', amount: '' });
       setShowAddTransaction(false);
-      alert('Transacción agregada correctamente');
+      showAlert('Transacción agregada correctamente');
     } catch (error) {
       console.error('Error agregando transacción:', error);
-      alert(error.response?.data?.error || 'Error al agregar transacción');
+      showAlert(error.response?.data?.error || 'Error al agregar transacción');
     }
   };
 
   const deleteManualTransaction = async (id) => {
-    if (!confirm('¿Estás seguro de borrar esta transacción?')) return;
+    if (!(await showConfirm('¿Estás seguro de borrar esta transacción?'))) return;
 
     try {
       await axios.delete(`/cash/manual-transactions/${id}`);
       // Recargar transacciones
       await loadDayStats(selectedDate);
-      alert('Transacción eliminada correctamente');
+      showAlert('Transacción eliminada correctamente');
     } catch (error) {
       console.error('Error borrando transacción:', error);
-      alert(error.response?.data?.error || 'Error al borrar transacción');
+      showAlert(error.response?.data?.error || 'Error al borrar transacción');
     }
   };
 
@@ -515,6 +520,7 @@ export default function HistorialSesiones() {
           )}
         </div>
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

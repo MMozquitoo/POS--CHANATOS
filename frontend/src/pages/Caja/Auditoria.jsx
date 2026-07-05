@@ -5,8 +5,13 @@ import './Caja.css';
 import { formatBogotaTime, formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import { useDebounce } from '../../hooks/useDebounce';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 export default function Auditoria() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   
   // Estados principales
@@ -68,7 +73,7 @@ export default function Auditoria() {
       setEvents(res.data.events || []);
     } catch (error) {
       console.error('Error cargando auditoría:', error);
-      alert('Error al cargar auditoría');
+      showAlert('Error al cargar auditoría');
     } finally {
       setLoading(false);
     }
@@ -456,6 +461,7 @@ export default function Auditoria() {
           </div>
         </div>
       )}
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

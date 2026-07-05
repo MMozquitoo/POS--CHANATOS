@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import ModalHost from '../../components/ModalHost';
+import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
 export default function ConfigImpresora() {
+  const { alertState, showAlert, closeAlert } = useAlert();
+  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const [printers, setPrinters] = useState([]);
   const [selectedPrinter, setSelectedPrinter] = useState(null);
@@ -62,17 +67,17 @@ export default function ConfigImpresora() {
 
   const handleSave = () => {
     if (!selectedPrinter) {
-      alert('Por favor selecciona una impresora');
+      showAlert('Por favor selecciona una impresora');
       return;
     }
 
     try {
       setSaving(true);
       localStorage.setItem('pos_printer_deviceName', selectedPrinter);
-      alert('✅ Impresora guardada correctamente');
+      showAlert('✅ Impresora guardada correctamente');
     } catch (err) {
       console.error('Error al guardar:', err);
-      alert(`Error al guardar: ${err.message}`);
+      showAlert(`Error al guardar: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -80,12 +85,12 @@ export default function ConfigImpresora() {
 
   const handlePrintTest = async () => {
     if (!selectedPrinter) {
-      alert('Por favor selecciona una impresora primero');
+      showAlert('Por favor selecciona una impresora primero');
       return;
     }
 
     if (!isElectron) {
-      alert('Impresión térmica solo disponible en la aplicación Electron');
+      showAlert('Impresión térmica solo disponible en la aplicación Electron');
       return;
     }
 
@@ -104,10 +109,10 @@ export default function ConfigImpresora() {
         silent: true
       });
 
-      alert('✅ Ticket de prueba impreso correctamente');
+      showAlert('✅ Ticket de prueba impreso correctamente');
     } catch (err) {
       console.error('Error al imprimir prueba:', err);
-      alert(`No se pudo imprimir directo: ${err.message}\n\nUsa "Imprimir" normal como alternativa.`);
+      showAlert(`No se pudo imprimir directo: ${err.message}\n\nUsa "Imprimir" normal como alternativa.`);
       
       // Fallback: abrir ventana de impresión con ticket de prueba
       const testWindow = window.open('', '_blank');
@@ -359,6 +364,7 @@ export default function ConfigImpresora() {
           </>
         )}
       </div>
+      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }
