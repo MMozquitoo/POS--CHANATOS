@@ -1,0 +1,33 @@
+{
+  "name": "pos-chanatos-desktop",
+  "version": "1.0.0",
+  "description": "POS Chanatos - aplicacion de escritorio",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "author": "Chanatos",
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "co.chanatos.pos",
+    "productName": "POS Chanatos",
+    "directories": { "output": "out" },
+    "files": ["main.js", "preload.js"],
+    "extraResources": [{ "from": "resources", "to": "." }],
+    "win": { "target": "nsis", "icon": "resources/app.ico" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "POS Chanatos",
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
+    }
+  }
+}
