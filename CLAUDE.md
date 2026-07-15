@@ -89,7 +89,15 @@ frontend/
   assets/logo.png        # Fuente del icono (C oscura; @capacitor/assets genera los 74 recursos)
 
 scripts/build-windows.sh # Genera POS-Chanatos-Windows.zip (Node portable win-x64 + binario sqlite3
-                         #   de Windows vía prebuild-install + INSTALAR.bat con arranque automático)
+                         #   de Windows vía prebuild-install + INSTALAR.bat). Arranque en modo APP
+                         #   (Chrome/Edge --app=, sin barra) vía POSChanatos.vbs; servidor SILENCIOSO
+                         #   al iniciar sesión vía servidor.vbs; incluye VERSION y Actualizar.bat.
+                         #   POS_VERSION (env) fija la versión del paquete (default: fecha).
+scripts/publicar-actualizacion.sh # "Botón Publicar" desde la Mac: compila el frontend y sube un
+                         #   Release "latest" a GitHub (MMozquitoo/POS--CHANATOS) con el payload de
+                         #   actualización (backend sin node_modules/data + frontend/dist + VERSION +
+                         #   version.txt). El PC Windows lo baja con Actualizar.bat. Ver "Actualización
+                         #   remota" abajo. Requiere gh autenticado.
 ```
 
 ## Comandos
@@ -110,9 +118,15 @@ cd frontend && npx cap sync android && cd android && \
 # Paquete Windows instalable
 ./scripts/build-windows.sh   # → ~/Desktop/POS-Chanatos-Windows.zip
 
-# Servidor de producción en la Mac del dueño (launchd, arranque automático + revive)
+# Publicar una actualización remota (el PC Windows la instala con su botón "Actualizar")
+./scripts/publicar-actualizacion.sh   # compila + sube Release "latest" a GitHub
+
+# Servidor de producción en la Mac del dueño (launchd) — ACTUALMENTE DESACTIVADO.
+# La producción se movió al PC Windows del local (2026-07-15). Para reactivar en la Mac:
+launchctl enable    gui/$(id -u)/com.chanatos.pos-servidor
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.chanatos.pos-servidor.plist  # encender
 launchctl bootout   gui/$(id -u)/com.chanatos.pos-servidor                               # apagar
+launchctl disable   gui/$(id -u)/com.chanatos.pos-servidor                               # que NO revuelva al reiniciar
 # logs: /tmp/pos-chanatos-servidor.log
 ```
 
@@ -143,11 +157,29 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 
 SQLite usa **una sola conexión compartida**: dos transacciones simultáneas se entrelazan y corrompen. `server.js` serializa todas las escrituras (POST/PATCH/PUT/DELETE) en una cola. Las transacciones usan `BEGIN IMMEDIATE`. No quitar la cola ni abrir segundas conexiones.
 
+## Actualización remota (Windows) — montado 2026-07-15
+
+Flujo sin reinstalar a mano: se corrige en la Mac, se publica a GitHub, el PC del local baja el cambio.
+
+- **Publicar (Mac):** `./scripts/publicar-actualizacion.sh` compila el frontend, empaqueta
+  `backend/` (SIN `node_modules` ni `data/`) + `frontend/dist` + `VERSION`, y crea un GitHub Release
+  `--latest` en `MMozquitoo/POS--CHANATOS` con dos assets: `POS-Chanatos-Update.zip` y `version.txt`.
+- **Actualizar (Windows):** el icono de escritorio "Actualizar POS Chanatos" (`Actualizar.bat`) consulta
+  `releases/latest/download/version.txt`, y si difiere de `%LOCALAPPDATA%\POSChanatos\VERSION` baja el zip,
+  mata `node.exe`, hace `Expand-Archive -Force` sobre el destino (**NO** toca `data/` ni `node_modules/`
+  porque no van en el zip → conserva ventas y el binario sqlite de Windows) y reinicia `servidor.vbs`.
+- **Versión:** cadena tipo `2026.07.15.1545`. El zip completo y el Release se generan con el MISMO
+  `POS_VERSION` para que un PC recién instalado no crea que está desatrasado.
+- **URL estable sin auth** (repo público): `https://github.com/MMozquitoo/POS--CHANATOS/releases/latest/download/<asset>`.
+- **Límites:** (1) el APK nativo empaqueta el frontend → un cambio de UI solo llega remoto a quienes usan
+  la **PWA/web** (el APK hay que reinstalarlo). (2) Agregar una **dependencia npm nueva** requiere un zip
+  completo, no el botón (el updater no reinstala `node_modules`).
+
 ## Convenciones
 
 - Archivos y UI en español; sin emojis en la interfaz (el dueño los detesta); enums nunca visibles (usar `statusLabels.js`)
 - UX móvil primero: el personal no debe pensar (targets ≥46px, todo visible sin deslizar, auto-avances, botón principal a ancho completo) — ver memoria "ux-movil-filosofia"
-- Cambios de UI ⇒ `npm run build` + regenerar APK + actualizar zip de Windows si aplica; el usuario recibe los artefactos en su Escritorio
+- Cambios de UI ⇒ `npm run build` + regenerar APK + actualizar zip de Windows si aplica; el usuario recibe los artefactos en su Escritorio. Para el PC del local ya instalado, publicar remoto con `publicar-actualizacion.sh` (ver "Actualización remota")
 - Branding: ámbar #F5BB4C (los rellenos de barras/datos usan #B8860B, validado para contraste); moneda COP (`formatPriceCOP`); zona America/Bogota
 - Commits en español con Co-Authored-By de Claude; push a `main` de https://github.com/MMozquitoo/POS--CHANATOS
 
