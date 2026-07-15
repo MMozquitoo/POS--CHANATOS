@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './Caja.css';
@@ -11,9 +13,42 @@ export default function MasCaja() {
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
-  
+  const [actualizando, setActualizando] = useState(false);
+
   // Detectar si está en Electron
   const isElectron = typeof window !== 'undefined' && !!window.posElectron;
+
+  const buscarActualizaciones = async () => {
+    try {
+      const { data } = await axios.get('/update/check');
+      if (!data.updateAvailable) {
+        await showAlert('Ya tienes la última versión instalada.');
+        return;
+      }
+      const ok = await showConfirm('Hay una versión nueva. ¿Actualizar ahora? La aplicación se reiniciará sola en unos segundos.');
+      if (!ok) return;
+      setActualizando(true);
+      await axios.post('/update/apply');
+      // El servidor se reinicia solo; recargar cuando vuelva a estar arriba.
+      setTimeout(() => window.location.reload(), 11000);
+    } catch (e) {
+      setActualizando(false);
+      await showAlert('No se pudo actualizar ahora. Verifica el internet e intenta de nuevo.');
+    }
+  };
+
+  if (actualizando) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: '#FFF8E7', display: 'flex',
+        flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: '1rem', padding: '2rem', textAlign: 'center', zIndex: 5000
+      }}>
+        <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#1a1a2e' }}>Actualizando POS Chanatos</div>
+        <div style={{ fontSize: '1.1rem', color: '#555' }}>No cierres la aplicación. Se reiniciará sola en unos segundos.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="caja-container">
@@ -82,6 +117,16 @@ export default function MasCaja() {
           >
             HISTORIAL DE PAGOS
           </button>
+
+          {user?.role === 'CAJA' && (
+            <button
+              className="caja-menu-option"
+              onClick={buscarActualizaciones}
+              style={{ background: '#2e7d32', color: 'white', fontWeight: 'bold' }}
+            >
+              BUSCAR ACTUALIZACIONES
+            </button>
+          )}
 
           {user?.role === 'CAJA' && (
             <>

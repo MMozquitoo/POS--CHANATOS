@@ -36,7 +36,12 @@ cat > "$STAGE/app/iniciar-servidor.bat" << 'BAT'
 @echo off
 cd /d "%~dp0backend"
 set "RESOURCES_PATH=%~dp0"
+rem Watchdog: si el servidor termina (p.ej. tras "Buscar actualizaciones"), se relanza
+rem con el codigo nuevo. Tambien se recupera de caidas.
+:loop
 "%~dp0node\node.exe" server.js
+timeout /t 2 /nobreak >nul
+goto loop
 BAT
 # Arranque SILENCIOSO del servidor (usado en el arranque de Windows): sin ventana, sin navegador
 cat > "$STAGE/app/servidor.vbs" << 'VBS'
@@ -78,76 +83,56 @@ Else
   sh.Run url
 End If
 VBS
-# Boton "Actualizar": baja la ultima version de GitHub Releases, conserva la base de
-# datos (data/) y el binario de Windows (node_modules/), y reinicia el servidor.
-cat > "$STAGE/app/Actualizar.bat" << 'BAT'
-@echo off
-setlocal EnableDelayedExpansion
-set "DEST=%LOCALAPPDATA%\POSChanatos"
-set "BASE=https://github.com/MMozquitoo/POS--CHANATOS/releases/latest/download"
-set "TMP=%TEMP%\pos-update"
-title Actualizar POS Chanatos
-echo.
-echo  Buscando actualizaciones...
-if exist "%TMP%" rmdir /S /Q "%TMP%" 2>nul
-mkdir "%TMP%"
-
-powershell -NoProfile -Command "try{Invoke-WebRequest -Uri '%BASE%/version.txt' -OutFile '%TMP%\version.txt' -UseBasicParsing}catch{exit 1}"
-if errorlevel 1 (
-  echo  No hay conexion a internet o no se pudo consultar GitHub. Intenta mas tarde.
-  echo. & pause & exit /b 1
-)
-set /p NEW=<"%TMP%\version.txt"
-set "CUR=(ninguna)"
-if exist "%DEST%\VERSION" set /p CUR=<"%DEST%\VERSION"
-
-if "%NEW%"=="%CUR%" (
-  echo  Ya tienes la ultima version ^(%CUR%^). No hay nada que actualizar.
-  echo. & pause & exit /b 0
-)
-
-echo  Version instalada: %CUR%
-echo  Version nueva:     %NEW%
-echo.
-echo  Descargando actualizacion...
-powershell -NoProfile -Command "try{Invoke-WebRequest -Uri '%BASE%/POS-Chanatos-Update.zip' -OutFile '%TMP%\update.zip' -UseBasicParsing}catch{exit 1}"
-if errorlevel 1 ( echo  Fallo la descarga. & echo. & pause & exit /b 1 )
-
-echo  Cerrando el servidor...
-taskkill /F /IM node.exe /T >nul 2>&1
-
-echo  Instalando ^(se conservan las ventas^)...
-powershell -NoProfile -Command "Expand-Archive -Path '%TMP%\update.zip' -DestinationPath '%DEST%' -Force"
-if errorlevel 1 ( echo  Fallo al instalar. & echo. & pause & exit /b 1 )
-
-echo  Reiniciando el servidor...
-start "" "%DEST%\servidor.vbs"
-rmdir /S /Q "%TMP%" 2>nul
-
-echo.
-echo  Listo. POS Chanatos actualizado a la version %NEW%.
-echo  Si tienes la ventana del POS abierta, recargala con Ctrl+R.
-echo. & pause
-exit /b 0
-BAT
-cat > "$STAGE/INSTALAR.bat" << 'BAT'
-@echo off
-echo.
-echo  Instalando POS Chanatos...
-set "DEST=%LOCALAPPDATA%\POSChanatos"
-xcopy "%~dp0app" "%DEST%\" /E /I /Y /Q >nul
-powershell -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([Environment]::GetFolderPath('Startup')+'\POS Chanatos Servidor.lnk'); $s.TargetPath='%DEST%\servidor.vbs'; $s.WorkingDirectory='%DEST%'; $s.Save(); $d=$ws.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\POS Chanatos.lnk'); $d.TargetPath='%DEST%\POSChanatos.vbs'; $d.WorkingDirectory='%DEST%'; $d.Save(); $u=$ws.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Actualizar POS Chanatos.lnk'); $u.TargetPath='%DEST%\Actualizar.bat'; $u.WorkingDirectory='%DEST%'; $u.Save()"
-echo  Listo. Iniciando POS Chanatos...
-start "" "%DEST%\POSChanatos.vbs"
-exit /b 0
-BAT
-cat > "$STAGE/LEEME.txt" << 'TXT'
-POS CHANATOS - INSTALACION EN WINDOWS
-=====================================
-1. Doble clic en INSTALAR.bat
-2. Si Windows pregunta por el firewall: "Permitir acceso"
-3. Listo. El POS abre solo y arranca con Windows.
+cat > "$STAGE/app/LEEME.txt" << 'TXT'
+POS Chanatos
+Para actualizar: abre la app, entra a OPCIONES y pulsa BUSCAR ACTUALIZACIONES.
 TXT
 
-(cd "$STAGE" && zip -qry "$HOME/Desktop/POS-Chanatos-Windows.zip" INSTALAR.bat LEEME.txt app)
-echo "✔ $HOME/Desktop/POS-Chanatos-Windows.zip"
+# Instalador .exe (NSIS): un solo doble clic → crea el icono "POS Chanatos" en el
+# escritorio, arranca con Windows y abre la app. Sin carpetas ni pasos manuales.
+echo "→ Instalador .exe (NSIS)"
+NSI="$STAGE/instalador.nsi"
+cat > "$NSI" << 'NSISEOF'
+!include "MUI2.nsh"
+Unicode true
+Name "POS Chanatos"
+OutFile "@OUTFILE@"
+RequestExecutionLevel user
+InstallDir "$LOCALAPPDATA\POSChanatos"
+ShowInstDetails show
+
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchApp
+!define MUI_FINISHPAGE_RUN_TEXT "Abrir POS Chanatos ahora"
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "Spanish"
+
+Function LaunchApp
+  Exec 'wscript.exe "$INSTDIR\POSChanatos.vbs"'
+FunctionEnd
+
+Section "POS Chanatos"
+  ; Cerrar cualquier servidor anterior para poder sobrescribir sin bloqueos de archivo
+  nsExec::Exec 'taskkill /F /IM node.exe /T'
+  SetOutPath "$INSTDIR"
+  File /r "@APPDIR@/"
+  ; Limpiar accesos directos de versiones antiguas
+  Delete "$DESKTOP\Actualizar POS Chanatos.lnk"
+  CreateShortcut "$DESKTOP\POS Chanatos.lnk" "$INSTDIR\POSChanatos.vbs"
+  CreateShortcut "$SMSTARTUP\POS Chanatos Servidor.lnk" "$INSTDIR\servidor.vbs"
+  WriteUninstaller "$INSTDIR\Desinstalar.exe"
+SectionEnd
+
+Section "Uninstall"
+  Delete "$DESKTOP\POS Chanatos.lnk"
+  Delete "$SMSTARTUP\POS Chanatos Servidor.lnk"
+  RMDir /r "$INSTDIR"
+SectionEnd
+NSISEOF
+sed -i '' "s|@OUTFILE@|$HOME/Desktop/Instalar-POS-Chanatos.exe|; s|@APPDIR@|$STAGE/app|" "$NSI"
+rm -f "$HOME/Desktop/Instalar-POS-Chanatos.exe"
+makensis -V2 "$NSI"
+echo "✔ $HOME/Desktop/Instalar-POS-Chanatos.exe"
