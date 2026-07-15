@@ -29,8 +29,20 @@ export default function MasCaja() {
       if (!ok) return;
       setActualizando(true);
       await axios.post('/update/apply');
-      // El servidor se reinicia solo; recargar cuando vuelva a estar arriba.
-      setTimeout(() => window.location.reload(), 11000);
+      // El servidor se reinicia solo; recargar SIN caché para ver la versión nueva.
+      setTimeout(async () => {
+        try {
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+          }
+          if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+        } catch { /* ignorar */ }
+        window.location.reload(true);
+      }, 11000);
     } catch (e) {
       setActualizando(false);
       await showAlert('No se pudo actualizar ahora. Verifica el internet e intenta de nuevo.');

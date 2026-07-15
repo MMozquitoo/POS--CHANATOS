@@ -88,6 +88,9 @@ POS Chanatos
 Para actualizar: abre la app, entra a OPCIONES y pulsa BUSCAR ACTUALIZACIONES.
 TXT
 
+# Icono de la app (logo Chanatos) para el instalador y los accesos directos
+magick "$REPO/frontend/public/icon-512.png" -define icon:auto-resize=256,128,64,48,32,16 "$STAGE/app/app.ico"
+
 # Instalador .exe (NSIS): un solo doble clic → crea el icono "POS Chanatos" en el
 # escritorio, arranca con Windows y abre la app. Sin carpetas ni pasos manuales.
 echo "→ Instalador .exe (NSIS)"
@@ -101,6 +104,8 @@ RequestExecutionLevel user
 InstallDir "$LOCALAPPDATA\POSChanatos"
 ShowInstDetails show
 
+!define MUI_ICON "@APPDIR@/app.ico"
+!define MUI_UNICON "@APPDIR@/app.ico"
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION LaunchApp
 !define MUI_FINISHPAGE_RUN_TEXT "Abrir POS Chanatos ahora"
@@ -117,18 +122,24 @@ FunctionEnd
 Section "POS Chanatos"
   ; Cerrar cualquier servidor anterior para poder sobrescribir sin bloqueos de archivo
   nsExec::Exec 'taskkill /F /IM node.exe /T'
+  ; Borrar la CACHE del navegador de la app (evita que se muestre la version vieja)
+  RMDir /r "$INSTDIR\ventana-app"
+  RMDir /r "$LOCALAPPDATA\POSChanatos\ventana-app"
   SetOutPath "$INSTDIR"
   File /r "@APPDIR@/"
   ; Limpiar accesos directos de versiones antiguas
   Delete "$DESKTOP\Actualizar POS Chanatos.lnk"
-  CreateShortcut "$DESKTOP\POS Chanatos.lnk" "$INSTDIR\POSChanatos.vbs"
+  CreateShortcut "$DESKTOP\POS Chanatos.lnk" "$INSTDIR\POSChanatos.vbs" "" "$INSTDIR\app.ico"
   CreateShortcut "$SMSTARTUP\POS Chanatos Servidor.lnk" "$INSTDIR\servidor.vbs"
+  CreateDirectory "$SMPROGRAMS\POS Chanatos"
+  CreateShortcut "$SMPROGRAMS\POS Chanatos\POS Chanatos.lnk" "$INSTDIR\POSChanatos.vbs" "" "$INSTDIR\app.ico"
   WriteUninstaller "$INSTDIR\Desinstalar.exe"
 SectionEnd
 
 Section "Uninstall"
   Delete "$DESKTOP\POS Chanatos.lnk"
   Delete "$SMSTARTUP\POS Chanatos Servidor.lnk"
+  RMDir /r "$SMPROGRAMS\POS Chanatos"
   RMDir /r "$INSTDIR"
 SectionEnd
 NSISEOF
