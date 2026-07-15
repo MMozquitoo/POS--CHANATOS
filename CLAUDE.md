@@ -88,11 +88,18 @@ frontend/
   android/               # Proyecto Capacitor (generado, committeado). usesCleartextTraffic=true.
   assets/logo.png        # Fuente del icono (C oscura; @capacitor/assets genera los 74 recursos)
 
-scripts/build-windows.sh # Genera POS-Chanatos-Windows.zip (Node portable win-x64 + binario sqlite3
-                         #   de Windows vía prebuild-install + INSTALAR.bat). Arranque en modo APP
-                         #   (Chrome/Edge --app=, sin barra) vía POSChanatos.vbs; servidor SILENCIOSO
-                         #   al iniciar sesión vía servidor.vbs; incluye VERSION y Actualizar.bat.
-                         #   POS_VERSION (env) fija la versión del paquete (default: fecha).
+desktop/                 # APP DE ESCRITORIO REAL (Electron) — ENTREGA WINDOWS ACTUAL (2026-07-15).
+                         #   main.js arranca el backend como proceso hijo (node.exe+sqlite de Windows),
+                         #   muestra la ventana con icono Chanatos, limpia caché al iniciar y reinicia el
+                         #   backend solo tras actualizar (watchdog). preload expone window.posElectron.
+                         #   installer.nsh limpia la instalación vieja de Edge y crea arranque automático.
+scripts/build-desktop.sh # Genera ~/Desktop/Instalar-POS-Chanatos.exe (electron-builder --win nsis --x64;
+                         #   OJO: forzar x64, el PC del local es Intel). Empaqueta node win + backend +
+                         #   frontend/dist + VERSION + app.ico. POS_VERSION fija la versión (usar la del
+                         #   último release publicado para que el botón "Buscar actualizaciones" diga "al día").
+scripts/build-windows.sh # SUPERSEDIDO por build-desktop.sh. Genera el zip viejo que abría en Edge modo
+                         #   app (POSChanatos.vbs). El dueño lo rechazó ("no quiero un navegador"). No usar
+                         #   salvo que se quiera el método liviano sin Electron.
 scripts/publicar-actualizacion.sh # "Botón Publicar" desde la Mac: compila el frontend y sube un
                          #   Release "latest" a GitHub (MMozquitoo/POS--CHANATOS) con el payload de
                          #   actualización (backend sin node_modules/data + frontend/dist + VERSION +
@@ -115,10 +122,11 @@ cd frontend && npx cap sync android && cd android && \
   ANDROID_HOME=/opt/homebrew/share/android-commandlinetools ./gradlew assembleDebug
 # → android/app/build/outputs/apk/debug/app-debug.apk (se copia al Escritorio del usuario)
 
-# Paquete Windows instalable
-./scripts/build-windows.sh   # → ~/Desktop/POS-Chanatos-Windows.zip
+# App de escritorio Windows (ENTREGA ACTUAL: Electron, app real con icono, sin navegador)
+POS_VERSION=<version-del-ultimo-release> ./scripts/build-desktop.sh   # → ~/Desktop/Instalar-POS-Chanatos.exe
+# (subir a GitHub: gh release upload vX Instalar-POS-Chanatos.exe --repo MMozquitoo/POS--CHANATOS --clobber)
 
-# Publicar una actualización remota (el PC Windows la instala con su botón "Actualizar")
+# Publicar una actualización remota (el PC la instala con el botón OPCIONES→BUSCAR ACTUALIZACIONES)
 ./scripts/publicar-actualizacion.sh   # compila + sube Release "latest" a GitHub
 
 # Servidor de producción en la Mac del dueño (launchd) — ACTUALMENTE DESACTIVADO.
