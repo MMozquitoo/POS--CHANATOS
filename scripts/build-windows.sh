@@ -72,7 +72,7 @@ url = "http://localhost:3000"
 ' 3) Dar tiempo al servidor y abrir en modo app
 WScript.Sleep 4000
 If navegador <> "" Then
-  sh.Run """" & navegador & """ --app=" & url & " --user-data-dir=""" & perfil & """", 1, False
+  sh.Run """" & navegador & """ --app=" & url & " --start-maximized --user-data-dir=""" & perfil & """", 3, False
 Else
   ' Respaldo si no hay Chrome ni Edge: abrir en el navegador por defecto
   sh.Run url

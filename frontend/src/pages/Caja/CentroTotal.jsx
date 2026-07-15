@@ -1102,7 +1102,9 @@ export default function CentroTotal() {
           
           {/* Contenido según vista */}
           {mesasView === 'plano' ? (
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            /* overflowY:auto → si el plano no cabe (ventana baja / no maximizada), toda la
+               sección de mesas baja como una sola página en vez de recortar las mesas 1-8. */
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               {/* FASE 16.4.2.2: V/D como cards tipo mesa usando TableCard */}
               {specialTables.length > 0 && (
                 <div
@@ -1136,7 +1138,9 @@ export default function CentroTotal() {
                   })}
                 </div>
               )}
-              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              {/* flexShrink:0 + minHeight → el plano se muestra a su altura natural (no se
+                  aplasta); el contenedor de arriba hace el scroll cuando la ventana es baja. */}
+              <div style={{ flexShrink: 0, minHeight: '560px' }}>
                 <PlanoMesas
                   tables={regularTables}
                   onMesaClick={handleMesaClick}
