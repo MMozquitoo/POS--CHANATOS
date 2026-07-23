@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,9 +14,68 @@ export default function MasCaja() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [actualizando, setActualizando] = useState(false);
+  const [respaldando, setRespaldando] = useState(false);
+  const archivoRef = useRef(null);
 
   // Detectar si está en Electron
   const isElectron = typeof window !== 'undefined' && !!window.posElectron;
+
+  // Descarga el respaldo y lo guarda como archivo. 'excel' = editable y movible;
+  // 'db' = copia exacta de la base de datos.
+  // OJO: el aviso va SIEMPRE con respaldando ya en false. Mientras está en true se
+  // muestra la pantalla de espera, que no monta el ModalHost (el aviso no aparecería).
+  const descargarRespaldo = async (tipo) => {
+    setRespaldando(true);
+    let aviso;
+    try {
+      const { data } = await axios.get(`/backup/${tipo}`, { responseType: 'blob' });
+      const fecha = new Date().toLocaleDateString('sv-SE');
+      const nombre = tipo === 'excel'
+        ? `POS-Chanatos-${fecha}.xlsx`
+        : `POS-Chanatos-${fecha}.db`;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      aviso = `Respaldo descargado: ${nombre}\n\nGuárdalo en una USB o en el correo antes de reinstalar.`;
+    } catch (e) {
+      aviso = 'No se pudo descargar el respaldo. Intenta de nuevo.';
+    }
+    setRespaldando(false);
+    await showAlert(aviso);
+  };
+
+  const restaurarRespaldo = async (archivo) => {
+    if (!archivo) return;
+    const ok = await showConfirm(
+      `Vas a restaurar los datos desde "${archivo.name}".\n\n` +
+      'ESTO REEMPLAZA las ventas, pagos y productos que hay ahora en este equipo por los del archivo. ¿Continuar?'
+    );
+    if (!ok) return;
+    setRespaldando(true);
+    let aviso;
+    let restaurado = false;
+    try {
+      const { data } = await axios.post('/backup/import', archivo, {
+        headers: { 'Content-Type': 'application/octet-stream' },
+      });
+      const detalle = Object.entries(data.resumen || {})
+        .map(([tabla, n]) => `${tabla}: ${n}`)
+        .join('\n');
+      aviso = `Datos restaurados correctamente.\n\n${detalle}\n\nSe va a cerrar la sesión para recargar todo.`;
+      restaurado = true;
+    } catch (e) {
+      aviso = e.response?.data?.error || 'No se pudo restaurar el archivo. Los datos quedaron como estaban.';
+    }
+    setRespaldando(false);
+    await showAlert(aviso);
+    // Los usuarios también se reemplazan: la sesión actual puede quedar huérfana.
+    if (restaurado) logout();
+  };
 
   const buscarActualizaciones = async () => {
     try {
@@ -48,6 +107,19 @@ export default function MasCaja() {
       await showAlert('No se pudo actualizar ahora. Verifica el internet e intenta de nuevo.');
     }
   };
+
+  if (respaldando) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: '#FFF8E7', display: 'flex',
+        flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: '1rem', padding: '2rem', textAlign: 'center', zIndex: 5000
+      }}>
+        <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#1a1a2e' }}>Trabajando con el respaldo</div>
+        <div style={{ fontSize: '1.1rem', color: '#555' }}>No cierres la aplicación. Puede tardar unos segundos.</div>
+      </div>
+    );
+  }
 
   if (actualizando) {
     return (
@@ -138,6 +210,46 @@ export default function MasCaja() {
             >
               BUSCAR ACTUALIZACIONES
             </button>
+          )}
+
+          {user?.role === 'CAJA' && (
+            <>
+              <button
+                className="caja-menu-option"
+                onClick={() => descargarRespaldo('excel')}
+                disabled={respaldando}
+              >
+                DESCARGAR DATOS (EXCEL)
+              </button>
+
+              <button
+                className="caja-menu-option"
+                onClick={() => archivoRef.current?.click()}
+                disabled={respaldando}
+              >
+                RESTAURAR DATOS DESDE ARCHIVO
+              </button>
+
+              <button
+                className="caja-menu-option"
+                onClick={() => descargarRespaldo('db')}
+                disabled={respaldando}
+              >
+                COPIA DE SEGURIDAD COMPLETA
+              </button>
+
+              <input
+                ref={archivoRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0];
+                  e.target.value = '';
+                  restaurarRespaldo(archivo);
+                }}
+              />
+            </>
           )}
 
           {user?.role === 'CAJA' && (

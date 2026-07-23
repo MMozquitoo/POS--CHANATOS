@@ -23,6 +23,7 @@ import inventoryMovementsRoutes from "./routes/inventoryMovements.js";
 import auditRoutes from "./routes/audit.js";
 import reportsRoutes from "./routes/reports.js";
 import updateRoutes from "./routes/update.js";
+import backupRoutes from "./routes/backup.js";
 
 // Importar base de datos
 import { initDatabase, getDb } from "./db/database.js";
@@ -143,6 +144,9 @@ app.use("/api/inventory-movements", inventoryMovementsRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/update", updateRoutes);
+// El respaldo sube un .xlsx crudo: express.raw lo entrega como Buffer (express.json
+// solo atiende application/json, así que no interfiere).
+app.use("/api/backup", express.raw({ type: "*/*", limit: "100mb" }), backupRoutes);
 
 // Health check (Render/Railway)
 app.get("/api/health", (req, res) => {

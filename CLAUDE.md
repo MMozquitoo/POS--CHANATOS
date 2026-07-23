@@ -41,6 +41,12 @@ backend/
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
     inventory.js         # /inventory/low-stock ya existe (stock <= min_stock)
+    backup.js            # Respaldo movible: GET /backup/excel (un .xlsx con una hoja por tabla,
+                         #   sin `sessions`), GET /backup/db (VACUUM INTO → copia exacta) y
+                         #   POST /backup/import (sube el .xlsx y REEMPLAZA las tablas; FKs off
+                         #   ANTES del BEGIN — el PRAGMA es no-op dentro de una transacción).
+                         #   exceljs se carga con import DIFERIDO: el botón de actualizar no
+                         #   reinstala node_modules, así el POS arranca igual sin la dependencia.
     inventoryMovements.js # deduct/restoreInventoryFromOrderItems; stock negativo permitido pero
                          #   auditado (STOCK_NEGATIVE); errores auditados (INVENTORY_ERROR)
   scripts/               # init-db, migrate, reset-day
@@ -190,6 +196,22 @@ Flujo sin reinstalar a mano: se corrige en la Mac, se publica a GitHub, el PC de
 - Cambios de UI ⇒ `npm run build` + regenerar APK + actualizar zip de Windows si aplica; el usuario recibe los artefactos en su Escritorio. Para el PC del local ya instalado, publicar remoto con `publicar-actualizacion.sh` (ver "Actualización remota")
 - Branding: ámbar #F5BB4C (los rellenos de barras/datos usan #B8860B, validado para contraste); moneda COP (`formatPriceCOP`); zona America/Bogota
 - Commits en español con Co-Authored-By de Claude; push a `main` de https://github.com/MMozquitoo/POS--CHANATOS
+
+## Respaldo y reinstalación (importante)
+
+La base de datos vive DENTRO de la carpeta de instalación (`resources\backend\data\`), y el
+desinstalador de electron-builder hace `RMDir /r $INSTDIR` (plantilla `uninstaller.nsh`, rama
+`isUpdated`). **Reinstalar el .exe encima borra las ventas.** Por eso, antes de reinstalar:
+
+1. En el POS: OPCIONES → **DESCARGAR DATOS (EXCEL)** (o COPIA DE SEGURIDAD COMPLETA para el `.db`
+   exacto). Guardar el archivo fuera del PC (USB o correo).
+2. Instalar la versión nueva.
+3. OPCIONES → **RESTAURAR DATOS DESDE ARCHIVO** y subir el `.xlsx`.
+
+El round-trip está verificado como exacto (mismos datos y timestamps; solo cambia el orden de las
+columnas cuando la BD vieja tenía columnas agregadas con ALTER TABLE). El import es transaccional:
+si el archivo viene mal, los datos quedan como estaban. Pendiente: mover la carpeta de datos fuera
+de `$INSTDIR` para que reinstalar deje de ser destructivo.
 
 ## Pendientes conocidos (decisión del dueño)
 
