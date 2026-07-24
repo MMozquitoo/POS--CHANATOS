@@ -21,6 +21,23 @@ export function unlockAudio() {
   ensureCtx();
 }
 
+// Notificación nativa del sistema operativo (solo existe dentro de la app de escritorio
+// Electron, ver desktop/preload.js). A diferencia del chime de Web Audio de abajo, SÍ
+// suena aunque la ventana esté minimizada o sin foco.
+// En navegador/PWA normal window.posElectron no existe: no hace nada (no truena).
+//
+// Por defecto, si la ventana YA está visible y con foco, no se dispara: en ese caso el
+// chime de Web Audio (que solo funciona con foco) ya avisó, y sonarían los dos a la vez.
+// Pasar force:true para las vistas que no tienen chime propio (ej. CocinaCaja/CentroTotal
+// en el "modo admin" de Caja), donde no hay riesgo de sonido duplicado.
+export function notifyDesktop({ title, body, force = false } = {}) {
+  const api = typeof window !== 'undefined' ? window.posElectron : null;
+  if (!api?.notify) return;
+  const isForeground = typeof document !== 'undefined' && !document.hidden && document.hasFocus();
+  if (isForeground && !force) return;
+  api.notify({ title, body });
+}
+
 export function playKitchenChime() {
   const now = Date.now();
   if (now - lastPlay < 1500) return; // no repetir si llegan varios eventos juntos

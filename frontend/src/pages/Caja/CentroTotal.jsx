@@ -17,6 +17,7 @@ import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
+import { notifyDesktop } from '../../utils/kitchenSound';
 
 const FROM_CENTRO_TOTAL = { state: { from: '/centro-total' } };
 
@@ -383,13 +384,25 @@ export default function CentroTotal() {
       }
     };
     
-    const handleOrderNew = () => {
+    const handleOrderNew = (data) => {
       if (activeTab === 'cocina') {
         loadKitchenOrders();
       }
       if (activeTab === 'mesas') {
         loadServiceCounts();
       }
+      // Notificación nativa de escritorio ("modo admin"): este efecto vive mientras
+      // Centro Total esté montado, sin importar el tab activo (MESAS/COCINA/LISTO) ni
+      // si la ventana está minimizada/sin foco — a diferencia del preview de cocina
+      // embebido (CocinaCaja con hideHeader=true), que solo se monta en el tab COCINA.
+      const order = data?.order;
+      const label = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || 'Pedido nuevo');
+      const items = order?.items?.length;
+      notifyDesktop({
+        title: 'Nueva orden',
+        body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
+        force: true,
+      });
     };
     
     const handleOrderArchived = () => {
@@ -1292,6 +1305,11 @@ export default function CentroTotal() {
                         <div style={{ color: '#666', fontSize: '0.9rem' }}>
                           {order.table_label ? `Mesa: ${order.table_label}` : 'Sin mesa'}
                         </div>
+                        {order.firstItemNote && (
+                          <div style={{ color: '#B8860B', fontSize: '0.85rem', marginTop: '0.15rem' }}>
+                            {order.firstItemNote}
+                          </div>
+                        )}
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem', color: '#F5BB4C', marginBottom: '0.25rem' }}>
@@ -1302,8 +1320,8 @@ export default function CentroTotal() {
                         </div>
                       </div>
                     </div>
-                    
-                    <div style={{ 
+
+                    <div style={{
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center',

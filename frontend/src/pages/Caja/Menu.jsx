@@ -32,6 +32,7 @@ export default function Menu() {
     variant: "",
     display_order: "0",
     is_active: true,
+    flavors: "",
   });
 
   // Cargar datos iniciales
@@ -77,6 +78,7 @@ export default function Menu() {
       variant: "",
       display_order: "0",
       is_active: true,
+      flavors: "",
     });
     setEditingProductId(null);
     setSaving(false);
@@ -97,6 +99,7 @@ export default function Menu() {
         variant: product.variant || "",
         display_order: product.display_order?.toString() || "0",
         is_active: product.is_active === 1,
+        flavors: product.flavors || "",
       });
     } else {
       // Si es nuevo, usar valores por defecto limpios
@@ -159,6 +162,7 @@ export default function Menu() {
         variant: formData.variant.trim() || null,
         display_order: displayOrder,
         is_active: formData.is_active ? 1 : 0,
+        flavors: formData.flavors.trim() || null,
       };
 
       if (editingProductId) {
@@ -235,7 +239,7 @@ export default function Menu() {
 
       <div className="caja-content">
         {/* Controles */}
-        <div style={{ marginBottom: "2rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <div className="menu-controls">
           <button
             className="action-btn"
             style={{ background: "#28a745", color: "white" }}
@@ -267,64 +271,59 @@ export default function Menu() {
             placeholder="Buscar producto..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="menu-search-input"
             style={{
               padding: "0.5rem",
               fontSize: "1rem",
               border: "1px solid #ddd",
               borderRadius: "4px",
-              flex: 1,
-              minWidth: "200px",
             }}
           />
         </div>
 
-        {/* Lista de productos */}
-        <div className="products-list">
+        {/* Lista de productos: grid de 2+ columnas en desktop, 1 columna en mobile */}
+        <div className="menu-products-grid">
           {filteredProducts.length === 0 ? (
             <div className="empty-state">No hay productos</div>
           ) : (
             filteredProducts.map((product) => (
               <div
                 key={product.id}
-                className={`product-card ${product.is_active === 0 ? "inactive" : ""}`}
-                style={{
-                  background: "white",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  border: product.is_active === 0 ? "2px solid #ccc" : "1px solid #ddd",
-                }}
+                className={`menu-product-card ${product.is_active === 0 ? "inactive" : ""}`}
               >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "0.2rem" }}>
                     {product.name}
                     {product.variant && ` - ${product.variant}`}
                   </div>
-                  <div style={{ color: "#666", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                  <div style={{ color: "#666", fontSize: "0.85rem", marginBottom: "0.2rem" }}>
                     {product.category}
                   </div>
-                  <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#28a745" }}>
+                  <div style={{ fontSize: "1.05rem", fontWeight: "bold", color: "#28a745" }}>
                     {formatPriceCOP(product.price)}
                   </div>
+                  {product.flavors && (
+                    <div style={{ color: "#B8860B", fontSize: "0.8rem", marginTop: "0.2rem" }}>
+                      Sabores: {product.flavors}
+                    </div>
+                  )}
                   {product.is_active === 0 && (
-                    <div style={{ color: "#d32f2f", fontSize: "0.85rem", marginTop: "0.25rem" }}>
+                    <div style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.2rem" }}>
                       INACTIVO
                     </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
                   <button
                     onClick={() => handleOpenModal(product)}
                     style={{
-                      padding: "0.5rem 1rem",
+                      padding: "0.45rem 0.8rem",
                       background: "#F5BB4C",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
                       cursor: "pointer",
+                      fontSize: "0.85rem",
                     }}
                   >
                     Editar
@@ -332,12 +331,13 @@ export default function Menu() {
                   <button
                     onClick={() => handleToggle(product)}
                     style={{
-                      padding: "0.5rem 1rem",
+                      padding: "0.45rem 0.8rem",
                       background: product.is_active === 1 ? "#ffc107" : "#28a745",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
                       cursor: "pointer",
+                      fontSize: "0.85rem",
                     }}
                   >
                     {product.is_active === 1 ? "Desactivar" : "Activar"}
@@ -524,6 +524,45 @@ export default function Menu() {
                     cursor: "text",
                   }}
                 />
+              </div>
+
+              {/* Sabores (opcional): el mesero/caja elige uno solo al agregar el producto al pedido */}
+              <div style={{ marginBottom: "1rem" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Sabores (separados por coma, opcional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.flavors}
+                  onChange={(e) =>
+                    setFormData({ ...formData, flavors: e.target.value })
+                  }
+                  placeholder="Ej: Colombiana, Manzana, Pepsi"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    fontSize: "1rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    backgroundColor: "white",
+                    cursor: "text",
+                  }}
+                />
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#666",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  Si el producto tiene sabores, al agregarlo a un pedido se pedirá elegir uno
+                </div>
               </div>
 
               {/* Orden de visualización */}

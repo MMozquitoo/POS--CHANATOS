@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, shell } = require('electron');
+const { app, BrowserWindow, session, shell, ipcMain, Notification } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -8,9 +8,34 @@ const http = require('http');
 const RES = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'resources');
 const PORT = 3000;
 
+// Windows agrupa/identifica las notificaciones de la app por este id (debe coincidir
+// con build.appId de package.json). Sin esto, las notificaciones nativas en Windows
+// pueden aparecer atribuidas a Electron en vez de "POS Chanatos", o no mostrar el icono.
+app.setAppUserModelId('co.chanatos.pos');
+
 let backend = null;
 let win = null;
 let quitting = false;
+
+// Notificación nativa del sistema operativo (pedido del dueño: que suene incluso con
+// la ventana minimizada o sin foco, cosa que Web Audio NO puede hacer porque los
+// navegadores/Electron suspenden el AudioContext en ese caso). El renderer la dispara
+// vía window.posElectron.notify(...) (ver preload.js).
+ipcMain.on('show-notification', (_event, payload) => {
+  if (!Notification.isSupported()) return;
+  const { title, body } = payload || {};
+  try {
+    new Notification({
+      title: title || 'POS Chanatos',
+      body: body || '',
+      icon: path.join(RES, 'app.ico'),
+      silent: false,
+    }).show();
+  } catch (e) {
+    // No tumbar el proceso principal por un error de notificación
+    console.error('Error mostrando notificación nativa:', e);
+  }
+});
 
 function nodeBinary() {
   // Windows: node portable incluido. En desarrollo (Mac) usa el node del sistema.

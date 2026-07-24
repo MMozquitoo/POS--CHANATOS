@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { getApiBaseUrl } from "../utils/api";
+import { registerPushNotifications, unregisterPushNotifications } from "../utils/pushNotifications";
 
 const AuthContext = createContext();
 
@@ -135,6 +136,9 @@ export function AuthProvider({ children }) {
         .get("/auth/me")
         .then((res) => {
           setUser(res.data.user);
+      // Registrar push notifications (no-op fuera de Android nativo, o si
+      // Firebase no está configurado — nunca bloquea ni lanza)
+      registerPushNotifications(res.data.user.role).catch(() => {});
       // FASE 19.9: Conectar WebSocket con configuración optimizada
       const wsUrl = getWebSocketUrl();
       const ws = io(wsUrl, {
@@ -198,6 +202,10 @@ export function AuthProvider({ children }) {
 
       setUser(user);
 
+      // Registrar push notifications (no-op fuera de Android nativo, o si
+      // Firebase no está configurado — nunca bloquea ni lanza)
+      registerPushNotifications(user.role).catch(() => {});
+
       // FASE 19.9: Conectar WebSocket con configuración optimizada
       // Desconectar socket anterior si existe
       if (socket) {
@@ -245,6 +253,8 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem("token");
     if (token) {
       try {
+        // Borrar el token push ANTES de cerrar sesión (unregister exige auth)
+        await unregisterPushNotifications();
         await axios.post("/auth/logout");
       } catch (error) {
         if (PERF_DEBUG) {

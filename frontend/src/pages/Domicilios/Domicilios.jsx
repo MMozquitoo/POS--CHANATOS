@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
 import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
+import SaboresChips from '../../components/SaboresChips';
 import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
@@ -190,12 +191,13 @@ export default function Domicilios() {
   const addNewOrderItem = (product) => {
     setNewOrderItems((prev) => [
       ...prev,
-      { 
-        name: product.displayName || product.name, 
-        qty: 1, 
-        price: product.price, 
+      {
+        name: product.displayName || product.name,
+        qty: 1,
+        price: product.price,
         notes: '',
         product_id: product.id,
+        flavors: product.flavors || null,
         category: product.category || selectedCategory
       },
     ]);
@@ -304,6 +306,11 @@ export default function Domicilios() {
                         <div style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>
                           {new Date(order.created_at).toLocaleString('es-CO')}
                         </div>
+                        {order.firstItemNote && (
+                          <div style={{ color: '#B8860B', fontSize: '0.85rem', marginTop: '0.15rem' }}>
+                            {order.firstItemNote}
+                          </div>
+                        )}
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#F5BB4C' }}>
@@ -680,6 +687,7 @@ export default function Domicilios() {
                     {categoriaLlevaSalsas(it.category) && (
                       <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                     )}
+                    <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>

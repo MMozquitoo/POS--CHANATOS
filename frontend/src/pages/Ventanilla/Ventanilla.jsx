@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
 import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
+import SaboresChips from '../../components/SaboresChips';
 import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
@@ -194,12 +195,13 @@ export default function Ventanilla() {
   const addNewOrderItem = (product) => {
     setNewOrderItems((prev) => [
       ...prev,
-      { 
-        name: product.displayName || product.name, 
-        qty: 1, 
-        price: product.price, 
+      {
+        name: product.displayName || product.name,
+        qty: 1,
+        price: product.price,
         notes: '',
         product_id: product.id,
+        flavors: product.flavors || null,
         category: product.category || selectedCategory
       },
     ]);
@@ -671,6 +673,7 @@ export default function Ventanilla() {
                     {categoriaLlevaSalsas(it.category) && (
                       <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                     )}
+                    <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>

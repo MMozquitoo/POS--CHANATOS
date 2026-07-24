@@ -7,7 +7,9 @@ import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
 import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
+import SaboresChips from '../../components/SaboresChips';
 import PagoDividido from '../../components/caja/PagoDividido.jsx';
+import DividirPorProducto from '../../components/caja/DividirPorProducto.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -132,10 +134,15 @@ export default function DetalleMesa() {
   const [tableData, setTableData] = useState(null);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
+  const [mesasCollapsed, setMesasCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disableReason, setDisableReason] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
+  // FASE F12: "Dividir por producto" — cobrar un subconjunto de items (o una
+  // cantidad parcial de una fila con qty>1) por un método, y repetir para el resto.
+  const [showItemSplit, setShowItemSplit] = useState(false);
+  const itemSplitTipAppliedRef = useRef(false);
   const [tipAmount, setTipAmount] = useState('');
   const [showDiscount, setShowDiscount] = useState(false);
   const [discountValue, setDiscountValue] = useState('');
@@ -475,6 +482,78 @@ export default function DetalleMesa() {
       setShowSplit(false);
       showAlert(error.response?.data?.error || 'Error al procesar el pago dividido');
     }
+  };
+
+  // FASE F12: abrir "Dividir por producto" (reinicia si la propina ya se aplicó
+  // a un grupo anterior de esta misma sesión de cobro)
+  const openItemSplit = () => {
+    itemSplitTipAppliedRef.current = false;
+    setShowItemSplit(true);
+  };
+
+  // FASE F12: cobra UN grupo de items/cantidades (payloadItems: [{id, qty}]) con
+  // UN método de pago, vía /payments/items (que soporta partir una fila si qty
+  // pedida < qty de la fila). Se puede llamar varias veces seguidas para ir
+  // cobrando la cuenta en distintos grupos hasta completarla.
+  const handleItemSplitGroup = async (payloadItems, method) => {
+    if (!activeOrder || !activeOrder.id) {
+      throw new Error('No hay orden activa para cobrar');
+    }
+    // La propina (si el cajero la puso) se aplica solo en el primer grupo cobrado.
+    const tip = itemSplitTipAppliedRef.current ? 0 : Math.max(0, parseFloat(tipAmount) || 0);
+
+    await axios.post('/payments/items', {
+      orderId: activeOrder.id,
+      itemIds: payloadItems,
+      method,
+      tipAmount: tip,
+    });
+    itemSplitTipAppliedRef.current = true;
+
+    const orderId = activeOrder.id;
+    const orderRes = await axios.get(`/orders/${orderId}`);
+    const orderStatus = orderRes.data?.status;
+
+    if (orderStatus === 'PAGADA') {
+      // Quedó completamente pagada: cerrar el modal y mostrar el recibo final
+      // (mismo patrón de pendingRefreshRef que el resto de flujos de cobro).
+      setShowItemSplit(false);
+      setTipAmount('');
+      setReciboData({
+        order: {
+          ...orderRes.data,
+          table_label: tableData?.table?.label ||
+            (tableData?.table?.number === 9 ? 'VENTANILLA' :
+             tableData?.table?.number === 10 ? 'DOMICILIOS' :
+             tableData?.table?.number ? `Mesa ${tableData.table.number}` : 'Sin mesa'),
+        },
+        payment: {
+          method: 'Dividido por producto',
+          amount: (orderRes.data.items || []).reduce((s, i) => s + (i.qty * i.price), 0),
+          created_at: new Date().toISOString(),
+        },
+        items: orderRes.data.items || [],
+      });
+      setChangeAmount(0);
+      setShowRecibo(true);
+
+      pendingRefreshRef.current = async () => {
+        setActiveOrder(null);
+        setActiveOrderItems([]);
+        setCreatingNewOrder(false);
+        setSelectedOrderId(null);
+        setNewOrderItems([]);
+        await refreshAfterPayment(orderId, orderStatus);
+      };
+
+      return { fullyPaid: true };
+    }
+
+    // Pago parcial: refrescar en el mismo lugar y seguir mostrando el modal
+    // con lo que queda pendiente.
+    await loadActiveOrder();
+    await loadTableData();
+    return { fullyPaid: false };
   };
 
   // FASE F10: aplicar/quitar descuento desde la vista de mesa
@@ -1004,13 +1083,14 @@ export default function DetalleMesa() {
   const addNewOrderItem = (product) => {
     setNewOrderItems((prev) => [
       ...prev,
-      { 
-        name: product.displayName || product.name, 
-        qty: 1, 
-        price: product.price, 
+      {
+        name: product.displayName || product.name,
+        qty: 1,
+        price: product.price,
         notes: '',
         product_id: product.id,
-        category: product.category || selectedCategory  // Fase 1: incluir product_id
+        category: product.category || selectedCategory,  // Fase 1: incluir product_id
+        flavors: product.flavors || null,
       },
     ]);
   };
@@ -1232,6 +1312,10 @@ export default function DetalleMesa() {
     if (!item || !item.qty || !item.price) return sum;
     return sum + (item.qty * item.price);
   }, 0);
+  // FASE F12: items pendientes de la orden activa para "dividir por producto"
+  const pendingActiveOrderItems = safeActiveOrderItems.filter(
+    (item) => item && !item.paid_at && !item.voided_at
+  );
   
   // Función para cambiar de mesa (FASE O2: preservar state.from)
   const handleMesaChange = (newTableId) => {
@@ -1269,23 +1353,41 @@ export default function DetalleMesa() {
       <div className="detalle-mesa-content detalle-mesa-grid" style={{
         flex: 1,
         display: 'grid',
-        gridTemplateColumns: '250px 1fr 350px',
+        gridTemplateColumns: `${mesasCollapsed ? '52px' : '250px'} 1fr 350px`,
         alignItems: 'start',
         gap: '1rem',
         padding: '1rem'
       }}>
-        {/* COLUMNA IZQUIERDA: Selector de Mesas */}
-        <div className="mesas-sidebar" style={{ 
-          background: '#f8f9fa', 
-          borderRadius: '12px', 
-          padding: '1rem',
+        {/* COLUMNA IZQUIERDA: Selector de Mesas (riel sticky en desktop vía mobile-polish.css FASE F10, colapsable para ganar espacio) */}
+        <div className="mesas-sidebar" style={{
+          background: '#f8f9fa',
+          borderRadius: '12px',
+          padding: mesasCollapsed ? '0.5rem' : '1rem',
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: '0.75rem'
         }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Mesas</h3>
-          
+          <button
+            type="button"
+            onClick={() => setMesasCollapsed(prev => !prev)}
+            title={mesasCollapsed ? 'Mostrar mesas' : 'Ocultar mesas'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: mesasCollapsed ? 'center' : 'space-between',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              margin: '0 0 0.25rem 0'
+            }}
+          >
+            {!mesasCollapsed && <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>Mesas</h3>}
+            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#666' }}>{mesasCollapsed ? '▶' : '◀'}</span>
+          </button>
+
+          {!mesasCollapsed && <>
           {/* Mesas 1-8 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '1rem' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8].map(num => {
@@ -1372,6 +1474,7 @@ export default function DetalleMesa() {
               </button>
             );
           })()}
+          </>}
         </div>
 
         {/* COLUMNA CENTRO: Orden Activa */}
@@ -1829,6 +1932,7 @@ export default function DetalleMesa() {
                     {categoriaLlevaSalsas(it.category) && (
                       <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                     )}
+                    <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>
@@ -1985,10 +2089,10 @@ export default function DetalleMesa() {
           )}
         </div>
 
-        {/* COLUMNA DERECHA: Resumen y Cobro */}
-        <div className="resumen-panel" style={{ 
-          background: '#f8f9fa', 
-          borderRadius: '12px', 
+        {/* COLUMNA DERECHA: Resumen y Cobro (riel sticky en desktop vía mobile-polish.css FASE F10) */}
+        <div className="resumen-panel" style={{
+          background: '#f8f9fa',
+          borderRadius: '12px',
           padding: '1.5rem',
           overflowY: 'auto',
           display: 'flex',
@@ -2107,25 +2211,25 @@ export default function DetalleMesa() {
 
               {/* Métodos de pago - SOLO visible cuando status === LISTO */}
               {activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === true ? (
-                <div style={{ 
-                  background: 'white', 
-                  padding: '1.5rem', 
+                <div style={{
+                  background: 'white',
+                  padding: '1.1rem',
                   borderRadius: '12px',
                   border: '2px solid #28a745'
                 }}>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>Método de Pago</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Método de Pago</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <button
                       onClick={() => setPaymentMethod('EFECTIVO')}
                       style={{
-                        padding: '1rem',
+                        padding: '0.6rem 0.3rem',
                         background: paymentMethod === 'EFECTIVO' ? '#28a745' : '#f0f0f0',
                         color: paymentMethod === 'EFECTIVO' ? 'white' : '#333',
                         border: paymentMethod === 'EFECTIVO' ? '3px solid #1e7e34' : '2px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: '1rem',
+                        fontSize: '0.85rem',
                         transition: 'all 0.2s'
                       }}
                     >
@@ -2134,14 +2238,14 @@ export default function DetalleMesa() {
                     <button
                       onClick={() => setPaymentMethod('TARJETA')}
                       style={{
-                        padding: '1rem',
+                        padding: '0.6rem 0.3rem',
                         background: paymentMethod === 'TARJETA' ? '#28a745' : '#f0f0f0',
                         color: paymentMethod === 'TARJETA' ? 'white' : '#333',
                         border: paymentMethod === 'TARJETA' ? '3px solid #1e7e34' : '2px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: '1rem',
+                        fontSize: '0.85rem',
                         transition: 'all 0.2s'
                       }}
                     >
@@ -2150,43 +2254,43 @@ export default function DetalleMesa() {
                     <button
                       onClick={() => setPaymentMethod('TRANSFERENCIA')}
                       style={{
-                        padding: '1rem',
+                        padding: '0.6rem 0.3rem',
                         background: paymentMethod === 'TRANSFERENCIA' ? '#28a745' : '#f0f0f0',
                         color: paymentMethod === 'TRANSFERENCIA' ? 'white' : '#333',
                         border: paymentMethod === 'TRANSFERENCIA' ? '3px solid #1e7e34' : '2px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: '1rem',
+                        fontSize: '0.85rem',
                         transition: 'all 0.2s'
                       }}
                     >
                       TRANSFERENCIA
                     </button>
                   </div>
-                  
+
                   <button
                     onClick={() => {
                       setShowCalculator(true);
                     }}
                     style={{
                       width: '100%',
-                      padding: '0.75rem',
+                      padding: '0.5rem',
                       background: '#6c757d',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
-                      fontSize: '0.9rem',
-                      marginBottom: '1rem'
+                      fontSize: '0.85rem',
+                      marginBottom: '0.6rem'
                     }}
                   >
                     CALCULADORA
                   </button>
 
                   {/* FASE F10: propina opcional + descuento */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina:</label>
                     <input
                       type="number"
@@ -2245,13 +2349,13 @@ export default function DetalleMesa() {
                     disabled={loadingPay || !isOnline}
                     style={{
                       width: '100%',
-                      padding: '1.5rem',
+                      padding: '1.1rem',
                       background: loadingPay || !isOnline ? '#6c757d' : '#F5BB4C',
                       color: 'white',
                       border: 'none',
                       borderRadius: '12px',
                       cursor: loadingPay || !isOnline ? 'not-allowed' : 'pointer',
-                      fontSize: '1.5rem',
+                      fontSize: '1.4rem',
                       fontWeight: 'bold',
                       boxShadow: loadingPay || !isOnline ? 'none' : '0 4px 12px rgba(245, 187, 76, 0.4)',
                       opacity: loadingPay || !isOnline ? 0.6 : 1,
@@ -2297,6 +2401,27 @@ export default function DetalleMesa() {
                     }}
                   >
                     PAGO DIVIDIDO
+                  </button>
+
+                  <button
+                    onClick={openItemSplit}
+                    disabled={loadingPay || !isOnline || orderDiscount > 0}
+                    title={orderDiscount > 0 ? 'Quita el descuento para dividir por producto' : ''}
+                    style={{
+                      width: '100%',
+                      padding: '0.9rem',
+                      marginTop: '0.6rem',
+                      background: 'transparent',
+                      color: '#B8860B',
+                      border: '2px solid #F5BB4C',
+                      borderRadius: '10px',
+                      cursor: (loadingPay || !isOnline || orderDiscount > 0) ? 'not-allowed' : 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      opacity: (loadingPay || !isOnline || orderDiscount > 0) ? 0.5 : 1
+                    }}
+                  >
+                    DIVIDIR POR PRODUCTO
                   </button>
                 </div>
               ) : activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === false ? (
@@ -2516,6 +2641,16 @@ export default function DetalleMesa() {
           total={Math.max(0, activeOrderTotal - orderDiscount)}
           onCancel={() => setShowSplit(false)}
           onConfirm={processSplitPayment}
+        />
+      )}
+
+      {/* FASE F12: Dividir por producto y cantidad (grupos de items, uno por
+          método, hasta completar la cuenta) */}
+      {showItemSplit && activeOrder && (
+        <DividirPorProducto
+          items={pendingActiveOrderItems}
+          onClose={() => setShowItemSplit(false)}
+          onConfirmGroup={handleItemSplitGroup}
         />
       )}
 

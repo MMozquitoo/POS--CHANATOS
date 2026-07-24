@@ -3,6 +3,7 @@ import { getDb } from "../db/database.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getBogotaDateString, toBogotaSQLiteTimestamp } from "../utils/timezone.js";
 import { logAudit } from "../utils/audit.js";
+import { sendPushToRole } from "../utils/pushNotifications.js";
 
 const router = express.Router();
 
@@ -331,6 +332,16 @@ router.post(
         });
       }
 
+      // Notificación push a COCINA (celular con pantalla apagada). Best-effort:
+      // no se espera (no debe demorar la respuesta HTTP) y nunca lanza — si
+      // Firebase no está configurado, sendPushToRole no hace nada.
+      const pushTableLabel =
+        tableNumber === 9 ? "Ventanilla" : tableNumber === 10 ? "Domicilio" : tableNumber ? `Mesa ${tableNumber}` : "Ventanilla";
+      sendPushToRole("COCINA", {
+        title: "Nueva orden",
+        body: `Orden #${order.daily_no || order.code || orderId} — ${pushTableLabel}`,
+      }).catch(() => {});
+
       res.status(201).json({
         order: { ...order, items: orderItems },
       });
@@ -516,13 +527,15 @@ router.get("/service/:service", requireAuth, async (req, res) => {
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+        const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,
           pendingTotal,
-          hasPendingItems: pendingItems.length > 0
+          hasPendingItems: pendingItems.length > 0,
+          firstItemNote
         };
       });
     }
@@ -647,13 +660,15 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+        const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,
           pendingTotal,
-          hasPendingItems: pendingItems.length > 0
+          hasPendingItems: pendingItems.length > 0,
+          firstItemNote
         };
       });
     }
@@ -720,13 +735,15 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+        const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,
           pendingTotal,
-          hasPendingItems: pendingItems.length > 0
+          hasPendingItems: pendingItems.length > 0,
+          firstItemNote
         };
       });
     }
@@ -892,6 +909,16 @@ router.patch(
         io.emit("order:status-changed", {
           order: { ...updatedOrder, items },
         });
+      }
+
+      // Notificación push a CAJA cuando la orden queda LISTA para cobrar
+      // (celular con pantalla apagada). Best-effort: nunca lanza ni bloquea.
+      if (status === "LISTO") {
+        const pushTableLabel = tableNumber ? `Mesa ${tableNumber}` : "Ventanilla/Domicilio";
+        sendPushToRole("CAJA", {
+          title: "Orden lista para cobrar",
+          body: `Orden #${order.daily_no || order.code || order.id} — ${pushTableLabel}`,
+        }).catch(() => {});
       }
 
       res.json({ order: { ...updatedOrder, items } });
@@ -2035,6 +2062,26 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
       if (orderAdvanced) {
         io.emit("order:status-changed", { order: { ...updatedOrder, items: allItems } });
       }
+    }
+
+    // Notificación push a CAJA cuando la orden queda LISTA para cobrar
+    // (celular con pantalla apagada). Best-effort: nunca lanza ni bloquea.
+    if (orderAdvanced) {
+      (async () => {
+        try {
+          let pushTableLabel = "Ventanilla/Domicilio";
+          if (updatedOrder.table_id) {
+            const t = await db.get("SELECT number FROM tables WHERE id = ?", [updatedOrder.table_id]);
+            if (t) pushTableLabel = `Mesa ${t.number}`;
+          }
+          await sendPushToRole("CAJA", {
+            title: "Orden lista para cobrar",
+            body: `Orden #${updatedOrder.daily_no || updatedOrder.code || updatedOrder.id} — ${pushTableLabel}`,
+          });
+        } catch (pushError) {
+          console.error("⚠️  Error enviando push de orden lista:", pushError.message);
+        }
+      })();
     }
 
     res.json({

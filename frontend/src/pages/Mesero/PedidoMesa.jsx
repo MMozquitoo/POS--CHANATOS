@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
 import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
+import SaboresChips from '../../components/SaboresChips';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
@@ -425,6 +426,7 @@ export default function PedidoMesa() {
                   placeholder="Ej: Sin azúcar"
                 />
                 {categoriaLlevaSalsas(selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
+                <SaboresChips flavors={selectedProduct.flavors} value={notes} onChange={setNotes} />
               </div>
               <button onClick={addItem} className="add-item-btn">Agregar</button>
             </div>

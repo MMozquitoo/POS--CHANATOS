@@ -53,6 +53,7 @@ export function saveProductsToSource(products) {
         variant: product.variant || null,
         display_order: product.display_order || 0,
         is_active: product.is_active === 1 || product.is_active === true,
+        flavors: product.flavors || null,
       }));
 
     // Ordenar por categoría y display_order para mantener consistencia
@@ -89,6 +90,7 @@ export function addProductToSource(product) {
       variant: product.variant || null,
       display_order: product.display_order || 0,
       is_active: product.is_active === 1 || product.is_active === true,
+      flavors: product.flavors || null,
     };
     
     existingProducts.push(newProduct);

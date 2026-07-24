@@ -17,7 +17,7 @@ export const SALSAS = [
   'Piña',
   'BBQ',
   'Mostaza',
-  'Mayonesa',
+  'Tártara',
   'Salsa de la casa',
 ];
 
@@ -28,6 +28,7 @@ function parseParts(value) {
 export default function SalsasChips({ value, onChange }) {
   const parts = parseParts(value);
   const isOn = (salsa) => parts.some(p => p.toLowerCase() === salsa.toLowerCase());
+  const allOn = SALSAS.every(isOn);
 
   const toggle = (salsa) => {
     const next = isOn(salsa)
@@ -36,8 +37,19 @@ export default function SalsasChips({ value, onChange }) {
     onChange(next.join(', '));
   };
 
+  const toggleAll = () => {
+    onChange(allOn ? '' : SALSAS.join(', '));
+  };
+
   return (
     <div className="salsas-chips">
+      <button
+        type="button"
+        className={`salsa-chip salsa-chip-all ${allOn ? 'active' : ''}`}
+        onClick={toggleAll}
+      >
+        {allOn ? 'Quitar todas' : 'Todas'}
+      </button>
       {SALSAS.map(salsa => (
         <button
           key={salsa}

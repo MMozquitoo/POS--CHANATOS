@@ -34,7 +34,7 @@ router.get("/", requireAuth, async (req, res) => {
     const { category } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, display_order
+      SELECT id, name, category, price, variant, display_order, flavors
       FROM products
       WHERE is_active = 1
     `;
@@ -60,8 +60,9 @@ router.get("/", requireAuth, async (req, res) => {
         name: product.name,
         price: product.price,
         variant: product.variant,
-        displayName: product.variant 
-          ? `${product.name} - ${product.variant}` 
+        flavors: product.flavors,
+        displayName: product.variant
+          ? `${product.name} - ${product.variant}`
           : product.name,
       });
     });
@@ -79,7 +80,7 @@ router.get("/flat", requireAuth, async (req, res) => {
     const db = getDb();
 
     const products = await db.all(
-      `SELECT id, name, category, price, variant, display_order
+      `SELECT id, name, category, price, variant, display_order, flavors
        FROM products
        WHERE is_active = 1
        ORDER BY category, display_order, name`
@@ -87,12 +88,13 @@ router.get("/flat", requireAuth, async (req, res) => {
 
     const flatProducts = products.map((product) => ({
       id: product.id,
-      name: product.variant 
-        ? `${product.name} - ${product.variant}` 
+      name: product.variant
+        ? `${product.name} - ${product.variant}`
         : product.name,
       price: product.price,
       category: product.category,
       variant: product.variant,
+      flavors: product.flavors,
     }));
 
     res.json(flatProducts);
@@ -129,7 +131,7 @@ router.get("/admin", requireAuth, requireRole("CAJA"), async (req, res) => {
     const { category, search } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, is_active, display_order, created_at
+      SELECT id, name, category, price, variant, is_active, display_order, flavors, created_at
       FROM products
       WHERE 1=1
     `;
@@ -177,7 +179,7 @@ router.get("/admin/categories", requireAuth, requireRole("CAJA"), async (req, re
 // POST /api/products - Crear nuevo producto
 router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { name, category, price, variant, display_order, is_active } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors } = req.body;
     const db = getDb();
 
     // Validaciones
@@ -213,7 +215,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     // Crear producto
     const result = await db.run(
-      "INSERT INTO products (name, category, price, variant, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         name.trim(),
         category.trim(),
@@ -221,6 +223,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
         variant ? variant.trim() : null,
         displayOrder,
         isActive,
+        flavors && flavors.trim() ? flavors.trim() : null,
       ]
     );
 
@@ -250,7 +253,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const { name, category, price, variant, display_order, is_active } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors } = req.body;
     const db = getDb();
 
     // Verificar que el producto existe
@@ -317,6 +320,11 @@ router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
     if (display_order !== undefined) {
       updates.push("display_order = ?");
       params.push(parseInt(display_order));
+    }
+
+    if (flavors !== undefined) {
+      updates.push("flavors = ?");
+      params.push(flavors && flavors.trim() ? flavors.trim() : null);
     }
 
     if (is_active !== undefined) {

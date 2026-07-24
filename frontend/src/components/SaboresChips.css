@@ -1,11 +1,21 @@
-.salsas-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.sabores-chips {
   margin-top: 6px;
 }
 
-.salsa-chip {
+.sabores-chips-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #8a7443;
+  margin-bottom: 4px;
+}
+
+.sabores-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sabor-chip {
   padding: 5px 12px;
   border-radius: 999px;
   border: 1.5px solid #e5d9bd;
@@ -18,21 +28,12 @@
   white-space: nowrap;
 }
 
-.salsa-chip:hover {
+.sabor-chip:hover {
   border-color: #F5BB4C;
 }
 
-.salsa-chip.active {
+.sabor-chip.active {
   background: #F5BB4C;
   border-color: #F5BB4C;
   color: #1a1a2e;
-}
-
-.salsa-chip-all {
-  border-style: dashed;
-  font-weight: 700;
-}
-
-.salsa-chip-all.active {
-  border-style: solid;
 }

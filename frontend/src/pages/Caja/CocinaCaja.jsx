@@ -6,6 +6,7 @@ import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
+import { notifyDesktop } from '../../utils/kitchenSound';
 
 /* OrderCard extracted outside CocinaCaja to avoid re-creating on every render */
 function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus }) {
@@ -13,7 +14,10 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
     if (order.status === 'NUEVO') {
       return (
         <button
-          onClick={() => onConfirmStatus(order.id, 'EN_PREP', '¿Enviar esta orden a preparación?')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfirmStatus(order.id, 'EN_PREP', '¿Enviar esta orden a preparación?');
+          }}
           disabled={isUpdating}
           className={isUpdating ? 'btn-secondary' : 'btn-chanatos'}
           style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
@@ -24,7 +28,10 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
     } else if (order.status === 'EN_PREP') {
       return (
         <button
-          onClick={() => onConfirmStatus(order.id, 'LISTO', '¿Marcar esta orden como LISTO?')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfirmStatus(order.id, 'LISTO', '¿Marcar esta orden como LISTO?');
+          }}
           disabled={isUpdating}
           className={isUpdating ? 'btn-secondary' : 'btn-success'}
           style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
@@ -95,8 +102,22 @@ export default function CocinaCaja({ hideHeader = false }) {
     loadOrders();
 
     if (socket) {
-      socket.on('order:new', () => {
+      socket.on('order:new', (data) => {
         loadOrders();
+        // Notificación nativa (modo admin/Electron): solo cuando esta vista corre
+        // "sola" (ruta /cocina, hideHeader=false). Cuando está embebida dentro de
+        // Centro Total (hideHeader=true) el aviso ya lo dispara CentroTotal.jsx a
+        // nivel de toda la pantalla, para no duplicarlo aquí.
+        if (!hideHeader) {
+          const order = data?.order;
+          const label = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || 'Pedido nuevo');
+          const items = order?.items?.length;
+          notifyDesktop({
+            title: 'Nueva orden en cocina',
+            body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
+            force: true,
+          });
+        }
       });
 
       socket.on('order:status-changed', () => {
@@ -118,7 +139,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         socket.off('order:updated');
       };
     }
-  }, [socket]);
+  }, [socket, hideHeader]);
 
   const loadOrders = async () => {
     try {

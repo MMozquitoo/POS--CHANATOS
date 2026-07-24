@@ -11,6 +11,7 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/cli": "^6.2.1",
     "@capacitor/core": "^6.2.1",
+    "@capacitor/push-notifications": "^6.0.4",
     "axios": "^1.6.2",
     "capacitor-zeroconf": "^3.0.0",
     "react": "^18.2.0",

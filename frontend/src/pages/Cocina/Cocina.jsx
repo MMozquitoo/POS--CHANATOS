@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
-import { playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
+import { playKitchenChime, unlockAudio, notifyDesktop } from '../../utils/kitchenSound';
 import './Cocina.css';
 
 const byCreatedAt = (a, b) => new Date(a.created_at) - new Date(b.created_at);
@@ -76,11 +76,21 @@ export default function Cocina() {
         (sum, o) => sum + (o.items?.filter(i => !i.voided_at).length || 0), 0
       );
       const prev = snapshotRef.current;
-      const hasNewWork =
-        [...ids].some(id => !prev.ids.has(id)) || pendingItems > prev.pendingItems;
+      const newOrders = pending.filter(o => !prev.ids.has(o.id));
+      const hasNewWork = newOrders.length > 0 || pendingItems > prev.pendingItems;
 
       if (prev.initialized && hasNewWork && soundOnRef.current) {
         playKitchenChime();
+        // Notificación nativa: cubre el caso de ventana minimizada/sin foco, donde el
+        // chime de Web Audio de arriba no suena (los navegadores/Electron suspenden
+        // el AudioContext). Si la ventana SÍ tiene foco, no duplica el aviso.
+        // Respeta el mismo toggle de sonido de cocina (soundOnRef).
+        const first = newOrders[0];
+        const title = first ? 'Nueva orden en cocina' : 'Pedido actualizado';
+        const body = first
+          ? `${first.daily_no ? `Orden ${first.daily_no}` : (first.code || 'Pedido nuevo')}${first.table_label ? ` — ${first.table_label}` : ''}`
+          : 'Se agregaron items a un pedido en preparación';
+        notifyDesktop({ title, body });
       }
       snapshotRef.current = { ids, pendingItems, initialized: true };
     } catch (error) {

@@ -5,7 +5,8 @@
     "price": 2000,
     "variant": "250 ml",
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": "Colombiana, Manzana, Pepsi"
   },
   {
     "name": "Jugo Hit",

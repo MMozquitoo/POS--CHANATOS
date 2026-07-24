@@ -119,16 +119,32 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       });
     }
 
-    // Normalizar itemIds: si viene como array de objetos, extraer los ids
-    let normalizedItemIds;
+    // Normalizar itemIds: acepta array de números (paga la fila COMPLETA) o de
+    // objetos {id, qty} (paga una cantidad PARCIAL de una fila con qty>1 —
+    // divide la fila en dos: una porción pagada y otra que sigue pendiente).
+    // "qty" es opcional incluso en objetos: si no viene, se paga la fila completa.
+    let normalizedItemIds = [];
+    const requestedQtyById = new Map(); // id (number) -> cantidad solicitada (undefined = fila completa)
     if (Array.isArray(itemIds)) {
-      if (itemIds.length > 0 && typeof itemIds[0] === 'object') {
-        normalizedItemIds = itemIds.map(item => item.id ?? item.order_item_id ?? item.itemId ?? item.item_id).filter(Boolean);
-      } else {
-        normalizedItemIds = itemIds.filter(id => id != null);
+      for (const raw of itemIds) {
+        if (raw == null) continue;
+        if (typeof raw === 'object') {
+          const rawId = raw.id ?? raw.order_item_id ?? raw.itemId ?? raw.item_id;
+          if (!rawId) continue;
+          const idNum = parseInt(rawId);
+          if (isNaN(idNum)) continue;
+          normalizedItemIds.push(idNum);
+          if (raw.qty !== undefined && raw.qty !== null && raw.qty !== '') {
+            const qtyNum = parseInt(raw.qty);
+            if (!isNaN(qtyNum) && qtyNum > 0) {
+              requestedQtyById.set(idNum, qtyNum);
+            }
+          }
+        } else {
+          const idNum = parseInt(raw);
+          if (!isNaN(idNum)) normalizedItemIds.push(idNum);
+        }
       }
-    } else {
-      normalizedItemIds = [];
     }
 
     if (normalizedItemIds.length === 0) {
@@ -162,8 +178,14 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     const scopeValue = orderIdNum || tableIdNum;
 
     // 3) Recalcular total desde DB (fuente de verdad)
+    // NOTA: product_id/is_custom se incluyen para que el descuento de inventario
+    // (más abajo) pueda identificar la receta del producto; antes faltaban aquí
+    // y el descuento automático quedaba silenciosamente en cero para todo pago
+    // hecho por items.
     const itemsQuery = `
-      SELECT oi.id, oi.qty, oi.price, oi.paid_at, oi.voided_at, oi.order_id, o.table_id, o.status as order_status
+      SELECT oi.id, oi.qty, oi.price, oi.paid_at, oi.voided_at, oi.order_id,
+             oi.product_id, oi.is_custom,
+             o.table_id, o.status as order_status
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
       WHERE oi.id IN (${placeholders})
@@ -205,6 +227,30 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
         details: `Algunos items tienen datos incompletos (falta id, order_id, qty o price)`,
         errorId,
         invalidItemIds: invalidItems.map(it => it.id)
+      });
+    }
+
+    // "Dividir por producto y cantidad": si el payload pidió una cantidad parcial
+    // de una fila (qty < fila.qty), se paga solo esa cantidad; el resto de la fila
+    // sigue pendiente (la fila se divide dentro de la transacción, más abajo).
+    const qtyErrors = [];
+    for (const it of items) {
+      const reqQty = requestedQtyById.get(it.id);
+      if (reqQty !== undefined) {
+        if (reqQty > it.qty) {
+          qtyErrors.push(`El item ${it.id} solo tiene ${it.qty} unidad(es) pendiente(s), se pidieron ${reqQty}`);
+          continue;
+        }
+        it.payQty = reqQty;
+      } else {
+        it.payQty = it.qty;
+      }
+    }
+    if (qtyErrors.length > 0) {
+      return res.status(400).json({
+        error: 'BAD_REQUEST',
+        details: qtyErrors.join('; '),
+        errorId
       });
     }
 
@@ -277,9 +323,10 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
     }
 
-    // Calcular totalDb = SUM(qty*price) desde DB
+    // Calcular totalDb = SUM(payQty*price) desde DB (payQty = cantidad a cobrar;
+    // puede ser menor a qty si se pidió pagar solo una parte de la fila)
     const totalDb = items.reduce((sum, it) => {
-      const qty = it.qty || 0;
+      const qty = it.payQty ?? it.qty ?? 0;
       const price = it.price || 0;
       return sum + (qty * price);
     }, 0);
@@ -298,15 +345,43 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     const archivedOrderIds = [];
 
     // PASO 16.2.2-B: Marcar items como pagados con validación
+    // FASE F11 (dividir por producto y cantidad): si payQty < qty, la fila se
+    // "parte": la fila original se queda con la cantidad restante (pendiente,
+    // conserva su id para no romper referencias de cocina/edición) y se crea una
+    // fila NUEVA con la cantidad pagada, copiando nombre/precio/notas/producto/
+    // ready_at de la original vía INSERT...SELECT (misma fuente de verdad, sin
+    // duplicar lógica de columnas).
     for (const it of items) {
       if (!it.id) {
         throw new Error(`Item sin id válido: ${JSON.stringify(it)}`);
       }
-      const updateResult = await db.run("UPDATE order_items SET paid_at = ? WHERE id = ?", [timestamp, it.id]);
-      if (!updateResult || updateResult.changes === 0) {
-        throw new Error(`No se pudo actualizar item ${it.id}. Puede que no exista o ya esté pagado.`);
+      const payQty = it.payQty ?? it.qty;
+      let payRowId = it.id;
+
+      if (payQty < it.qty) {
+        const remainingQty = it.qty - payQty;
+        const remainingUpdate = await db.run("UPDATE order_items SET qty = ? WHERE id = ?", [remainingQty, it.id]);
+        if (!remainingUpdate || remainingUpdate.changes === 0) {
+          throw new Error(`No se pudo dividir la fila ${it.id} (actualizar cantidad restante)`);
+        }
+        const splitResult = await db.run(
+          `INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, ready_at, created_at)
+           SELECT order_id, name, ?, price, notes, product_id, is_custom, ready_at, created_at
+           FROM order_items WHERE id = ?`,
+          [payQty, it.id]
+        );
+        if (!splitResult || !splitResult.lastID) {
+          throw new Error(`No se pudo crear la fila dividida a partir del item ${it.id}`);
+        }
+        payRowId = splitResult.lastID;
       }
-      paidItemIds.push(it.id);
+
+      const updateResult = await db.run("UPDATE order_items SET paid_at = ? WHERE id = ?", [timestamp, payRowId]);
+      if (!updateResult || updateResult.changes === 0) {
+        throw new Error(`No se pudo actualizar item ${payRowId}. Puede que no exista o ya esté pagado.`);
+      }
+      it.paidRowId = payRowId;
+      paidItemIds.push(payRowId);
     }
 
     // Insertar payments por orden afectada
@@ -326,7 +401,7 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
 
       const orderAmount = orderItems.reduce((sum, it) => {
-        const qty = it.qty || 0;
+        const qty = it.payQty ?? it.qty ?? 0;
         const price = it.price || 0;
         return sum + (qty * price);
       }, 0);
@@ -448,8 +523,11 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     transactionStarted = false;
 
     // Fase 3: Descontar inventario automáticamente usando recetas (fuera de transacción para no bloquear)
+    // FASE F11: usar payQty (cantidad efectivamente pagada), no la qty original de
+    // la fila — si se pagó solo una parte, el resto se descontará cuando se pague.
     try {
-      await deductInventoryFromOrderItems(db, items, req.user.id);
+      const itemsForInventory = items.map((it) => ({ ...it, qty: it.payQty ?? it.qty }));
+      await deductInventoryFromOrderItems(db, itemsForInventory, req.user.id);
     } catch (inventoryError) {
       // FASE F5: el fallo no bloquea el pago, pero queda en auditoría (antes se perdía en consola)
       console.error("⚠️  Error descontando inventario (no bloquea el pago):", inventoryError);

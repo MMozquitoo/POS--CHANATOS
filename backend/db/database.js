@@ -96,6 +96,7 @@ export const initDatabase = async () => {
       variant TEXT,
       is_active INTEGER DEFAULT 1,
       display_order INTEGER DEFAULT 0,
+      flavors TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -192,6 +193,21 @@ export const initDatabase = async () => {
     )
   `);
 
+  // FASE F12: tokens de dispositivo para notificaciones push (FCM) — celular con
+  // pantalla apagada. Un dispositivo puede reemplazar su token (UNIQUE) si Android
+  // lo rota; cada login re-registra el token con el rol vigente.
+  await database.run(`
+    CREATE TABLE IF NOT EXISTS push_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      role TEXT NOT NULL,
+      user_id INTEGER,
+      platform TEXT DEFAULT 'android',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Crear índices
   await database.run(
     `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`
@@ -228,6 +244,9 @@ export const initDatabase = async () => {
   );
   await database.run(
     `CREATE INDEX IF NOT EXISTS idx_manual_transactions_created ON manual_transactions(created_at)`
+  );
+  await database.run(
+    `CREATE INDEX IF NOT EXISTS idx_push_tokens_role ON push_tokens(role)`
   );
 
   // Insertar usuarios iniciales (solo si no existen)
@@ -273,7 +292,7 @@ export const initDatabase = async () => {
         
         for (const product of productsFromJson) {
           await database.run(
-            "INSERT INTO products (name, category, price, variant, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
               product.name,
               product.category,
@@ -281,6 +300,7 @@ export const initDatabase = async () => {
               product.variant || null,
               product.display_order || 0,
               product.is_active === true || product.is_active === 1 ? 1 : 0,
+              product.flavors || null,
             ]
           );
         }
@@ -690,6 +710,40 @@ export const initDatabase = async () => {
     }
   } catch (discountError) {
     console.error("⚠️  Error agregando descuento/propina:", discountError);
+  }
+
+  // FASE F11: sabores configurables por producto (ej. gaseosas personales) — chequeo incondicional
+  try {
+    const productsCols = await database.all("PRAGMA table_info(products)");
+    if (!productsCols.some((c) => c.name === "flavors")) {
+      console.log("  ➕ Agregando flavors a products...");
+      await database.run("ALTER TABLE products ADD COLUMN flavors TEXT");
+      console.log("  ✅ Campo flavors agregado a products");
+    }
+  } catch (flavorsError) {
+    console.error("⚠️  Error agregando flavors:", flavorsError);
+  }
+
+  // FASE F12: tabla de tokens push (instalaciones viejas que ya tenían todo el
+  // resto del schema) — chequeo incondicional. El CREATE TABLE del schema base
+  // ya cubre instalaciones nuevas; este bloque cubre BDs existentes.
+  try {
+    await database.run(`
+      CREATE TABLE IF NOT EXISTS push_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL,
+        user_id INTEGER,
+        platform TEXT DEFAULT 'android',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+    await database.run(
+      `CREATE INDEX IF NOT EXISTS idx_push_tokens_role ON push_tokens(role)`
+    );
+  } catch (pushTokensError) {
+    console.error("⚠️  Error creando tabla push_tokens:", pushTokensError);
   }
 
   console.log("✅ Base de datos inicializada correctamente");
