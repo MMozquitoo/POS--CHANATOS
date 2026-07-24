@@ -6,7 +6,7 @@ import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
-import { notifyDesktop } from '../../utils/kitchenSound';
+import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 
 /* OrderCard extracted outside CocinaCaja to avoid re-creating on every render */
 function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus }) {
@@ -43,7 +43,6 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
     return null;
   };
 
-  const totalItems = order.items?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0;
   // FASE F7: avance plato por plato
   const activeItems = order.items?.filter(item => !item.voided_at) || [];
   const readyCount = activeItems.filter(item => item.ready_at).length;
@@ -79,8 +78,30 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
         </div>
       )}
 
-      <div style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-        {totalItems} item(s)
+      {/* Items visibles directamente en la tarjeta (igual que la vista de Cocina
+          real) — antes solo decía "N item(s)" y había que tocar la tarjeta para
+          ver qué era cada uno. */}
+      <div style={{ marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        {activeItems.length === 0 ? (
+          <div style={{ color: '#999', fontSize: '0.85rem' }}>Sin items</div>
+        ) : activeItems.map((item, idx) => (
+          <div
+            key={item.id ?? idx}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '0.4rem',
+              fontSize: '0.9rem',
+              color: item.ready_at ? '#999' : '#333',
+              textDecoration: item.ready_at ? 'line-through' : 'none',
+            }}
+          >
+            {item.ready_at && <span style={{ color: '#2ecc71', textDecoration: 'none' }}>✓</span>}
+            <span style={{ fontWeight: 700, color: item.ready_at ? '#999' : '#F5BB4C' }}>{item.qty}x</span>
+            <span>{item.name}</span>
+            {item.notes && <span style={{ color: '#888', fontSize: '0.8rem' }}>({item.notes})</span>}
+          </div>
+        ))}
       </div>
 
       {getActionButton()}
@@ -98,24 +119,33 @@ export default function CocinaCaja({ hideHeader = false }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(new Set());
 
+  // Desbloquear el chime de Web Audio al primer toque — solo cuando esta vista
+  // corre "sola" (ruta /cocina); embebida en Centro Total, CentroTotal.jsx ya
+  // lo desbloquea a nivel de toda la pantalla.
+  useEffect(() => {
+    if (hideHeader) return;
+    document.addEventListener('pointerdown', unlockAudio, { once: true });
+    return () => document.removeEventListener('pointerdown', unlockAudio);
+  }, [hideHeader]);
+
   useEffect(() => {
     loadOrders();
 
     if (socket) {
       socket.on('order:new', (data) => {
         loadOrders();
-        // Notificación nativa (modo admin/Electron): solo cuando esta vista corre
-        // "sola" (ruta /cocina, hideHeader=false). Cuando está embebida dentro de
-        // Centro Total (hideHeader=true) el aviso ya lo dispara CentroTotal.jsx a
-        // nivel de toda la pantalla, para no duplicarlo aquí.
+        // Sonido + notificación nativa: solo cuando esta vista corre "sola" (ruta
+        // /cocina, hideHeader=false). Cuando está embebida dentro de Centro Total
+        // (hideHeader=true) el aviso ya lo dispara CentroTotal.jsx a nivel de toda
+        // la pantalla, para no duplicarlo aquí.
         if (!hideHeader) {
+          playKitchenChime();
           const order = data?.order;
           const label = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || 'Pedido nuevo');
           const items = order?.items?.length;
           notifyDesktop({
             title: 'Nueva orden en cocina',
             body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
-            force: true,
           });
         }
       });
@@ -233,7 +263,7 @@ export default function CocinaCaja({ hideHeader = false }) {
 
   return (
     <>
-    <div className="caja-container" style={{ height: hideHeader ? '100%' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="caja-container cocina-caja-shell" style={{ height: hideHeader ? '100%' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {!hideHeader && (
         <header className="caja-header" style={{ flexShrink: 0 }}>
           <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
@@ -242,23 +272,25 @@ export default function CocinaCaja({ hideHeader = false }) {
         </header>
       )}
 
-      <div style={{ 
-        flex: 1, 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '1rem', 
+      <div className="cocina-caja-board" style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '1rem',
         padding: '1rem',
         overflow: 'hidden',
         background: '#f8f9fa'
       }}>
         {/* Columna NUEVO */}
-        <div style={{ 
+        <div className="cocina-caja-column" style={{ 
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
           overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          minHeight: 0
         }}>
           <h2 style={{ 
             fontSize: '1.2rem', 
@@ -270,7 +302,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             NUEVOS ({orders.NUEVO.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.NUEVO.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos nuevos</p>
             ) : (
@@ -282,13 +314,14 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
 
         {/* Columna EN_PREP */}
-        <div style={{ 
+        <div className="cocina-caja-column" style={{ 
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
           overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          minHeight: 0
         }}>
           <h2 style={{ 
             fontSize: '1.2rem', 
@@ -300,7 +333,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             EN PREPARACIÓN ({orders.EN_PREP.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.EN_PREP.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos en preparación</p>
             ) : (
@@ -312,13 +345,14 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
 
         {/* Columna LISTO */}
-        <div style={{ 
+        <div className="cocina-caja-column" style={{ 
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
           overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          minHeight: 0
         }}>
           <h2 style={{ 
             fontSize: '1.2rem', 
@@ -330,7 +364,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             LISTOS ({orders.LISTO.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.LISTO.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos listos</p>
             ) : (

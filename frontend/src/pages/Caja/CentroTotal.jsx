@@ -17,7 +17,7 @@ import CajaHeader from '../../components/CajaHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
-import { notifyDesktop } from '../../utils/kitchenSound';
+import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 
 const FROM_CENTRO_TOTAL = { state: { from: '/centro-total' } };
 
@@ -352,6 +352,13 @@ export default function CentroTotal() {
     loadServiceCounts();
   }, []); // Sin dependencias - solo al montar
 
+  // Desbloquear el chime de Web Audio al primer toque de la pantalla (navegadores
+  // bloquean audio hasta la primera interacción del usuario).
+  useEffect(() => {
+    document.addEventListener('pointerdown', unlockAudio, { once: true });
+    return () => document.removeEventListener('pointerdown', unlockAudio);
+  }, []);
+
   // FASE 19.5 + 19.8: Listeners de socket separados con cleanup correcto
   useEffect(() => {
     if (!socket) return;
@@ -391,17 +398,19 @@ export default function CentroTotal() {
       if (activeTab === 'mesas') {
         loadServiceCounts();
       }
-      // Notificación nativa de escritorio ("modo admin"): este efecto vive mientras
-      // Centro Total esté montado, sin importar el tab activo (MESAS/COCINA/LISTO) ni
-      // si la ventana está minimizada/sin foco — a diferencia del preview de cocina
-      // embebido (CocinaCaja con hideHeader=true), que solo se monta en el tab COCINA.
+      // Sonido + notificación ("modo admin"): este efecto vive mientras Centro
+      // Total esté montado, sin importar el tab activo (MESAS/COCINA/LISTO) — a
+      // diferencia del preview de cocina embebido (CocinaCaja con hideHeader=true),
+      // que solo se monta en el tab COCINA. El chime cubre navegador/PWA/celular
+      // (no suena si la pestaña está oculta); la notificación nativa cubre Electron
+      // minimizado/sin foco (no existe window.posElectron en navegador normal).
+      playKitchenChime();
       const order = data?.order;
       const label = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || 'Pedido nuevo');
       const items = order?.items?.length;
       notifyDesktop({
         title: 'Nueva orden',
         body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
-        force: true,
       });
     };
     
@@ -1227,7 +1236,7 @@ export default function CentroTotal() {
         </div>
       ) : activeTab === 'cocina' ? (
         /* Tab COCINA - Reutilizar CocinaCaja (FASE 11.3) */
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <CocinaCaja hideHeader={true} />
         </div>
       ) : activeTab === 'listo' ? (

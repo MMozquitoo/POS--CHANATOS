@@ -13,11 +13,11 @@ export default function Mas() {
         <button onClick={logout} className="logout-btn">Salir</button>
       </header>
 
-      <div style={{ padding: '1rem', display: 'grid', gap: '1rem' }}>
-        <button className="footer-btn" onClick={() => navigate('/ventanilla', { state: { from: '/mas' } })}>
+      <div style={{ padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <button className="btn-chanatos" onClick={() => navigate('/ventanilla', { state: { from: '/mas' } })}>
           VENTANILLA (manual)
         </button>
-        <button className="footer-btn" onClick={() => navigate('/domicilios', { state: { from: '/mas' } })}>
+        <button className="btn-chanatos" onClick={() => navigate('/domicilios', { state: { from: '/mas' } })}>
           DOMICILIOS (manual)
         </button>
       </div>

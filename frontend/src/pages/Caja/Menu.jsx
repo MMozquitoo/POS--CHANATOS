@@ -6,6 +6,7 @@ import { formatPriceCOP } from "../../utils/currency.js";
 import CajaHeader from "../../components/CajaHeader.jsx";
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
+import ConfigSalsasSabores from '../../components/caja/ConfigSalsasSabores.jsx';
 
 export default function Menu() {
   const navigate = useNavigate();
@@ -18,7 +19,8 @@ export default function Menu() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  
+  const [showConfigSalsasSabores, setShowConfigSalsasSabores] = useState(false);
+
   // Estados del modal - IMPORTANTE: siempre se resetean completamente
   const [showModal, setShowModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
@@ -241,11 +243,19 @@ export default function Menu() {
         {/* Controles */}
         <div className="menu-controls">
           <button
-            className="action-btn"
+            className="menu-toolbar-btn"
             style={{ background: "#28a745", color: "white" }}
             onClick={() => handleOpenModal(null)}
           >
             + Nuevo Producto
+          </button>
+
+          <button
+            className="menu-toolbar-btn"
+            style={{ background: "#F5BB4C", color: "white" }}
+            onClick={() => setShowConfigSalsasSabores(true)}
+          >
+            Configurar salsas y sabores
           </button>
 
           <select
@@ -680,6 +690,11 @@ export default function Menu() {
       </>}>
       <p>{confirmState.message}</p>
     </Modal>
+    <ConfigSalsasSabores
+      open={showConfigSalsasSabores}
+      onClose={() => setShowConfigSalsasSabores(false)}
+      onApplied={loadData}
+    />
     </>
   );
 }

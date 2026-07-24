@@ -61,6 +61,7 @@
   .btn-secondary,
   .btn-success,
   .process-payment-btn,
+  .process-payment-btn-primary,
   .action-btn,
   .method-btn,
   .send-btn,
@@ -213,13 +214,12 @@ button {
     flex: 1 1 100%;
   }
 
+  /* Los botones de acción (Enviar a preparación, Marcar Listo, Unir orden,
+     Volver) van en su propia fila pero NO se estiran a ancho completo cada
+     uno: se acomodan a su contenido y saltan de línea si no caben (rule:
+     ningún botón secundario ocupa toda la pantalla sin necesidad). */
   .order-detail-actions {
     flex: 1 1 100%;
-    justify-content: stretch;
-  }
-
-  .order-detail-actions button {
-    flex: 1 1 auto;
   }
 }
 

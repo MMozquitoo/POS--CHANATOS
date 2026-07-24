@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import './SalsasChips.css';
 
 // Salsas del restaurante: botones rápidos para mesero y caja.
@@ -11,24 +13,32 @@ export function categoriaLlevaSalsas(category) {
   return !CATEGORIAS_SIN_SALSAS.includes(String(category).toUpperCase().replace(/ /g, '_'));
 }
 
-export const SALSAS = [
-  'Tomate',
-  'Ajo',
-  'Piña',
-  'BBQ',
-  'Mostaza',
-  'Tártara',
-  'Salsa de la casa',
-];
+// Lista de fábrica: se usa mientras carga o si /settings/salsas no responde,
+// para que armar un pedido nunca dependa de que el backend esté disponible.
+export const DEFAULT_SALSAS = ['Tomate', 'Ajo', 'Piña', 'BBQ', 'Mostaza', 'Tártara', 'Salsa de la casa'];
 
 function parseParts(value) {
   return (value || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 
 export default function SalsasChips({ value, onChange }) {
+  const [salsas, setSalsas] = useState(DEFAULT_SALSAS);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios.get('/settings/salsas')
+      .then(res => {
+        if (!cancelled && Array.isArray(res.data?.salsas) && res.data.salsas.length > 0) {
+          setSalsas(res.data.salsas);
+        }
+      })
+      .catch(() => {}); // se queda con DEFAULT_SALSAS, nunca truena el pedido
+    return () => { cancelled = true; };
+  }, []);
+
   const parts = parseParts(value);
   const isOn = (salsa) => parts.some(p => p.toLowerCase() === salsa.toLowerCase());
-  const allOn = SALSAS.every(isOn);
+  const allOn = salsas.every(isOn);
 
   const toggle = (salsa) => {
     const next = isOn(salsa)
@@ -38,7 +48,7 @@ export default function SalsasChips({ value, onChange }) {
   };
 
   const toggleAll = () => {
-    onChange(allOn ? '' : SALSAS.join(', '));
+    onChange(allOn ? '' : salsas.join(', '));
   };
 
   return (
@@ -50,7 +60,7 @@ export default function SalsasChips({ value, onChange }) {
       >
         {allOn ? 'Quitar todas' : 'Todas'}
       </button>
-      {SALSAS.map(salsa => (
+      {salsas.map(salsa => (
         <button
           key={salsa}
           type="button"

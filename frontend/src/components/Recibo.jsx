@@ -229,7 +229,9 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             <button
               onClick={handlePrint}
               style={{
-                flex: 1,
+                flex: '1 1 auto',
+                minWidth: '110px',
+                whiteSpace: 'nowrap',
                 padding: '0.75rem',
                 background: '#F5BB4C',
                 color: 'white',
@@ -244,7 +246,9 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             <button
               onClick={handleSavePDF}
               style={{
-                flex: 1,
+                flex: '1 1 auto',
+                minWidth: '110px',
+                whiteSpace: 'nowrap',
                 padding: '0.75rem',
                 background: '#28a745',
                 color: 'white',
@@ -260,7 +264,9 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             <button
               onClick={onClose}
               style={{
-                flex: 1,
+                flex: '1 1 auto',
+                minWidth: '110px',
+                whiteSpace: 'nowrap',
                 padding: '0.75rem',
                 background: '#6c757d',
                 color: 'white',

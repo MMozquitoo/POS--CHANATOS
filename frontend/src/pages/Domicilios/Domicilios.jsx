@@ -255,14 +255,13 @@ export default function Domicilios() {
       <div className="ventanilla-content">
         <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>Órdenes Abiertas ({openOrdersList.length})</h2>
-          <button 
+          <button
             onClick={() => {
               setSelectedOrderId(null);
               setSelectedOrderItems([]);
               setShowNewOrderForm(true);
             }}
-            className="btn-primary"
-            style={{ padding: '0.75rem 1.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
+            className="btn-chanatos"
           >
             NUEVA ORDEN
           </button>
@@ -270,14 +269,7 @@ export default function Domicilios() {
 
         {openOrdersList.length === 0 && closedOrdersList.length === 0 && selectedOrderId === null && !showNewOrderForm ? (
           <div className="empty-state">
-            <p>No hay órdenes</p>
-            <button 
-              onClick={() => setShowNewOrderForm(true)}
-              className="btn-primary"
-              style={{ marginTop: '1rem', padding: '0.75rem 1.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Crear Primera Orden
-            </button>
+            <p>No hay órdenes. Usa NUEVA ORDEN para crear la primera.</p>
           </div>
         ) : selectedOrderId === null && !showNewOrderForm ? (
           <>
@@ -341,16 +333,7 @@ export default function Domicilios() {
                               updateOrderStatus(order.id, 'EN_PREP');
                             }
                           }}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            background: '#F5BB4C',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold'
-                          }}
+                          className="btn-chanatos"
                         >
                           Enviar a Preparación
                         </button>
@@ -363,16 +346,7 @@ export default function Domicilios() {
                               updateOrderStatus(order.id, 'LISTO');
                             }
                           }}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            background: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold'
-                          }}
+                          className="btn-success"
                         >
                           Marcar Listo
                         </button>
@@ -472,16 +446,7 @@ export default function Domicilios() {
                             updateOrderStatus(selectedOrderId, 'EN_PREP');
                           }
                         }}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          background: '#F5BB4C',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          fontWeight: 'bold'
-                        }}
+                        className="btn-chanatos"
                       >
                         Enviar a Preparación
                       </button>
@@ -493,16 +458,7 @@ export default function Domicilios() {
                             updateOrderStatus(selectedOrderId, 'LISTO');
                           }
                         }}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          background: '#28a745',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          fontWeight: 'bold'
-                        }}
+                        className="btn-success"
                       >
                         Marcar Listo
                       </button>
@@ -510,7 +466,7 @@ export default function Domicilios() {
                     {isCaja && canEdit && openOrdersList.filter(o => o.id !== selectedOrderId).length > 0 && (
                       <button
                         onClick={() => setShowMerge(true)}
-                        style={{ padding: '0.5rem 1rem', background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
+                        style={{ padding: '0.5rem 1rem', minHeight: '44px', background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
                       >
                         Unir orden
                       </button>
@@ -521,7 +477,7 @@ export default function Domicilios() {
                         setSelectedOrderItems([]);
                         setShowNewOrderForm(false);
                       }}
-                      style={{ padding: '0.5rem 1rem', background: '#6c757d', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                      className="btn-secondary"
                     >
                       ← Volver
                     </button>
@@ -550,7 +506,7 @@ export default function Domicilios() {
                         <div className="item-info-detalle">
                           <div className="item-name-detalle">
                             {item.name}
-                            {item.is_custom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
+                            {!!item.is_custom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
                           </div>
                           <div className="item-details-detalle">
                             {item.qty}x {formatPriceCOP(item.price)} = {formatPriceCOP(item.qty * item.price)}
@@ -805,7 +761,7 @@ export default function Domicilios() {
                 style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0.75rem 1rem', marginBottom: '0.5rem', background: '#FFF8E7', border: '1.5px solid #F5BB4C', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem' }}
               >
                 <strong>{o.daily_no ? `ORDEN ${o.daily_no}` : o.code}</strong>
-                <span>{o.status} • {formatPriceCOP(o.pendingTotal || 0)}</span>
+                <span>{statusLabel(o.status)} • {formatPriceCOP(o.pendingTotal || 0)}</span>
               </button>
             ))}
             <button

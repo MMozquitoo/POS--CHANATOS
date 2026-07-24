@@ -142,6 +142,9 @@ export default function DetalleMesa() {
   // FASE F12: "Dividir por producto" — cobrar un subconjunto de items (o una
   // cantidad parcial de una fila con qty>1) por un método, y repetir para el resto.
   const [showItemSplit, setShowItemSplit] = useState(false);
+  // Un solo botón "Dividir cuenta" que pregunta por monto o por producto,
+  // en vez de dos botones separados en el mismo panel.
+  const [showDivideChoice, setShowDivideChoice] = useState(false);
   const itemSplitTipAppliedRef = useRef(false);
   const [tipAmount, setTipAmount] = useState('');
   const [showDiscount, setShowDiscount] = useState(false);
@@ -1700,7 +1703,7 @@ export default function DetalleMesa() {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '1rem' }}>
                           {item.name}
-                          {item.is_custom && (
+                          {Boolean(item.is_custom) && (
                             <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>
                           )}
                         </div>
@@ -1788,8 +1791,10 @@ export default function DetalleMesa() {
                         </div>
                       )}
                       
-                      {/* FASE 12.6: Botón anular item (si no está pagado ni anulado) */}
-                      {!item.paid_at && !item.voided_at && (
+                      {/* FASE 12.6: Botón anular item — solo cuando la orden YA NO es editable
+                          (NUEVO/EN_PREP tienen arriba su propio +/-/✕ para ajustar sin necesitar
+                          un anular con motivo; mostrar ambos a la vez era redundante y apretado). */}
+                      {!item.paid_at && !item.voided_at && !['NUEVO', 'EN_PREP'].includes(activeOrder.status) && (
                         <button
                           onClick={() => {
                             setSelectedItemToVoid(item);
@@ -1971,7 +1976,7 @@ export default function DetalleMesa() {
               </h2>
               
               {/* Botón OTRO */}
-              <button 
+              <button
                 onClick={() => {
                   setEditingItem(null);
                   setCustomName('');
@@ -1980,16 +1985,15 @@ export default function DetalleMesa() {
                   setCustomNotes('');
                   setShowCustomProduct(true);
                 }}
-                style={{ 
-                  marginBottom: '1rem', 
-                  padding: '0.75rem', 
-                  background: '#F5BB4C', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '8px', 
-                  fontWeight: 'bold', 
+                className="custom-product-btn"
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  background: '#F5BB4C',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
                   cursor: 'pointer',
-                  width: '100%',
                   fontSize: '1rem'
                 }}
               >
@@ -2218,54 +2222,58 @@ export default function DetalleMesa() {
                   border: '2px solid #28a745'
                 }}>
                   <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Método de Pago</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <button
                       onClick={() => setPaymentMethod('EFECTIVO')}
                       style={{
-                        padding: '0.6rem 0.3rem',
+                        padding: '0.55rem 0.1rem',
+                        minHeight: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                         background: paymentMethod === 'EFECTIVO' ? '#28a745' : '#f0f0f0',
                         color: paymentMethod === 'EFECTIVO' ? 'white' : '#333',
                         border: paymentMethod === 'EFECTIVO' ? '3px solid #1e7e34' : '2px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: '0.85rem',
+                        fontSize: '0.72rem',
                         transition: 'all 0.2s'
                       }}
                     >
                       EFECTIVO
                     </button>
-                    <button
-                      onClick={() => setPaymentMethod('TARJETA')}
-                      style={{
-                        padding: '0.6rem 0.3rem',
-                        background: paymentMethod === 'TARJETA' ? '#28a745' : '#f0f0f0',
-                        color: paymentMethod === 'TARJETA' ? 'white' : '#333',
-                        border: paymentMethod === 'TARJETA' ? '3px solid #1e7e34' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.85rem',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      TARJETA
-                    </button>
+                    {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía.
+                        Se deja el código de payments/reportes intacto (reversible) — ver
+                        CLAUDE.md "Pendientes conocidos": evalúa Bold/Wompi. */}
                     <button
                       onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                      title="TRANSFERENCIA"
                       style={{
-                        padding: '0.6rem 0.3rem',
+                        padding: '0.55rem 0.1rem',
+                        minHeight: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                         background: paymentMethod === 'TRANSFERENCIA' ? '#28a745' : '#f0f0f0',
                         color: paymentMethod === 'TRANSFERENCIA' ? 'white' : '#333',
                         border: paymentMethod === 'TRANSFERENCIA' ? '3px solid #1e7e34' : '2px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: '0.85rem',
+                        fontSize: '0.72rem',
                         transition: 'all 0.2s'
                       }}
                     >
-                      TRANSFERENCIA
+                      TRANSFER.
                     </button>
                   </div>
 
@@ -2274,8 +2282,8 @@ export default function DetalleMesa() {
                       setShowCalculator(true);
                     }}
                     style={{
-                      width: '100%',
-                      padding: '0.5rem',
+                      padding: '0.5rem 1.25rem',
+                      minHeight: '44px',
                       background: '#6c757d',
                       color: 'white',
                       border: 'none',
@@ -2384,44 +2392,27 @@ export default function DetalleMesa() {
                   </button>
 
                   <button
-                    onClick={() => setShowSplit(true)}
+                    onClick={() => setShowDivideChoice(true)}
                     disabled={loadingPay || !isOnline}
                     style={{
-                      width: '100%',
-                      padding: '0.9rem',
-                      marginTop: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 'fit-content',
+                      minHeight: '44px',
+                      margin: '0.75rem auto 0',
+                      padding: '0.7rem 1.5rem',
                       background: '#1a1a2e',
                       color: 'white',
                       border: 'none',
                       borderRadius: '10px',
                       cursor: loadingPay || !isOnline ? 'not-allowed' : 'pointer',
-                      fontSize: '1rem',
+                      fontSize: '0.95rem',
                       fontWeight: 'bold',
                       opacity: loadingPay || !isOnline ? 0.6 : 1
                     }}
                   >
-                    PAGO DIVIDIDO
-                  </button>
-
-                  <button
-                    onClick={openItemSplit}
-                    disabled={loadingPay || !isOnline || orderDiscount > 0}
-                    title={orderDiscount > 0 ? 'Quita el descuento para dividir por producto' : ''}
-                    style={{
-                      width: '100%',
-                      padding: '0.9rem',
-                      marginTop: '0.6rem',
-                      background: 'transparent',
-                      color: '#B8860B',
-                      border: '2px solid #F5BB4C',
-                      borderRadius: '10px',
-                      cursor: (loadingPay || !isOnline || orderDiscount > 0) ? 'not-allowed' : 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: 'bold',
-                      opacity: (loadingPay || !isOnline || orderDiscount > 0) ? 0.5 : 1
-                    }}
-                  >
-                    DIVIDIR POR PRODUCTO
+                    DIVIDIR CUENTA
                   </button>
                 </div>
               ) : activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === false ? (
@@ -2606,7 +2597,7 @@ export default function DetalleMesa() {
             </button>
           </>}>
           <p>Subtotal de la orden: <strong>{formatPriceCOP(activeOrderTotal)}</strong></p>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
             <input
               type="number"
               inputMode="numeric"
@@ -2615,12 +2606,12 @@ export default function DetalleMesa() {
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
               autoFocus
-              style={{ flex: 1, height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+              style={{ flex: '1 1 140px', minWidth: 0, height: '42px', padding: '0 12px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
             />
             {[10, 20, 50].map(pct => (
               <button key={pct} type="button"
                 onClick={() => setDiscountValue(String(Math.round(activeOrderTotal * pct / 100)))}
-                style={{ padding: '0 10px', border: '1.5px solid #F5BB4C', background: '#FFF8E7', color: '#B8860B', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+                style={{ flex: '0 0 auto', padding: '0 12px', height: '42px', border: '1.5px solid #F5BB4C', background: '#FFF8E7', color: '#B8860B', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {pct}%
               </button>
             ))}
@@ -2634,6 +2625,31 @@ export default function DetalleMesa() {
           />
         </Modal>
       )}
+
+      {/* Un solo botón "Dividir cuenta" que pregunta el modo antes de abrir el
+          panel correspondiente, en vez de dos botones sueltos en el mismo panel */}
+      <Modal open={showDivideChoice} onClose={() => setShowDivideChoice(false)} title="Dividir cuenta"
+        actions={<button className="btn-secondary" onClick={() => setShowDivideChoice(false)}>Cancelar</button>}>
+        <p>¿Cómo quieres dividir esta cuenta?</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>
+          <button
+            className="btn-chanatos"
+            onClick={() => { setShowDivideChoice(false); setShowSplit(true); }}
+            style={{ width: '100%', padding: '0.9rem', textAlign: 'left' }}
+          >
+            Por monto — repartir el total entre varios métodos de pago
+          </button>
+          <button
+            className="btn-chanatos"
+            onClick={() => { setShowDivideChoice(false); openItemSplit(); }}
+            disabled={orderDiscount > 0}
+            title={orderDiscount > 0 ? 'Quita el descuento para dividir por producto' : ''}
+            style={{ width: '100%', padding: '0.9rem', textAlign: 'left', opacity: orderDiscount > 0 ? 0.5 : 1, cursor: orderDiscount > 0 ? 'not-allowed' : 'pointer' }}
+          >
+            Por producto — elegir qué paga cada persona
+          </button>
+        </div>
+      </Modal>
 
       {/* Pago dividido (varios métodos en un cobro) */}
       {showSplit && activeOrder && (

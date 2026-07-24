@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { formatPriceCOP } from '../../utils/currency.js';
 import './PagoDividido.css';
 
-const METHODS = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA'];
-const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transfer.' };
+// TARJETA oculta a pedido del dueño: no hay datáfono activo todavía (ver
+// CLAUDE.md "Pendientes conocidos" — evalúa Bold/Wompi).
+const METHODS = ['EFECTIVO', 'TRANSFERENCIA'];
+const METHOD_LABELS = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transfer.' };
 
 /**
  * Modal de pago dividido: reparte el total de una cuenta entre varios

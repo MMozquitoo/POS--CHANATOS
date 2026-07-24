@@ -250,6 +250,43 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 });
 
 // PATCH /api/products/:id - Editar producto
+// PATCH /api/products/flavors/bulk - aplicar la misma lista de sabores a varios
+// productos de una vez (ej. todas las gaseosas personales Postobón), en vez de
+// editar producto por producto.
+router.patch("/flavors/bulk", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const { productIds, flavors } = req.body;
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ error: "Selecciona al menos un producto" });
+    }
+    const ids = productIds.map((id) => parseInt(id)).filter((id) => !isNaN(id));
+    if (ids.length === 0) {
+      return res.status(400).json({ error: "Selecciona al menos un producto" });
+    }
+
+    const db = getDb();
+    const flavorsValue = flavors && flavors.trim() ? flavors.trim() : null;
+    const placeholders = ids.map(() => "?").join(",");
+    await db.run(
+      `UPDATE products SET flavors = ? WHERE id IN (${placeholders})`,
+      [flavorsValue, ...ids]
+    );
+
+    // Sincronizar con products.json (fuente de verdad), igual que el PATCH individual
+    try {
+      const allProducts = await db.all("SELECT * FROM products ORDER BY category, display_order, name");
+      saveProductsToSource(allProducts);
+    } catch (error) {
+      console.error("⚠️  Error sincronizando con products.json:", error);
+    }
+
+    res.json({ updated: ids.length });
+  } catch (error) {
+    console.error("Error actualizando sabores en lote:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const productId = parseInt(req.params.id);

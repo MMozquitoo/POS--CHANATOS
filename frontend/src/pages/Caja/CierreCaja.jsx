@@ -247,16 +247,7 @@ export default function CierreCaja() {
                 setClosedReport(null);
                 navigate('/centro');
               }}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}
+              className="btn-secondary"
             >
               IR AL DASHBOARD
             </button>
@@ -455,42 +446,12 @@ export default function CierreCaja() {
           </div>
         )}
 
-        {/* Botón cerrar */}
+        {/* Botón cerrar: única acción final de la pantalla → ancho completo está bien */}
         <button
           onClick={handleClose}
           disabled={closing || !closingCash || isNaN(parseFloat(closingCash)) || !isOnline}
-          style={{
-            width: '100%',
-            padding: '1.5rem',
-            background: closing || !isOnline ? '#ccc' : '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: closing || !isOnline ? 'not-allowed' : 'pointer',
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            boxShadow: closing || !isOnline ? 'none' : '0 4px 12px rgba(220, 53, 69, 0.4)',
-            opacity: closing || !isOnline ? 0.6 : 1,
-            transition: 'opacity 0.2s, transform 0.1s'
-          }}
-          onMouseEnter={(e) => {
-            if (!closing && isOnline && closingCash && !isNaN(parseFloat(closingCash))) {
-              e.currentTarget.style.opacity = '0.85';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!closing && isOnline && closingCash && !isNaN(parseFloat(closingCash))) {
-              e.currentTarget.style.opacity = '1';
-            }
-          }}
-          onMouseDown={(e) => {
-            if (!closing && isOnline && closingCash && !isNaN(parseFloat(closingCash))) {
-              e.currentTarget.style.transform = 'scale(0.98)';
-            }
-          }}
-          onMouseUp={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
+          className="btn-danger"
+          style={{ width: '100%', padding: '1rem', fontSize: '1.2rem' }}
         >
           {closing ? 'Cerrando caja...' : 'CERRAR CAJA'}
         </button>

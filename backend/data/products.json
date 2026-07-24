@@ -30,7 +30,8 @@
     "price": 4000,
     "variant": "250 ml",
     "display_order": 4,
-    "is_active": true
+    "is_active": true,
+    "flavors": "Colombiana, Manzana, Pepsi"
   },
   {
     "name": "Gaseosa Litro",

@@ -45,6 +45,7 @@
 
 .pd-method-btn {
   flex: 1;
+  min-width: 0;
   padding: 8px 4px;
   border: 1.5px solid #e5e5e5;
   background: white;
@@ -53,6 +54,9 @@
   font-weight: 600;
   color: #666;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pd-method-btn.active {
@@ -147,7 +151,11 @@
 
 .pago-dividido-actions button {
   flex: 1;
+  min-width: 0;
   height: 48px;
   border-radius: 10px;
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

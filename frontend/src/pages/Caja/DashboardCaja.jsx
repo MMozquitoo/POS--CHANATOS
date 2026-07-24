@@ -215,6 +215,7 @@ export default function DashboardCaja() {
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         {/* Bloque informativo: Sesión de Caja Abierta (SOLO INFO, sin botones) */}
         {session ? (
           <div style={{
@@ -352,10 +353,11 @@ export default function DashboardCaja() {
               }
             }}
             className="btn-danger"
-            style={{ width: '100%', maxWidth: '300px', padding: '0.75rem 2rem' }}
+            style={{ padding: '0.75rem 2rem' }}
           >
             SALIR
           </button>
+        </div>
         </div>
       </div>
 

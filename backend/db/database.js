@@ -193,6 +193,15 @@ export const initDatabase = async () => {
     )
   `);
 
+  // FASE F13: configuración editable desde el panel (ej. lista de salsas) sin
+  // tocar código. key/value simple, una fila por ajuste.
+  await database.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
   // FASE F12: tokens de dispositivo para notificaciones push (FCM) — celular con
   // pantalla apagada. Un dispositivo puede reemplazar su token (UNIQUE) si Android
   // lo rota; cada login re-registra el token con el rol vigente.

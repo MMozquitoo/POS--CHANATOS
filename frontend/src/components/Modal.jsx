@@ -21,8 +21,15 @@ export default function Modal({ open, onClose, title, children, actions }) {
       if (e.key === 'Escape') onCloseRef.current?.();
     };
     document.addEventListener('keydown', handleKey);
+    // Bloquear el scroll del fondo mientras el modal está abierto: evita que
+    // el usuario desplace la página detrás y, en páginas muy largas (ej. Menú
+    // con muchos productos), evita un glitch de renderizado donde el fondo se
+    // asoma por debajo del overlay fijo.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = prevOverflow;
       prev?.focus();
     };
   }, [open]);

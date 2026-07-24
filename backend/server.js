@@ -25,6 +25,7 @@ import reportsRoutes from "./routes/reports.js";
 import updateRoutes from "./routes/update.js";
 import backupRoutes from "./routes/backup.js";
 import pushRoutes from "./routes/push.js";
+import settingsRoutes from "./routes/settings.js";
 
 // Importar base de datos
 import { initDatabase, getDb } from "./db/database.js";
@@ -146,6 +147,7 @@ app.use("/api/audit", auditRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/update", updateRoutes);
 app.use("/api/push", pushRoutes);
+app.use("/api/settings", settingsRoutes);
 // El respaldo sube un .xlsx crudo: express.raw lo entrega como Buffer (express.json
 // solo atiende application/json, así que no interfiere).
 app.use("/api/backup", express.raw({ type: "*/*", limit: "100mb" }), backupRoutes);

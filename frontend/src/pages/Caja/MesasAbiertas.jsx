@@ -50,25 +50,27 @@ export default function MesasAbiertas() {
   return (
     <div className="mesas-abiertas-container">
       <header className="mesas-abiertas-header">
-        <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+        <button onClick={() => navigate('/')} className="btn-chanatos-outline" style={{ whiteSpace: 'nowrap' }}>← Volver</button>
         <h1>MESAS ABIERTAS</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button 
-            onClick={() => setShowPlano(!showPlano)} 
+          <button
+            onClick={() => setShowPlano(!showPlano)}
             className="toggle-btn"
             style={{
               padding: '0.5rem 1rem',
+              minHeight: '44px',
               background: showPlano ? '#6c757d' : '#F5BB4C',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '0.9rem'
+              fontSize: '0.9rem',
+              whiteSpace: 'nowrap'
             }}
           >
             {showPlano ? 'LISTA/MENÚ' : 'MESAS'}
           </button>
-          <button onClick={logout} className="logout-btn">Salir</button>
+          <button onClick={logout} className="btn-danger" style={{ whiteSpace: 'nowrap' }}>Salir</button>
         </div>
       </header>
 
@@ -118,7 +120,7 @@ export default function MesasAbiertas() {
       </div>
 
       <div className="mesas-abiertas-footer">
-        <button onClick={() => navigate('/cobrar')} className="footer-btn">
+        <button onClick={() => navigate('/cobrar')} className="btn-success" style={{ width: '100%' }}>
           Cobrar Pedidos Listos
         </button>
       </div>

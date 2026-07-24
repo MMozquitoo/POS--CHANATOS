@@ -126,6 +126,7 @@ export default function Auditoria() {
           flexShrink: 0,
           overflowY: 'auto'
         }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
           {/* Rango rápido */}
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem', fontWeight: 'bold' }}>
@@ -262,6 +263,7 @@ export default function Auditoria() {
             />
           </div>
         </div>
+        </div>
 
         {/* Resumen */}
         <div style={{ 
@@ -297,7 +299,7 @@ export default function Auditoria() {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '720px', margin: '0 auto' }}>
               {events.map(event => (
                 <button
                   key={event.id}
@@ -397,21 +399,13 @@ export default function Auditoria() {
               <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Detalle del Evento</h2>
               <button
                 onClick={() => setSelectedEvent(null)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
+                className="btn-secondary"
               >
                 Cerrar
               </button>
             </div>
 
-            <div style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'grid', gap: '1rem', maxWidth: '600px', margin: '0 auto' }}>
               <div style={{ padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong>Acción:</strong> {getActionLabel(selectedEvent.action)}

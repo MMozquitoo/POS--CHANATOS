@@ -521,7 +521,7 @@ export default function CobrarPedidos() {
             </div>
 
             {/* FASE F8: propina opcional */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.75rem 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.75rem 0', flexWrap: 'wrap' }}>
               <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina (opcional):</label>
               <input
                 type="number"
@@ -530,12 +530,12 @@ export default function CobrarPedidos() {
                 placeholder="0"
                 value={tipAmount}
                 onChange={(e) => setTipAmount(e.target.value)}
-                style={{ width: '120px', height: '38px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+                style={{ flex: '1 1 80px', minWidth: 0, maxWidth: '140px', height: '38px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowDiscount(true)}
-                style={{ marginLeft: 'auto', padding: '8px 14px', background: 'transparent', border: '1.5px solid #B8860B', color: '#B8860B', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
+                style={{ marginLeft: 'auto', padding: '8px 14px', background: 'transparent', border: '1.5px solid #B8860B', color: '#B8860B', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 {discountOf(selectedOrder) > 0 ? 'EDITAR DESCUENTO' : 'DESCUENTO'}
               </button>
@@ -550,62 +550,22 @@ export default function CobrarPedidos() {
                 >
                   Efectivo
                 </button>
-                <button
-                  className={`method-btn ${paymentMethod === 'TARJETA' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('TARJETA')}
-                >
-                  Tarjeta
-                </button>
+                {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía. */}
                 <button
                   className={`method-btn ${paymentMethod === 'TRANSFERENCIA' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                  title="Transferencia"
                 >
-                  Transferencia
+                  Transfer.
                 </button>
               </div>
             </div>
 
-            <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap'}}>
-              <button 
-                onClick={() => setShowCalculator(true)} 
-                className="process-payment-btn"
-              >
-                CALCULADORA
-              </button>
-              {/* PASO 14.3: Mensaje cuando no hay conexión */}
-              {!isOnline && (
-                <div style={{
-                  padding: '0.75rem',
-                  background: '#fff3cd',
-                  border: '1px solid #ffc107',
-                  borderRadius: '8px',
-                  marginBottom: '0.5rem',
-                  textAlign: 'center',
-                  fontSize: '0.9rem',
-                  color: '#856404',
-                  fontWeight: 'bold',
-                  width: '100%'
-                }}>
-                  No hay conexión. Operación no disponible.
-                </div>
-              )}
-              <button
-                onClick={processPaymentPartial}
-                disabled={!cashSessionActive || !isOnline || discountOf(selectedOrder) > 0}
-                title={discountOf(selectedOrder) > 0 ? 'Orden con descuento: cóbrala completa o con pago dividido' : undefined}
-                className="process-payment-btn"
-                style={{
-                  background: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? '#F5BB4C' : '#6c757d',
-                  opacity: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? 1 : 0.6,
-                  cursor: cashSessionActive && discountOf(selectedOrder) === 0 ? 'pointer' : 'not-allowed'
-                }}
-              >
-                COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
-              </button>
+            <div style={{display:'flex', flexDirection:'column', gap:'0.6rem'}}>
               <button
                 onClick={processPaymentFull}
                 disabled={!cashSessionActive}
-                className="process-payment-btn"
+                className="process-payment-btn process-payment-btn-primary"
                 style={{
                   opacity: cashSessionActive ? 1 : 0.6,
                   cursor: cashSessionActive ? 'pointer' : 'not-allowed'
@@ -613,18 +573,56 @@ export default function CobrarPedidos() {
               >
                 COBRAR TODO
               </button>
-              <button
-                onClick={() => setShowSplit(true)}
-                disabled={!cashSessionActive || !isOnline}
-                className="process-payment-btn"
-                style={{
-                  background: '#1a1a2e',
-                  opacity: cashSessionActive && isOnline ? 1 : 0.6,
-                  cursor: cashSessionActive ? 'pointer' : 'not-allowed'
-                }}
-              >
-                PAGO DIVIDIDO
-              </button>
+
+              {/* PASO 14.3: Mensaje cuando no hay conexión */}
+              {!isOnline && (
+                <div style={{
+                  padding: '0.75rem',
+                  background: '#fff3cd',
+                  border: '1px solid #ffc107',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  fontSize: '0.9rem',
+                  color: '#856404',
+                  fontWeight: 'bold'
+                }}>
+                  No hay conexión. Operación no disponible.
+                </div>
+              )}
+
+              <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap'}}>
+                <button
+                  onClick={() => setShowCalculator(true)}
+                  className="process-payment-btn"
+                >
+                  CALCULADORA
+                </button>
+                <button
+                  onClick={processPaymentPartial}
+                  disabled={!cashSessionActive || !isOnline || discountOf(selectedOrder) > 0}
+                  title={discountOf(selectedOrder) > 0 ? 'Orden con descuento: cóbrala completa o con pago dividido' : undefined}
+                  className="process-payment-btn"
+                  style={{
+                    background: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? '#F5BB4C' : '#6c757d',
+                    opacity: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? 1 : 0.6,
+                    cursor: cashSessionActive && discountOf(selectedOrder) === 0 ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
+                </button>
+                <button
+                  onClick={() => setShowSplit(true)}
+                  disabled={!cashSessionActive || !isOnline}
+                  className="process-payment-btn"
+                  style={{
+                    background: '#1a1a2e',
+                    opacity: cashSessionActive && isOnline ? 1 : 0.6,
+                    cursor: cashSessionActive ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  PAGO DIVIDIDO
+                </button>
+              </div>
             </div>
             {showCalculator && (
               <CalculadoraVuelto

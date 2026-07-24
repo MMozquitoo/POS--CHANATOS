@@ -236,22 +236,22 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
             </div>
           )}
 
-          {/* Botones de acción */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '0.75rem' 
+          {/* Botones de acción: secundarios, ancho ajustado a su contenido (no flex-grow) */}
+          <div style={{
+            display: 'flex',
+            gap: '0.75rem',
+            flexWrap: 'wrap'
           }}>
             <button
               onClick={handleCopyReport}
               disabled={!result}
               style={{
-                padding: '0.75rem 1.5rem',
+                padding: '0.75rem 1.25rem',
                 background: !result ? '#6c757d' : '#17a2b8',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                fontSize: '1rem',
+                fontSize: '0.95rem',
                 fontWeight: 'bold',
                 cursor: !result ? 'not-allowed' : 'pointer',
                 opacity: !result ? 0.6 : 1
@@ -259,19 +259,10 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
             >
               COPIAR REPORTE
             </button>
-            
+
             <button
               onClick={() => navigate('/config-servidor')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
+              className="btn-secondary"
             >
               IR A SERVIDOR
             </button>

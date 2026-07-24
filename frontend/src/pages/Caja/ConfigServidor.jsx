@@ -260,8 +260,7 @@ export default function ConfigServidor() {
             <button
               onClick={handleOpenPos}
               style={{
-                width: '100%',
-                padding: '0.75rem',
+                padding: '0.65rem 1.25rem',
                 background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
@@ -357,79 +356,86 @@ export default function ConfigServidor() {
             </div>
           )}
 
-          {/* Botones */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '0.75rem' 
+          {/* Botones: GUARDAR es la acción principal (ancho completo); el resto son
+              acciones secundarias/técnicas, de ancho ajustado a su contenido. */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
           }}>
             <button
               onClick={handleSave}
               style={{
-                padding: '0.75rem 1.5rem',
+                width: '100%',
+                padding: '0.9rem 1.5rem',
                 background: '#F5BB4C',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                fontSize: '1rem',
+                fontSize: '1.05rem',
                 fontWeight: 'bold',
                 cursor: 'pointer'
               }}
             >
               GUARDAR
             </button>
-            
-            <button
-              onClick={handleTestConnection}
-              disabled={status === 'loading'}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: status === 'loading' ? '#6c757d' : '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                cursor: status === 'loading' ? 'not-allowed' : 'pointer',
-                opacity: status === 'loading' ? 0.6 : 1
-              }}
-            >
-              {status === 'loading' ? 'PROBANDO...' : 'PROBAR CONEXIÓN'}
-            </button>
 
-            {saved && (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
-                onClick={handleReload}
+                onClick={handleTestConnection}
+                disabled={status === 'loading'}
                 style={{
-                  padding: '0.75rem 1.5rem',
-                  background: '#17a2b8',
+                  flex: '1 1 auto',
+                  padding: '0.7rem 1.1rem',
+                  background: status === 'loading' ? '#6c757d' : '#28a745',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  fontSize: '1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  cursor: status === 'loading' ? 'not-allowed' : 'pointer',
+                  opacity: status === 'loading' ? 0.6 : 1
+                }}
+              >
+                {status === 'loading' ? 'PROBANDO...' : 'PROBAR CONEXIÓN'}
+              </button>
+
+              {saved && (
+                <button
+                  onClick={handleReload}
+                  style={{
+                    flex: '1 1 auto',
+                    padding: '0.7rem 1.1rem',
+                    background: '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  RECARGAR PÁGINA
+                </button>
+              )}
+
+              <button
+                onClick={handleReset}
+                style={{
+                  flex: '1 1 auto',
+                  padding: '0.7rem 1.1rem',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
                   fontWeight: 'bold',
                   cursor: 'pointer'
                 }}
               >
-                RECARGAR PÁGINA
+                RESTAURAR POR DEFECTO
               </button>
-            )}
-
-            <button
-              onClick={handleReset}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              RESTAURAR POR DEFECTO
-            </button>
+            </div>
           </div>
         </div>
       </div>

@@ -154,14 +154,14 @@ export default function MasCaja() {
             }
           }}
           className="btn-danger"
-          style={{ width: '100%', maxWidth: '300px', padding: '0.75rem 2rem' }}
+          style={{ padding: '0.75rem 2rem' }}
         >
           SALIR
         </button>
       </div>
 
       <div className="caja-content caja-page">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="caja-menu-list">
           {user?.role === 'CAJA' && (
             <>
               <button

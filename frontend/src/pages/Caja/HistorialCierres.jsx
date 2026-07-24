@@ -123,16 +123,7 @@ export default function HistorialCierres() {
           <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={handleCloseReport}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}
+              className="btn-secondary"
             >
               Cerrar
             </button>
@@ -157,7 +148,7 @@ export default function HistorialCierres() {
             <p style={{ fontSize: '1.2rem' }}>No hay cierres registrados</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '720px', margin: '0 auto' }}>
             {sessions.map((session) => {
               const diff = session.diff_cash;
               const diffLabel = getDiffLabel(diff);

@@ -278,7 +278,7 @@ export default function PedidoMesa() {
             borderRadius: '8px',
             border: '1px solid #ddd'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
               <div>
                 <strong>
                   {order.daily_no ? `ORDEN ${order.daily_no}` : order.code || `ORDEN ${order.id}`}
@@ -294,16 +294,8 @@ export default function PedidoMesa() {
               {order.status === 'NUEVO' && (
                 <button
                   onClick={sendToPreparation}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: '#F5BB4C',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold'
-                  }}
+                  className="btn-chanatos"
+                  style={{ whiteSpace: 'nowrap' }}
                 >
                   Enviar a Preparación
                 </button>
@@ -428,7 +420,9 @@ export default function PedidoMesa() {
                 {categoriaLlevaSalsas(selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
                 <SaboresChips flavors={selectedProduct.flavors} value={notes} onChange={setNotes} />
               </div>
-              <button onClick={addItem} className="add-item-btn">Agregar</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={addItem} className="btn-success">Agregar</button>
+              </div>
             </div>
           )}
 

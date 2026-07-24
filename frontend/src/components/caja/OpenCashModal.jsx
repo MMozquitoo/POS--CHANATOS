@@ -137,37 +137,16 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
               type="button"
               onClick={handleCancel}
               disabled={loading}
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                opacity: loading ? 0.6 : 1
-              }}
+              className="btn-secondary"
+              style={{ flex: 1 }}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || !initialCash || isNaN(parseFloat(initialCash)) || parseFloat(initialCash) < 0 || !isOnline}
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                background: loading || !isOnline ? '#ccc' : '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: loading || !isOnline ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                boxShadow: loading || !isOnline ? 'none' : '0 4px 12px rgba(40, 167, 69, 0.4)',
-                opacity: loading || !isOnline ? 0.6 : 1
-              }}
+              className="btn-success"
+              style={{ flex: 1 }}
             >
               {loading ? 'Abriendo...' : 'Confirmar'}
             </button>

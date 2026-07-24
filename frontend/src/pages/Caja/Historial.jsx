@@ -184,6 +184,7 @@ export default function Historial() {
           flexShrink: 0,
           overflowY: 'auto'
         }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
           {/* Rango rápido */}
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem', fontWeight: 'bold' }}>
@@ -319,6 +320,7 @@ export default function Historial() {
             />
           </div>
         </div>
+        </div>
 
         {/* Resumen */}
         <div style={{ 
@@ -360,7 +362,7 @@ export default function Historial() {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '720px', margin: '0 auto' }}>
               {payments.map(payment => (
                 <button
                   key={payment.id}
@@ -482,15 +484,7 @@ export default function Historial() {
                   setShowVoidModal(false);
                   setVoidReason('');
                 }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
+                className="btn-secondary"
               >
                 Cerrar
               </button>
@@ -575,39 +569,19 @@ export default function Historial() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
                   <button
                     onClick={handlePrintReceipt}
-                    style={{
-                      padding: '1rem',
-                      background: '#F5BB4C',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '1rem',
-                      flex: 1
-                    }}
+                    className="btn-chanatos"
                   >
                     REIMPRIMIR RECIBO
                   </button>
-                  
+
                   {/* FASE 12.5: Botón anular pago (solo si no está anulado) */}
                   {!selectedPayment.voided_at && (
                     <button
                       onClick={() => setShowVoidModal(true)}
-                      style={{
-                        padding: '1rem',
-                        background: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '1rem',
-                        flex: 1
-                      }}
+                      className="btn-danger"
                     >
                       ANULAR PAGO
                     </button>
@@ -690,22 +664,16 @@ export default function Historial() {
                 marginBottom: '1rem'
               }}
             />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
               <button
                 onClick={() => {
                   setShowVoidModal(false);
                   setVoidReason('');
                 }}
                 disabled={voidingPayment}
+                className="btn-secondary"
                 style={{
-                  padding: '0.75rem 1.5rem',
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
                   cursor: voidingPayment ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold',
-                  flex: 1,
                   opacity: voidingPayment ? 0.6 : 1
                 }}
               >
@@ -745,14 +713,9 @@ export default function Historial() {
                   }
                 }}
                 disabled={voidingPayment || !voidReason.trim() || voidReason.trim().length < 5}
+                className="btn-danger"
                 style={{
-                  padding: '0.75rem 1.5rem',
-                  background: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
                   cursor: (voidingPayment || !voidReason.trim() || voidReason.trim().length < 5) ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold',
                   flex: 1,
                   opacity: (voidingPayment || !voidReason.trim() || voidReason.trim().length < 5) ? 0.6 : 1
                 }}
