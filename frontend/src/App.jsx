@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ConnectionBanner from './components/ConnectionBanner';
+import UpdateBanner from './components/UpdateBanner';
 import Login from './pages/Login';
 import ConfigServidor from './pages/ConfigServidor';
 import MeseroRoutes from './pages/Mesero/MeseroRoutes';
@@ -63,6 +64,7 @@ function App() {
     <ErrorBoundary>
       <ConnectionProvider>
         <ConnectionBanner />
+        <UpdateBanner />
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />

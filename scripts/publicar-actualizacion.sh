@@ -16,7 +16,7 @@ VERSION="${POS_VERSION:-$(date +%Y.%m.%d.%H%M)}"
 echo "→ Publicando versión $VERSION"
 
 echo "→ Compilando frontend..."
-(cd frontend && npm run build >/dev/null 2>&1)
+(cd frontend && VITE_APP_VERSION="$VERSION" npm run build >/dev/null 2>&1)
 
 STAGE="$(mktemp -d)"
 OUT="$(mktemp -d)"

@@ -14,7 +14,8 @@
     "price": 4000,
     "variant": "500 ml",
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Mr Tea",
@@ -22,7 +23,8 @@
     "price": 4000,
     "variant": "500 ml",
     "display_order": 3,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Coca-Cola Personal",
@@ -39,7 +41,8 @@
     "price": 5500,
     "variant": "1 L",
     "display_order": 5,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Cerveza Andina",
@@ -47,7 +50,8 @@
     "price": 4000,
     "variant": null,
     "display_order": 0,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Cerveza Poker",
@@ -55,7 +59,8 @@
     "price": 5000,
     "variant": null,
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Cerveza Heineken",
@@ -63,7 +68,8 @@
     "price": 5000,
     "variant": null,
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Corona",
@@ -71,7 +77,8 @@
     "price": 6000,
     "variant": null,
     "display_order": 3,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Cerveza Club Colombia",
@@ -79,7 +86,8 @@
     "price": 6000,
     "variant": null,
     "display_order": 4,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Filete de Pollo",
@@ -87,7 +95,8 @@
     "price": 16000,
     "variant": null,
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Filete de Cerdo",
@@ -95,7 +104,8 @@
     "price": 16000,
     "variant": null,
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Baconera",
@@ -103,7 +113,8 @@
     "price": 18000,
     "variant": null,
     "display_order": 0,
-    "is_active": false
+    "is_active": false,
+    "flavors": null
   },
   {
     "name": "Baconera",
@@ -111,7 +122,8 @@
     "price": 20000,
     "variant": "Combo",
     "display_order": 0,
-    "is_active": false
+    "is_active": false,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Pepinillos",
@@ -119,7 +131,8 @@
     "price": 12000,
     "variant": "Sencillo",
     "display_order": 0,
-    "is_active": false
+    "is_active": false,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Clásica",
@@ -127,7 +140,8 @@
     "price": 12000,
     "variant": "Sencillo",
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Clásica",
@@ -135,7 +149,8 @@
     "price": 16000,
     "variant": "Combo",
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -143,7 +158,8 @@
     "price": 16000,
     "variant": "Sencillo",
     "display_order": 3,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -151,7 +167,8 @@
     "price": 20000,
     "variant": "Combo",
     "display_order": 4,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -159,7 +176,8 @@
     "price": 18000,
     "variant": "Sencillo",
     "display_order": 5,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -167,7 +185,8 @@
     "price": 22000,
     "variant": "Combo",
     "display_order": 6,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Jugo Natural en Agua",
@@ -175,7 +194,8 @@
     "price": 7000,
     "variant": null,
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Jugo Natural en Leche",
@@ -183,7 +203,8 @@
     "price": 8000,
     "variant": null,
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Michelada",
@@ -191,7 +212,8 @@
     "price": 8000,
     "variant": null,
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Limonada Natural",
@@ -199,7 +221,8 @@
     "price": 10000,
     "variant": null,
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Porción de Papas Sencilla",
@@ -207,7 +230,8 @@
     "price": 5000,
     "variant": null,
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Salchipapa Sencilla",
@@ -215,7 +239,8 @@
     "price": 7000,
     "variant": null,
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Papa LoKa",
@@ -223,7 +248,8 @@
     "price": 18000,
     "variant": null,
     "display_order": 3,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Perro Clásico",
@@ -231,7 +257,8 @@
     "price": 8000,
     "variant": "Sencillo",
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Perro Especial",
@@ -239,7 +266,8 @@
     "price": 10000,
     "variant": "Sencillo",
     "display_order": 2,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   },
   {
     "name": "Sándwich de Pollo",
@@ -247,6 +275,7 @@
     "price": 10000,
     "variant": "Sencillo",
     "display_order": 1,
-    "is_active": true
+    "is_active": true,
+    "flavors": null
   }
 ]

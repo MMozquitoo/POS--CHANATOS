@@ -2034,16 +2034,18 @@ export default function DetalleMesa() {
                 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Items a agregar:</h3>
                   {newOrderItems.map((it, idx) => (
-                    <div key={idx} className="new-order-item" style={{ 
-                      padding: '0.75rem', 
-                      marginBottom: '0.5rem', 
-                      background: '#f8f9fa', 
+                    <div key={idx} className="new-order-item" style={{
+                      padding: '0.75rem',
+                      marginBottom: '0.5rem',
+                      background: '#f8f9fa',
                       borderRadius: '6px',
                       display: 'flex',
+                      flexWrap: 'wrap',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: '0.5rem'
                     }}>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: '160px' }}>
                         <div style={{ fontWeight: 'bold' }}>
                           {it.name}
                           {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
@@ -2063,6 +2065,21 @@ export default function DetalleMesa() {
                         />
                         <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })} style={{ padding: '0.25rem 0.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+</button>
                         <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)} style={{ padding: '0.25rem 0.5rem', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                      </div>
+                      {/* FASE: faltaban notas/salsas/sabores al crear una orden nueva desde
+                          Caja — solo existían al agregar items a una orden YA existente. */}
+                      <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+                        <input
+                          className="new-order-notes"
+                          value={it.notes || ''}
+                          placeholder="Notas (opcional)"
+                          onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
+                          style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.9rem' }}
+                        />
+                        {categoriaLlevaSalsas(it.category) && (
+                          <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                        )}
+                        <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                       </div>
                     </div>
                   ))}

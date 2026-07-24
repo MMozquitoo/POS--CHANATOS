@@ -10,7 +10,7 @@ NODE_VER="v22.14.0"
 VERSION="${POS_VERSION:-$(date +%Y.%m.%d.%H%M)}"
 
 echo "→ Compilando frontend ($VERSION)"
-(cd "$REPO/frontend" && npm run build >/dev/null)
+(cd "$REPO/frontend" && VITE_APP_VERSION="$VERSION" npm run build >/dev/null)
 
 echo "→ Preparando recursos de la app (servidor + node + frontend)"
 rm -rf "$RES"; mkdir -p "$RES/backend/data" "$RES/frontend"

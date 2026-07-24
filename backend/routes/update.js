@@ -26,6 +26,15 @@ function currentVersion() {
   }
 }
 
+// GET /api/update/version → versión que está sirviendo ESTE servidor ahora mismo.
+// Pública (sin auth): la usa cualquier pantalla, de cualquier rol, para notar que
+// el celular/navegador tiene cargado un build viejo (sin depender de que el
+// service worker del navegador se dé cuenta solo — puede tardar si la pestaña
+// queda mucho tiempo en segundo plano).
+router.get("/version", (req, res) => {
+  res.json({ version: currentVersion() });
+});
+
 async function fetchText(url) {
   const r = await fetch(url, { redirect: "follow" });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
