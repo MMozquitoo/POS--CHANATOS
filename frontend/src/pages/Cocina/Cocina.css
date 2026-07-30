@@ -374,17 +374,19 @@
 .item-touchable {
   display: flex;
   width: 100%;
+  min-height: 46px;
   align-items: center;
   gap: 6px;
   background: white;
   border: 1.5px solid #eee;
   border-radius: 8px;
   padding: 8px 10px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   cursor: pointer;
   text-align: left;
   font-size: inherit;
   transition: all 0.12s;
+  touch-action: manipulation;
 }
 
 .item-touchable:active {

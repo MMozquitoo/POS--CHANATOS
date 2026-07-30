@@ -738,6 +738,7 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
         const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
+          items,
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,

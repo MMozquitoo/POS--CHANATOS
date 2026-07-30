@@ -4,6 +4,7 @@ import './Caja.css';
 import './Reportes.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import { formatPriceCOP } from '../../utils/currency.js';
+import { serviceLabel } from '../../utils/statusLabels.js';
 
 // Fecha YYYY-MM-DD en zona Bogotá
 function bogotaDate(daysAgo = 0) {
@@ -67,6 +68,7 @@ export default function Reportes() {
   const t = data?.totals;
   const maxProduct = Math.max(0, ...(data?.topProducts || []).map(p => p.total));
   const maxMethod = Math.max(0, ...(data?.byMethod || []).map(m => m.total));
+  const maxService = Math.max(0, ...(data?.byService || []).map(s => s.total));
   const maxHour = Math.max(0, ...(data?.byHour || []).map(h => h.total));
   const maxOrdersHour = Math.max(0, ...(data?.ordersByHour || []).map(h => h.count));
   const maxDay = Math.max(0, ...(data?.byDay || []).map(d => d.total));
@@ -162,6 +164,18 @@ export default function Reportes() {
               ) : (
                 data.byMethod.map(m => (
                   <BarRow key={m.method} label={METHOD_LABELS[m.method] || m.method} value={m.total} max={maxMethod} extra={`${m.count} pagos`} />
+                ))
+              )}
+            </section>
+
+            {/* Por canal (mesas / ventanilla / domicilios) */}
+            <section className="rep-section">
+              <h3>Ventas por canal</h3>
+              {(data.byService || []).length === 0 ? (
+                <p className="rep-empty">Sin pagos en este periodo</p>
+              ) : (
+                data.byService.map(s => (
+                  <BarRow key={s.service} label={serviceLabel(s.service)} value={s.total} max={maxService} extra={`${s.count} pagos`} />
                 ))
               )}
             </section>

@@ -1314,11 +1314,6 @@ export default function CentroTotal() {
                         <div style={{ color: '#666', fontSize: '0.9rem' }}>
                           {order.table_label ? `Mesa: ${order.table_label}` : 'Sin mesa'}
                         </div>
-                        {order.firstItemNote && (
-                          <div style={{ color: '#B8860B', fontSize: '0.85rem', marginTop: '0.15rem' }}>
-                            {order.firstItemNote}
-                          </div>
-                        )}
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem', color: '#F5BB4C', marginBottom: '0.25rem' }}>
@@ -1329,6 +1324,24 @@ export default function CentroTotal() {
                         </div>
                       </div>
                     </div>
+
+                    {pendingItems.length > 0 && (
+                      <div style={{
+                        marginBottom: '1rem',
+                        paddingTop: '0.5rem',
+                        borderTop: '1px solid #f0f0f0'
+                      }}>
+                        {pendingItems.map(item => (
+                          <div key={item.id} style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.2rem' }}>
+                            <span style={{ fontWeight: 'bold', color: '#F5BB4C' }}>{item.qty}x</span>{' '}
+                            {item.name}
+                            {item.notes && (
+                              <span style={{ color: '#B8860B', fontStyle: 'italic' }}> ({item.notes})</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div style={{
                       display: 'flex', 

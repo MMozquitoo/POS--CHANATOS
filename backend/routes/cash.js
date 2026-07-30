@@ -483,12 +483,14 @@ router.get("/current", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     const totalPayments = payments[0]?.total || 0;
 
-    // Calcular ventas teóricas: suma de todos los items activos (no anulados) de la sesión activa
+    // Calcular ventas teóricas: suma de los items PAGADOS durante esta sesión.
+    // OJO: filtrar por oi.paid_at (no por o.created_at, la orden puede haberse
+    // creado antes de abrir caja y pagarse durante la sesión) para que cuadre
+    // con totalPayments, que también se limita a la ventana de la sesión.
     const theoreticalSales = await db.get(
       `SELECT COALESCE(SUM(oi.qty * oi.price), 0) as total
        FROM order_items oi
-       JOIN orders o ON oi.order_id = o.id
-       WHERE o.created_at >= ?
+       WHERE oi.paid_at >= ?
          AND oi.voided_at IS NULL`,
       [session.opened_at]
     );

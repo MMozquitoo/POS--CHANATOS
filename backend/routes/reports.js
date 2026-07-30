@@ -37,6 +37,20 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
       { sales: 0, tips: 0, payments: 0 }
     );
 
+    // Ventas por canal (mesas / ventanilla / domicilios)
+    const byService = await db.all(
+      `SELECT COALESCE(o.service, 'MESA') as service,
+              COUNT(*) as count,
+              COALESCE(SUM(p.amount), 0) as total,
+              COALESCE(SUM(p.tip_amount), 0) as tips
+       FROM payments p
+       JOIN orders o ON o.id = p.order_id
+       WHERE p.voided_at IS NULL AND substr(p.created_at, 1, 10) BETWEEN ? AND ?
+       GROUP BY COALESCE(o.service, 'MESA')
+       ORDER BY total DESC`,
+      [from, to]
+    );
+
     // Órdenes pagadas y descuentos otorgados
     const ordersRow = await db.get(
       `SELECT COUNT(*) as orders, COALESCE(SUM(discount_amount), 0) as discounts
@@ -135,6 +149,7 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
         maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       },
       byMethod,
+      byService,
       byDay,
       byHour,
       ordersByHour,
