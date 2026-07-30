@@ -55,6 +55,42 @@
 
 /* --- Ajustes de móvil --- */
 @media (max-width: 768px) {
+  /* OJO: index.css pone body{font-size:14px} en móvil. Cualquier input/
+     textarea/select que no defina su propio tamaño hereda eso -- y por
+     debajo de 16px, Safari en iPhone hace zoom automático de toda la
+     página al tocar el campo (feo, molesto, y no se ve en Chrome/Android
+     así que es fácil no notarlo probando acá). 16px lo desactiva. */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* FASE M15 (movido de posMobile.css: ese archivo solo aplica <480px, pero
+     BottomNav aparece desde 768px -- entre 480px y 768px quedaban las DOS
+     navegaciones a la vez, "chocando" en pantallas de PC con ventana no
+     maximizada). Tabs Centro de Control (MESAS/COCINA/LISTO) — la barra
+     inferior de Caja (BottomNav) ya cubre exactamente esto en móvil (COCINA,
+     COBRAR, "+" para mesas). En desktop, sin BottomNav, esta fila sigue
+     siendo la única forma de cambiar de pestaña. */
+  .centro-total-tabs {
+    display: none !important;
+  }
+
+  /* mismo criterio — CENTRO DE CONTROL/COBRAR PEDIDOS/CIERRE/SALIR de este
+     launcher duplican la barra inferior en móvil. CIERRE DE CAJA sigue
+     accesible desde ☰ MENÚ. */
+  .dashboard-caja-launcher {
+    display: none !important;
+  }
+
+  /* El botón "OPCIONES" del header (arriba a la derecha) llevaba a /mas —
+     lo mismo que ahora hace ☰ MENÚ de la barra inferior. visibility (no
+     display) para no descentrar el título del header. */
+  .caja-header-opciones-btn {
+    visibility: hidden !important;
+  }
+
   /* Targets táctiles cómodos en los botones de acción */
   .btn-chanatos,
   .btn-primary,
@@ -91,32 +127,66 @@
   }
 
   /* Categorías: TODAS visibles de un vistazo (nada oculto que haya que
-     descubrir deslizando) — cuadrícula compacta de chips */
+     descubrir deslizando) — cuadrícula compacta de chips.
+     3 columnas en vez de 2 (minmax de 150px → 90px): con 8-9 categorías,
+     2 columnas eran 5 filas completas antes de llegar a los productos.
+     90px (no 104px) porque en DetalleMesa este grid vive anidado dentro de
+     paneles con su propio padding (order-center-panel + caja "Agregar
+     Items"), así que el ancho real disponible es bastante menor que el
+     viewport completo. */
   .category-tabs {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 6px;
     padding: 2px 0 10px;
   }
 
+  /* !important en todo: Mesero.css tiene su propia regla mobile para
+     .category-tab (font-size 0.85rem, sin overflow-wrap) que este mismo
+     componente (ProductPicker) también carga — sin !important, cuál de las
+     dos gana depende del orden de carga del bundle, y perdía justo la
+     propiedad que evita que "HAMBURGUESAS" se salga del cuadro. */
   .category-tab {
-    min-height: 44px;
-    padding: 6px 8px;
-    font-size: 0.85rem;
-    line-height: 1.2;
-    white-space: normal;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
+    min-height: 44px !important;
+    min-width: 0 !important; /* si no, un grid/flex item no se achica más que su texto */
+    padding: 4px 4px !important;
+    font-size: 0.68rem !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    word-break: break-word !important;
+    /* "anywhere" (no "break-word"): break-word no reduce el tamaño mínimo
+       que un item de flex/grid le pide a su fila/columna, así que el botón
+       igual se salía del cuadro con "HAMBURGUESAS" antes de llegar siquiera
+       a partir la palabra. anywhere sí lo cuenta en ese cálculo. */
+    overflow-wrap: anywhere !important;
+    hyphens: none !important;
   }
 
-  /* Grillas de productos: tarjetas uniformes de dos columnas en teléfono */
+  /* Estados vacíos ("No hay items en el pedido", etc.): con 2rem de padding
+     ocupaban media pantalla en un celular antes de llegar a nada útil. */
+  .empty-state {
+    padding: 0.9rem !important;
+  }
+
+  /* Caja de "Agregar Items" en DetalleMesa: 1.5rem de padding + el padding
+     del panel que la contiene le dejaban a las categorías/productos de
+     adentro un ancho real de ~260px en vez de los ~360px del teléfono. */
+  .detalle-mesa-add-items-box {
+    padding: 0.85rem !important;
+  }
+
+  /* Grillas de productos: tarjetas uniformes de dos columnas en teléfono
+     (130px, no 150px, por la misma razón que .category-tabs arriba: en
+     DetalleMesa este grid vive anidado con menos ancho real disponible). */
   .products-grid-caja,
   .products-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 8px !important;
   }
 
   .product-btn-caja,
@@ -233,11 +303,13 @@ button {
   margin: 0 0 4px;
 }
 
-/* --- FASE F10: DetalleMesa con altura natural (adiós franja muerta) --- */
-/* Desktop: los rieles laterales (mesas y cobro) quedan fijos al hacer scroll */
+/* --- FASE F10/M14: DetalleMesa con altura natural (adiós franja muerta) ---
+   El selector de mesas (antes primera columna) se sacó del todo a
+   OrdenesDrawer (barra inferior de Caja); ahora el grid solo tiene 2
+   columnas: la orden y el cobro. */
+/* Desktop: el riel de cobro queda fijo al hacer scroll */
 @media (min-width: 901px) {
-  .detalle-mesa-grid > :nth-child(1),
-  .detalle-mesa-grid > :nth-child(3) {
+  .detalle-mesa-grid > :nth-child(2) {
     position: sticky;
     top: 76px;
     max-height: calc(100vh - 92px);
@@ -245,23 +317,11 @@ button {
   }
 }
 
-/* Teléfono: columnas apiladas — primero la orden, luego el cobro, mesas al final */
+/* Teléfono: columnas apiladas — primero la orden, luego el cobro */
 @media (max-width: 900px) {
   .detalle-mesa-grid {
     display: flex !important;
     flex-direction: column;
-  }
-
-  .detalle-mesa-grid > :nth-child(1) {
-    order: 3;
-  }
-
-  .detalle-mesa-grid > :nth-child(2) {
-    order: 1;
-  }
-
-  .detalle-mesa-grid > :nth-child(3) {
-    order: 2;
   }
 }
 

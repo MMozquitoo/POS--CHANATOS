@@ -4,12 +4,16 @@ import axios from 'axios';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { playKitchenChime, unlockAudio, notifyDesktop } from '../../utils/kitchenSound';
+import { getBogotaDateString } from '../../utils/timezone.js';
 import './Cocina.css';
 
 const byCreatedAt = (a, b) => new Date(a.created_at) - new Date(b.created_at);
 
 export default function Cocina() {
-  const [orders, setOrders] = useState({ NUEVO: [], EN_PREP: [], LISTO: [] });
+  const [orders, setOrders] = useState({ NUEVO: [], EN_PREP: [], LISTO: [], ARCHIVADO: [] });
+  // FASE M16: en móvil se ve UNA sección a la vez (pestañas arriba) en vez de
+  // las 3-4 columnas apiladas con su propio scroll interno cada una.
+  const [mobileSection, setMobileSection] = useState('NUEVO');
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem('cocina_sonido') !== 'off');
@@ -58,19 +62,27 @@ export default function Cocina() {
 
   const loadOrders = async () => {
     try {
-      // Cocina solo ve pedidos no archivados (kitchen=true filtra archived_at IS NULL)
-      const res = await axios.get('/orders?kitchen=true');
+      // includeArchived=1 trae también lo ya archivado; se separa acá abajo
+      // en vez de pedirlo aparte, para no duplicar la consulta.
+      const res = await axios.get('/orders?kitchen=true&includeArchived=1');
       const allOrders = res.data.filter(o => o.status !== 'CANCELADO');
+      const today = getBogotaDateString();
+
+      const active = allOrders.filter(o => !o.archived_at);
+      const archivedToday = allOrders
+        .filter(o => o.archived_at && (o.business_day === today || o.archived_at.slice(0, 10) === today))
+        .sort((a, b) => new Date(b.archived_at) - new Date(a.archived_at));
 
       setOrders({
-        NUEVO: allOrders.filter(o => o.status === 'NUEVO').sort(byCreatedAt),
-        EN_PREP: allOrders.filter(o => o.status === 'EN_PREP').sort(byCreatedAt),
-        LISTO: allOrders.filter(o => o.status === 'LISTO').sort(byCreatedAt)
+        NUEVO: active.filter(o => o.status === 'NUEVO').sort(byCreatedAt),
+        EN_PREP: active.filter(o => o.status === 'EN_PREP').sort(byCreatedAt),
+        LISTO: active.filter(o => o.status === 'LISTO').sort(byCreatedAt),
+        ARCHIVADO: archivedToday
       });
 
       // Detectar trabajo nuevo para la alerta sonora:
       // una orden desconocida o más items pendientes que antes
-      const pending = allOrders.filter(o => o.status === 'NUEVO' || o.status === 'EN_PREP');
+      const pending = active.filter(o => o.status === 'NUEVO' || o.status === 'EN_PREP');
       const ids = new Set(pending.map(o => o.id));
       const pendingItems = pending.reduce(
         (sum, o) => sum + (o.items?.filter(i => !i.voided_at).length || 0), 0
@@ -155,7 +167,7 @@ export default function Cocina() {
     }
   };
 
-  const OrderCard = ({ order }) => {
+  const OrderCard = ({ order, readOnly = false }) => {
     const elapsedMin = Math.max(0, Math.floor((now - new Date(order.created_at).getTime()) / 60000));
     const isRecent = (now - new Date(order.created_at).getTime()) < 60000;
     // Urgencia solo mientras hay trabajo pendiente
@@ -166,9 +178,10 @@ export default function Cocina() {
 
     const activeItems = order.items?.filter(item => !item.voided_at) || [];
     const readyCount = activeItems.filter(item => item.ready_at).length;
-    const markable = order.status === 'EN_PREP';
+    const markable = !readOnly && order.status === 'EN_PREP';
 
     const getActionButton = () => {
+      if (readOnly) return null;
       if (order.status === 'NUEVO') {
         return (
           <button
@@ -293,8 +306,29 @@ export default function Cocina() {
         </div>
       </header>
 
+      {/* Selector de sección — solo se ve en móvil (Cocina.css); en desktop
+          las 4 columnas ya se ven juntas y esto queda oculto. */}
+      <div className="cocina-mobile-tabs">
+        {[
+          { key: 'NUEVO', label: 'Nuevos', color: '#1971c2' },
+          { key: 'EN_PREP', label: 'En preparación', color: '#f59f00' },
+          { key: 'LISTO', label: 'Listos', color: '#2b8a3e' },
+          { key: 'ARCHIVADO', label: 'Archivados', color: '#868e96' },
+        ].map(({ key, label, color }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMobileSection(key)}
+            className={`cocina-mobile-tab ${mobileSection === key ? 'active' : ''}`}
+            style={mobileSection === key ? { background: color, borderColor: color } : undefined}
+          >
+            {label} ({orders[key].length})
+          </button>
+        ))}
+      </div>
+
       <div className="cocina-columns">
-        <div className="cocina-column">
+        <div className={`cocina-column ${mobileSection === 'NUEVO' ? 'cocina-section-active' : ''}`}>
           <h2 className="column-title nuevo">NUEVOS ({orders.NUEVO.length})</h2>
           <div className="orders-column">
             {orders.NUEVO.length === 0 ? (
@@ -307,7 +341,7 @@ export default function Cocina() {
           </div>
         </div>
 
-        <div className="cocina-column">
+        <div className={`cocina-column ${mobileSection === 'EN_PREP' ? 'cocina-section-active' : ''}`}>
           <h2 className="column-title en-prep">EN PREPARACIÓN ({orders.EN_PREP.length})</h2>
           <div className="orders-column">
             {orders.EN_PREP.length === 0 ? (
@@ -320,7 +354,7 @@ export default function Cocina() {
           </div>
         </div>
 
-        <div className="cocina-column">
+        <div className={`cocina-column ${mobileSection === 'LISTO' ? 'cocina-section-active' : ''}`}>
           <h2 className="column-title listo">LISTOS ({orders.LISTO.length})</h2>
           <div className="orders-column">
             {orders.LISTO.length === 0 ? (
@@ -328,6 +362,19 @@ export default function Cocina() {
             ) : (
               orders.LISTO.map(order => (
                 <OrderCard key={order.id} order={order} />
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className={`cocina-column ${mobileSection === 'ARCHIVADO' ? 'cocina-section-active' : ''}`}>
+          <h2 className="column-title archivado">ARCHIVADOS ({orders.ARCHIVADO.length})</h2>
+          <div className="orders-column">
+            {orders.ARCHIVADO.length === 0 ? (
+              <p className="empty-column">Nada archivado todavía hoy</p>
+            ) : (
+              orders.ARCHIVADO.map(order => (
+                <OrderCard key={order.id} order={order} readOnly />
               ))
             )}
           </div>

@@ -58,8 +58,13 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
 
   const headerStyle = {
     flexShrink: 0,
-    position: 'sticky',
-    top: 0,
+    // OJO: el header NO vive dentro del área que hace scroll (eso pasa en un
+    // div hermano más abajo), así que "sticky" no cumplía ninguna función acá
+    // -- y en iOS Safari, sticky + contenedor padre en 100dvh/overflow:hidden
+    // hacía que el header (título + VOLVER) se escondiera al aparecer/ocultarse
+    // la barra de direcciones. Con "relative" queda igual de fijo arriba
+    // (primer hijo flex con flexShrink:0) pero sin el bug.
+    position: 'relative',
     zIndex: 1000,
     background: '#fff',
     pointerEvents: 'auto',
@@ -163,7 +168,7 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
       {rightButton ? (
         <button
           onClick={handleRightButton}
-          className="logout-btn"
+          className={rightButton.to === '/mas' ? 'logout-btn caja-header-opciones-btn' : 'logout-btn'}
           style={rightBtnStyle}
         >
           {rightButton.label}

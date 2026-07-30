@@ -65,7 +65,7 @@ router.get("/", requireAuth, async (req, res) => {
     const { category } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, display_order, flavors, flavor_prices
+      SELECT id, name, category, price, variant, display_order, flavors, flavor_prices, flavors_active
       FROM products
       WHERE is_active = 1
     `;
@@ -93,6 +93,7 @@ router.get("/", requireAuth, async (req, res) => {
         variant: product.variant,
         flavors: product.flavors,
         flavor_prices: product.flavor_prices,
+        flavors_active: product.flavors_active,
         displayName: product.variant
           ? `${product.name} - ${product.variant}`
           : product.name,
@@ -112,7 +113,7 @@ router.get("/flat", requireAuth, async (req, res) => {
     const db = getDb();
 
     const products = await db.all(
-      `SELECT id, name, category, price, variant, display_order, flavors, flavor_prices
+      `SELECT id, name, category, price, variant, display_order, flavors, flavor_prices, flavors_active
        FROM products
        WHERE is_active = 1
        ORDER BY category, display_order, name`
@@ -128,6 +129,7 @@ router.get("/flat", requireAuth, async (req, res) => {
       variant: product.variant,
       flavors: product.flavors,
       flavor_prices: product.flavor_prices,
+      flavors_active: product.flavors_active,
     }));
 
     res.json(flatProducts);
@@ -164,7 +166,7 @@ router.get("/admin", requireAuth, requireRole("CAJA"), async (req, res) => {
     const { category, search } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, is_active, display_order, flavors, flavor_prices, created_at
+      SELECT id, name, category, price, variant, is_active, display_order, flavors, flavor_prices, flavors_active, created_at
       FROM products
       WHERE 1=1
     `;
@@ -322,6 +324,70 @@ router.patch("/flavors/bulk", requireAuth, requireRole("CAJA"), async (req, res)
     res.json({ updated: ids.length });
   } catch (error) {
     console.error("Error actualizando sabores en lote:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// PATCH /api/products/:id/flavors-availability - el mesero prende/apaga
+// sabores del día sin tocar precio/nombre/categoría (eso sigue siendo solo
+// de Caja vía PATCH /:id). `flavors` acá solo puede CRECER (agregar un sabor
+// nuevo que todavía no estaba en la lista maestra); `flavors_active` es el
+// subconjunto disponible hoy, mandado como ARRAY (se guarda como JSON) --
+// así se distingue null ("nunca se tocó" = todos activos, compatibilidad
+// hacia atrás) de [] ("el mesero apagó todos los sabores hoy").
+router.patch("/:id/flavors-availability", requireAuth, requireRole("CAJA", "MESERO"), async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const { flavors, flavors_active } = req.body;
+    const db = getDb();
+
+    const existingProduct = await db.get("SELECT * FROM products WHERE id = ?", [productId]);
+    if (!existingProduct) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+    const beforeState = { ...existingProduct };
+
+    const updates = [];
+    const params = [];
+
+    if (flavors !== undefined) {
+      updates.push("flavors = ?");
+      params.push(flavors && flavors.trim() ? flavors.trim() : null);
+    }
+
+    if (flavors_active !== undefined) {
+      if (flavors_active === null) {
+        updates.push("flavors_active = ?");
+        params.push(null);
+      } else if (Array.isArray(flavors_active)) {
+        const clean = flavors_active.map((f) => String(f).trim()).filter(Boolean);
+        updates.push("flavors_active = ?");
+        params.push(JSON.stringify(clean));
+      } else {
+        return res.status(400).json({ error: "flavors_active debe ser un array" });
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "Debe proporcionar flavors o flavors_active" });
+    }
+
+    params.push(productId);
+    await db.run(`UPDATE products SET ${updates.join(", ")} WHERE id = ?`, params);
+
+    const updatedProduct = await db.get("SELECT * FROM products WHERE id = ?", [productId]);
+    await logAudit(db, req.user.id, "PRODUCT_FLAVORS_AVAILABILITY_UPDATE", productId, beforeState, updatedProduct);
+
+    try {
+      const allProducts = await db.all("SELECT * FROM products ORDER BY category, display_order, name");
+      saveProductsToSource(allProducts);
+    } catch (error) {
+      console.error("⚠️  Error sincronizando con products.json:", error);
+    }
+
+    res.json(updatedProduct);
+  } catch (error) {
+    console.error("Error actualizando disponibilidad de sabores:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });

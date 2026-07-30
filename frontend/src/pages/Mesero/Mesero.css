@@ -646,10 +646,14 @@
     font-size: 0.9rem;
   }
 
-  /* Asegurar que el texto respete márgenes */
+  /* Asegurar que el texto respete márgenes, SIN partir palabras con guion
+     ("Gaseosa Li-tro", "Mar-car Listo") — esta regla es una copia local de
+     la que ya se corrigió en index.css; vivía duplicada acá y por eso
+     algunas pantallas (Mesero y todo lo que carga Mesero.css, como
+     ProductPicker) seguían mostrando guiones después de ese arreglo. */
   p, span, div, h1, h2, h3, h4, h5, h6, label, button {
-    word-wrap: break-word;
+    word-break: keep-all;
     overflow-wrap: break-word;
-    hyphens: auto;
+    hyphens: none;
   }
 }

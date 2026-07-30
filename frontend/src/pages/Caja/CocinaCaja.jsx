@@ -118,6 +118,11 @@ export default function CocinaCaja({ hideHeader = false }) {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(new Set());
+  // FASE M15: en móvil las 3 columnas apiladas con su propio scroll interno
+  // (scroll sobre scroll) confundían más de lo que ayudaban. En vez de eso,
+  // se elige UNA sección a la vez (como pestañas); en desktop, con espacio de
+  // sobra, siguen viéndose las 3 lado a lado y este estado no se usa.
+  const [mobileSection, setMobileSection] = useState('NUEVO');
 
   // Desbloquear el chime de Web Audio al primer toque — solo cuando esta vista
   // corre "sola" (ruta /cocina); embebida en Centro Total, CentroTotal.jsx ya
@@ -263,14 +268,40 @@ export default function CocinaCaja({ hideHeader = false }) {
 
   return (
     <>
-    <div className="caja-container cocina-caja-shell" style={{ height: hideHeader ? '100%' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="caja-container cocina-caja-shell" style={{ height: hideHeader ? '100%' : '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {!hideHeader && (
-        <header className="caja-header" style={{ flexShrink: 0 }}>
+        // position:'relative' explícito -- igual que CajaHeader.jsx: este
+        // header vive fuera del área que hace scroll (el tablero de abajo
+        // scrollea aparte), así que "sticky" (el default de .caja-header en
+        // mobile-polish.css) no cumple ninguna función acá, y combinado con
+        // el contenedor padre en 100dvh/overflow:hidden es el mismo bug de
+        // iOS Safari que hacía desaparecer el header en Centro de Control.
+        <header className="caja-header" style={{ flexShrink: 0, position: 'relative' }}>
           <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
           <h1>COCINA</h1>
           <div style={{ width: '100px' }}></div>
         </header>
       )}
+
+      {/* Selector de sección — solo se ve en móvil (mobile-polish.css), en
+          desktop las 3 columnas ya se ven juntas y esto queda oculto. */}
+      <div className="cocina-caja-mobile-tabs">
+        {[
+          { key: 'NUEVO', label: 'Nuevos', color: '#1971c2' },
+          { key: 'EN_PREP', label: 'En preparación', color: '#f59f00' },
+          { key: 'LISTO', label: 'Listos', color: '#2b8a3e' },
+        ].map(({ key, label, color }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMobileSection(key)}
+            className={`cocina-caja-mobile-tab ${mobileSection === key ? 'active' : ''}`}
+            style={mobileSection === key ? { background: color, borderColor: color } : undefined}
+          >
+            {label} ({orders[key].length})
+          </button>
+        ))}
+      </div>
 
       <div className="cocina-caja-board" style={{
         flex: 1,
@@ -283,7 +314,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         background: '#f8f9fa'
       }}>
         {/* Columna NUEVO */}
-        <div className="cocina-caja-column" style={{ 
+        <div className={`cocina-caja-column ${mobileSection === 'NUEVO' ? 'cocina-section-active' : ''}`} style={{
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
@@ -302,7 +333,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             NUEVOS ({orders.NUEVO.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.NUEVO.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos nuevos</p>
             ) : (
@@ -314,7 +345,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
 
         {/* Columna EN_PREP */}
-        <div className="cocina-caja-column" style={{ 
+        <div className={`cocina-caja-column ${mobileSection === 'EN_PREP' ? 'cocina-section-active' : ''}`} style={{
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
@@ -333,7 +364,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             EN PREPARACIÓN ({orders.EN_PREP.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.EN_PREP.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos en preparación</p>
             ) : (
@@ -345,7 +376,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
 
         {/* Columna LISTO */}
-        <div className="cocina-caja-column" style={{ 
+        <div className={`cocina-caja-column ${mobileSection === 'LISTO' ? 'cocina-section-active' : ''}`} style={{
           background: 'white', 
           borderRadius: '12px', 
           padding: '1rem', 
@@ -364,7 +395,7 @@ export default function CocinaCaja({ hideHeader = false }) {
           }}>
             LISTOS ({orders.LISTO.length})
           </h2>
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {orders.LISTO.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos listos</p>
             ) : (

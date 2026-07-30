@@ -27,7 +27,12 @@
   .action-btn {
     hyphens: none;
     word-break: keep-all;
-    overflow-wrap: normal;
+    /* "normal" (no "break-word"): en un botón angosto con texto largo sin
+       espacios, esto le quitaba a la palabra su único mecanismo de emergencia
+       para no salirse del cuadro — el mismo bug de fondo que "HAMBURGUESAS"
+       en .category-tab, pero acá podía pasar en cualquier .action-btn o
+       .footer-btn con texto largo. */
+    overflow-wrap: break-word;
   }
 
   /* Títulos/labels que sí pueden wrapar en 2 líneas si es necesario (evitar cortes feos) */
@@ -84,15 +89,13 @@
     margin-top: var(--pos-mobile-space-md, 0.75rem);
   }
 
-  /* --- FASE M4→M13: Tabs Centro de Control — en fila también en móvil (apiladas
-     en 3 filas completas se comían ~150px de pantalla solo en navegación, la
-     razón real de que "Listo para cobrar" pareciera necesitar scroll) --- */
-  .centro-total-tabs {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    width: 100%;
-    padding: 0.5rem !important;
-    gap: 0.35rem !important;
+  /* --- Encabezado de orden en DetalleMesa (Enviar a Preparación / Marcar
+     Listo / Cancelar Orden): con el padding y font-size de escritorio no
+     cabían junto al título y el texto terminaba partido letra por letra
+     ("Mar-car Listo", "CANCE-LAR OR-DEN") --- */
+  .detalle-mesa-hdr-btn {
+    padding: 0.55rem 0.9rem !important;
+    font-size: 0.85rem !important;
   }
 
   .centro-total-tab {

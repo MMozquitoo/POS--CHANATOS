@@ -98,6 +98,7 @@ export const initDatabase = async () => {
       display_order INTEGER DEFAULT 0,
       flavors TEXT,
       flavor_prices TEXT,
+      flavors_active TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -302,7 +303,7 @@ export const initDatabase = async () => {
         
         for (const product of productsFromJson) {
           await database.run(
-            "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors, flavor_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors, flavor_prices, flavors_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
               product.name,
               product.category,
@@ -312,6 +313,7 @@ export const initDatabase = async () => {
               product.is_active === true || product.is_active === 1 ? 1 : 0,
               product.flavors || null,
               product.flavor_prices || null,
+              product.flavors_active || null,
             ]
           );
         }
@@ -747,6 +749,22 @@ export const initDatabase = async () => {
     }
   } catch (flavorPricesError) {
     console.error("⚠️  Error agregando flavor_prices:", flavorPricesError);
+  }
+
+  // FASE F14: sabores disponibles HOY (subconjunto de products.flavors) — el
+  // mesero apaga/prende sabores agotados sin borrar la lista maestra que
+  // administra Caja. NULL = todos los sabores de `flavors` están activos
+  // (compatibilidad con productos que nunca tocaron esta pantalla). Chequeo
+  // incondicional.
+  try {
+    const productsCols = await database.all("PRAGMA table_info(products)");
+    if (!productsCols.some((c) => c.name === "flavors_active")) {
+      console.log("  ➕ Agregando flavors_active a products...");
+      await database.run("ALTER TABLE products ADD COLUMN flavors_active TEXT");
+      console.log("  ✅ Campo flavors_active agregado a products");
+    }
+  } catch (flavorsActiveError) {
+    console.error("⚠️  Error agregando flavors_active:", flavorsActiveError);
   }
 
   // FASE F12: tabla de tokens push (instalaciones viejas que ya tenían todo el

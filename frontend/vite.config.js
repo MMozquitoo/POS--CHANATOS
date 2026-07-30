@@ -30,7 +30,13 @@ export default defineConfig({
         scope: '/'
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Sin esto, un service worker nuevo se instala pero se queda "esperando"
+        // hasta que se cierren TODAS las pestañas abiertas de ese origen antes de
+        // activarse — en la práctica, cambios que sí llegaron al servidor
+        // parecían no verse nunca en el celular por más que se recargara.
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],

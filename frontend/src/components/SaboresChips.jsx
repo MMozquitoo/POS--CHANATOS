@@ -34,6 +34,30 @@ export function productTieneSabores(flavors) {
   return parseFlavors(flavors).length > 0;
 }
 
+// El mesero apaga sabores agotados en flavors_active sin borrarlos de la
+// lista maestra (flavors). flavors_active se guarda como JSON de un array;
+// null/vacío = "nunca se tocó" = todos activos (compatibilidad con productos
+// que nunca pasaron por esa pantalla). Un array vacío "[]" SÍ es válido y
+// significa "el mesero apagó todos los sabores hoy" -- por eso no se puede
+// tratar igual que null.
+export function parseActiveFlavorsList(flavorsActive) {
+  if (!flavorsActive) return null;
+  try {
+    const parsed = JSON.parse(flavorsActive);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseActiveFlavors(flavors, flavorsActive) {
+  const all = parseFlavors(flavors);
+  const activeList = parseActiveFlavorsList(flavorsActive);
+  if (activeList === null) return all; // nunca se tocó -> todos activos
+  const activeLower = activeList.map((s) => s.toLowerCase());
+  return all.filter((s) => activeLower.includes(s.toLowerCase()));
+}
+
 // El sabor elegido vive dentro de las notas como "Sabor: X" (junto con el resto de texto libre,
 // separado por " • " si hay más notas — mismo separador que ya usa Domicilios para combinar notas).
 function extractSabor(value) {
@@ -67,8 +91,8 @@ function combineNotes(rest, sabor) {
   return rest ? `${saborText} • ${rest}` : saborText;
 }
 
-export default function SaboresChips({ flavors, flavorPrices, basePrice, value, onChange, onPriceChange }) {
-  const sabores = parseFlavors(flavors);
+export default function SaboresChips({ flavors, flavorsActive, flavorPrices, basePrice, value, onChange, onPriceChange }) {
+  const sabores = parseActiveFlavors(flavors, flavorsActive);
   if (sabores.length === 0) return null;
 
   const priceMap = parseFlavorPrices(flavorPrices);

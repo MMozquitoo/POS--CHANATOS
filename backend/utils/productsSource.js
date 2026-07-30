@@ -55,6 +55,7 @@ export function saveProductsToSource(products) {
         is_active: product.is_active === 1 || product.is_active === true,
         flavors: product.flavors || null,
         flavor_prices: product.flavor_prices || null,
+        flavors_active: product.flavors_active || null,
       }));
 
     // Ordenar por categoría y display_order para mantener consistencia

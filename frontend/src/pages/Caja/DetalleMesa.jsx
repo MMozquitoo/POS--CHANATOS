@@ -6,8 +6,7 @@ import { formatPriceCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
-import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
-import SaboresChips from '../../components/SaboresChips';
+import ProductPicker from '../../components/ProductPicker.jsx';
 import PagoDividido from '../../components/caja/PagoDividido.jsx';
 import DividirPorProducto from '../../components/caja/DividirPorProducto.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
@@ -130,11 +129,14 @@ export default function DetalleMesa() {
   const { isOnline } = useConnection();
   const { user } = useAuth();
   const backTo = getBackRoute(location, user);
-  
+  // Si se entró desde una tarjeta de "Listo para cobrar" (fromTab viaja junto
+  // con el "from"), Volver debe reabrir esa misma pestaña en vez de caer
+  // siempre en MESAS por defecto.
+  const backState = location.state?.fromTab ? { tab: location.state.fromTab } : undefined;
+
   const [tableData, setTableData] = useState(null);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
-  const [mesasCollapsed, setMesasCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disableReason, setDisableReason] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
@@ -157,8 +159,6 @@ export default function DetalleMesa() {
   // Crear pedido desde caja (simple)
   const [newOrderItems, setNewOrderItems] = useState([]);
   const [productsByCategory, setProductsByCategory] = useState({});
-  const [products, setProducts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCustomProduct, setShowCustomProduct] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
@@ -229,16 +229,8 @@ export default function DetalleMesa() {
 
   async function loadProducts() {
     try {
-      const res = await axios.get('/products/flat');
-      setProducts(res.data);
-      // También obtener productos por categoría
       const resByCategory = await axios.get('/products');
       setProductsByCategory(resByCategory.data);
-      // Seleccionar primera categoría por defecto
-      const categories = Object.keys(resByCategory.data);
-      if (categories.length > 0) {
-        setSelectedCategory(categories[0]);
-      }
     } catch (error) {
       console.error('Error cargando productos:', error);
     }
@@ -1083,21 +1075,11 @@ export default function DetalleMesa() {
     }
   };
 
-  const addNewOrderItem = (product) => {
-    setNewOrderItems((prev) => [
-      ...prev,
-      {
-        name: product.displayName || product.name,
-        qty: 1,
-        price: product.price,
-        basePrice: product.price,
-        notes: '',
-        product_id: product.id,
-        category: product.category || selectedCategory,  // Fase 1: incluir product_id
-        flavors: product.flavors || null,
-        flavor_prices: product.flavor_prices || null,
-      },
-    ]);
+  // FASE M14: ProductPicker (compartido con Mesero) ya entrega el item listo
+  // -- nombre, cantidad, precio resuelto por sabor, notas -- así que acá solo
+  // se agrega al carrito, sin volver a armar el objeto.
+  const addNewOrderItem = (item) => {
+    setNewOrderItems((prev) => [...prev, item]);
   };
 
   const removeNewOrderItem = (index) => {
@@ -1224,7 +1206,7 @@ export default function DetalleMesa() {
             El ID de mesa proporcionado no es válido.
           </p>
           <button
-            onClick={() => navigate(backTo, { replace: true })}
+            onClick={() => navigate(backTo, { replace: true, state: backState })}
             style={{
               padding: '0.75rem 1.5rem',
               background: '#F5BB4C',
@@ -1284,7 +1266,7 @@ export default function DetalleMesa() {
             No se pudo cargar la información de la mesa.
           </p>
           <button
-            onClick={() => navigate(backTo, { replace: true })}
+            onClick={() => navigate(backTo, { replace: true, state: backState })}
             style={{
               padding: '0.75rem 1.5rem',
               background: '#F5BB4C',
@@ -1322,32 +1304,10 @@ export default function DetalleMesa() {
     (item) => item && !item.paid_at && !item.voided_at
   );
   
-  // Función para cambiar de mesa (FASE O2: preservar state.from)
-  const handleMesaChange = (newTableId) => {
-    navigate(`/mesa/${newTableId}`, { state: location.state ?? {} });
-  };
-
-  // Obtener estado visual de mesa
-  const getTableStatus = (table) => {
-    if (!table || !table.id) return 'libre';
-    // Buscar si esta mesa tiene orden activa
-    if (table.id === parseInt(tableId)) {
-      if (activeOrder && activeOrder.status) {
-        if (activeOrder.status === 'LISTO') return 'listo';
-        return 'activa';
-      }
-    }
-    // Verificar si tiene items pendientes desde tableData
-    if (tableData && tableData.table && table.id === tableData.table.id) {
-      if (tableData.summary?.pendingItems > 0) return 'activa';
-    }
-    return 'libre';
-  };
-
   return (
     <div className="detalle-mesa-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header className="detalle-mesa-header" style={{ flexShrink: 0 }}>
-        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
+        <button onClick={() => navigate(backTo, { replace: true, state: backState })} className="back-btn">← Volver</button>
         <h1>
           {tableData.table && tableData.table.number === 9 ? 'VENTANILLA' :
            tableData.table && tableData.table.number === 10 ? 'DOMICILIOS' :
@@ -1355,133 +1315,14 @@ export default function DetalleMesa() {
         </h1>
       </header>
 
-      <div className="detalle-mesa-content detalle-mesa-grid" style={{
+      <div className="detalle-mesa-content detalle-mesa-grid caja-bottom-nav-spacer" style={{
         flex: 1,
         display: 'grid',
-        gridTemplateColumns: `${mesasCollapsed ? '52px' : '250px'} 1fr 350px`,
+        gridTemplateColumns: '1fr 350px',
         alignItems: 'start',
         gap: '1rem',
         padding: '1rem'
       }}>
-        {/* COLUMNA IZQUIERDA: Selector de Mesas (riel sticky en desktop vía mobile-polish.css FASE F10, colapsable para ganar espacio) */}
-        <div className="mesas-sidebar" style={{
-          background: '#f8f9fa',
-          borderRadius: '12px',
-          padding: mesasCollapsed ? '0.5rem' : '1rem',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem'
-        }}>
-          <button
-            type="button"
-            onClick={() => setMesasCollapsed(prev => !prev)}
-            title={mesasCollapsed ? 'Mostrar mesas' : 'Ocultar mesas'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: mesasCollapsed ? 'center' : 'space-between',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              margin: '0 0 0.25rem 0'
-            }}
-          >
-            {!mesasCollapsed && <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>Mesas</h3>}
-            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#666' }}>{mesasCollapsed ? '▶' : '◀'}</span>
-          </button>
-
-          {!mesasCollapsed && <>
-          {/* Mesas 1-8 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '1rem' }}>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(num => {
-              const table = allTables.find(t => t.number === num);
-              const status = getTableStatus(table || { id: null, number: num });
-              const isActive = table?.id === parseInt(tableId);
-              
-              return (
-                <button
-                  key={num}
-                  onClick={() => handleMesaChange(table?.id || num)}
-                  style={{
-                    padding: '1rem',
-                    background: isActive ? '#F5BB4C' : 
-                               status === 'activa' ? '#ffc107' :
-                               status === 'listo' ? '#28a745' : 'white',
-                    color: isActive || status === 'activa' || status === 'listo' ? 'white' : '#333',
-                    border: isActive ? '3px solid #D4A03A' : '2px solid #ddd',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '1rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {num}
-                </button>
-              );
-            })}
-          </div>
-          
-          {/* Mesa 9 - VENTANILLA */}
-          {(() => {
-            const table = allTables.find(t => t.number === 9);
-            const status = getTableStatus(table || { id: null, number: 9 });
-            const isActive = table?.id === parseInt(tableId);
-            
-            return (
-              <button
-                onClick={() => handleMesaChange(table?.id || 9)}
-                style={{
-                  padding: '1rem',
-                  background: isActive ? '#F5BB4C' : 
-                             status === 'activa' ? '#ffc107' :
-                             status === 'listo' ? '#28a745' : '#F5BB4C',
-                  color: 'white',
-                  border: isActive ? '3px solid #d4a341' : '2px solid #d4a341',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '1rem',
-                  transition: 'all 0.2s'
-                }}
-              >
-                VENTANILLA
-              </button>
-            );
-          })()}
-          
-          {/* Mesa 10 - DOMICILIOS */}
-          {(() => {
-            const table = allTables.find(t => t.number === 10);
-            const status = getTableStatus(table || { id: null, number: 10 });
-            const isActive = table?.id === parseInt(tableId);
-            
-            return (
-              <button
-                onClick={() => handleMesaChange(table?.id || 10)}
-                style={{
-                  padding: '1rem',
-                  background: isActive ? '#28a745' : 
-                             status === 'activa' ? '#ffc107' :
-                             status === 'listo' ? '#28a745' : '#28a745',
-                  color: 'white',
-                  border: isActive ? '3px solid #1e7e34' : '2px solid #1e7e34',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '1rem',
-                  transition: 'all 0.2s'
-                }}
-              >
-                DOMICILIOS
-              </button>
-            );
-          })()}
-          </>}
-        </div>
-
         {/* COLUMNA CENTRO: Orden Activa */}
         <div className="order-center-panel" style={{ 
           background: '#f8f9fa', 
@@ -1495,10 +1336,13 @@ export default function DetalleMesa() {
           {/* FASE M8.9: ÓRDENES ABIERTAS + NUEVA ORDEN (solo Ventanilla/Domicilios) */}
           {isSpecialTable(tableData?.table?.number) && (
             <div style={{ marginBottom: '1.5rem', flexShrink: 0 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                {openOrdersList.length > 1 && (
-                  <>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>ÓRDENES ABIERTAS</span>
+              {openOrdersList.length > 1 && (
+                <>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '0.5rem' }}>ÓRDENES ABIERTAS</div>
+                  {/* Fila horizontal deslizable en vez de envolver en varias filas —
+                      con muchas órdenes abiertas (Ventanilla/Domicilios en hora pico)
+                      esto ocupaba media pantalla antes de llegar a nada más. */}
+                  <div className="ordenes-abiertas-scroll">
                     {openOrdersList.map((ord, idx) => (
                       <button
                         type="button"
@@ -1508,61 +1352,60 @@ export default function DetalleMesa() {
                           setSelectedOrderId(ord.id);
                           await loadOrderDetail(ord.id);
                         }}
+                        className="ordenes-abiertas-chip"
                         style={{
-                          padding: '0.5rem 1rem',
                           background: selectedOrderId === ord.id ? '#F5BB4C' : '#f8f9fa',
                           color: selectedOrderId === ord.id ? 'white' : '#6c757d',
                           border: '1px solid ' + (selectedOrderId === ord.id ? '#F5BB4C' : '#dee2e6'),
-                          borderRadius: '8px',
-                          cursor: 'pointer',
                           fontWeight: selectedOrderId === ord.id ? 'bold' : 500,
-                          fontSize: '0.9rem',
-                          transition: 'all 0.2s'
                         }}
                       >
                         {ord.daily_no ? `ORDEN ${ord.daily_no}` : ord.code || `ORDEN ${idx + 1}`}
                       </button>
                     ))}
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingNewOrder(true);
-                    setNewOrderItems([]);
-                  }}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  NUEVA ORDEN
-                </button>
-              </div>
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingNewOrder(true);
+                  setNewOrderItems([]);
+                }}
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.6rem 1rem',
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  minHeight: '46px'
+                }}
+              >
+                NUEVA ORDEN
+              </button>
             </div>
           )}
 
           {/* Panel de orden activa o Crear Nueva Orden */}
           {!creatingNewOrder && activeOrder && activeOrder.id ? (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
+                  <h2 className="pos-mobile-no-break" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
                     {activeOrder.daily_no ? `ORDEN ${activeOrder.daily_no}` : (activeOrder.code || `ORDEN ${activeOrder.id}`)}
                   </h2>
                   <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
                     Estado: <strong>{activeOrder.status || 'N/A'}</strong>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {activeOrder.status === 'NUEVO' && (
                     <button
+                      className="pos-mobile-no-break detalle-mesa-hdr-btn"
                       onClick={async () => {
                         if (await showConfirm('¿Enviar esta orden a preparación?')) {
                           updateActiveOrderStatus('EN_PREP');
@@ -1576,7 +1419,8 @@ export default function DetalleMesa() {
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontSize: '1rem',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Enviar a Preparación
@@ -1584,6 +1428,7 @@ export default function DetalleMesa() {
                   )}
                   {activeOrder.status === 'EN_PREP' && (
                     <button
+                      className="pos-mobile-no-break detalle-mesa-hdr-btn"
                       onClick={async () => {
                         if (await showConfirm('¿Marcar esta orden como LISTO?')) {
                           updateActiveOrderStatus('LISTO');
@@ -1597,16 +1442,18 @@ export default function DetalleMesa() {
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontSize: '1rem',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Marcar Listo
                     </button>
                   )}
-                  
+
                   {/* FASE 12.6: Botón cancelar orden */}
                   {activeOrder.status !== 'PAGADA' && activeOrder.status !== 'CANCELADO' && (
                     <button
+                      className="pos-mobile-no-break detalle-mesa-hdr-btn"
                       onClick={() => setShowCancelOrderModal(true)}
                       disabled={cancellingOrder}
                       style={{
@@ -1618,6 +1465,7 @@ export default function DetalleMesa() {
                         cursor: cancellingOrder ? 'not-allowed' : 'pointer',
                         fontSize: '1rem',
                         fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
                         opacity: cancellingOrder ? 0.6 : 1,
                         transition: 'opacity 0.2s, transform 0.1s'
                       }}
@@ -1860,120 +1708,58 @@ export default function DetalleMesa() {
 
               {/* Formulario para agregar items (NUEVO, EN_PREP o LISTO; LISTO vuelve a cocina) */}
               {['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) && (
-                <div style={{ 
-                  background: 'white', 
-                  padding: '1.5rem', 
-                  borderRadius: '12px', 
+                <div className="detalle-mesa-add-items-box" style={{
+                  background: 'white',
+                  padding: '1.5rem',
+                  borderRadius: '12px',
                   border: '2px solid #F5BB4C',
                   marginTop: '1rem'
                 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>
                     Agregar Items
                   </h3>
-            
-            {/* Botón OTRO */}
-            <button 
-              onClick={() => {
-                setEditingItem(null);
-                setCustomName('');
-                setCustomPrice('');
-                setCustomQty(1);
-                setCustomNotes('');
-                setShowCustomProduct(true);
-              }}
-              className="custom-product-btn"
-              style={{ marginBottom: '1rem', padding: '0.75rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              + Otro producto
-            </button>
-          
-          {/* Selector de categorías */}
-          <div className="category-tabs">
-            {Object.keys(productsByCategory).map(category => (
-              <button
-                key={category}
-                className={`category-tab ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category.replace(/_/g, ' ')}
-              </button>
-            ))}
-          </div>
 
-          {/* Productos de la categoría seleccionada */}
-          {selectedCategory && productsByCategory[selectedCategory] && (
-            <div className="products-grid-caja">
-              {productsByCategory[selectedCategory].map((p) => (
-                <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
-                  <div className="product-name-btn">{p.displayName || p.name}</div>
-                  <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
-                </button>
-              ))}
-            </div>
-          )}
-          {newOrderItems.length > 0 && (
-            <div className="new-order-list">
-              {newOrderItems.map((it, idx) => (
-                <div key={idx} className="new-order-item">
-                  <div className="new-order-item-name">
-                    {it.name}
-                    {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
-                  </div>
-                  <div className="new-order-item-controls">
-                    <button onClick={() => updateNewOrderItem(idx, { qty: Math.max(1, it.qty - 1) })}>-</button>
-                    <input
-                      type="number"
-                      value={it.qty}
-                      min="1"
-                      onChange={(e) => updateNewOrderItem(idx, { qty: parseInt(e.target.value) || 1 })}
-                    />
-                    <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })}>+</button>
-                  </div>
-                  <div style={{ flex: '1 1 100%', minWidth: 0 }}>
-                    <input
-                      className="new-order-notes"
-                      value={it.notes || ''}
-                      placeholder="Notas (opcional)"
-                      onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
-                    />
-                    {categoriaLlevaSalsas(it.category) && (
-                      <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
-                    )}
-                    <SaboresChips
-                      flavors={it.flavors}
-                      flavorPrices={it.flavor_prices}
-                      basePrice={it.basePrice}
-                      value={it.notes || ''}
-                      onChange={(v) => updateNewOrderItem(idx, { notes: v })}
-                      onPriceChange={(price) => updateNewOrderItem(idx, { price })}
-                    />
-                  </div>
-                  <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
-                </div>
-              ))}
-                  <button 
-                    className="pay-all-btn" 
-                    onClick={async () => {
-                      await addItemsToActiveOrder(newOrderItems);
-                      setNewOrderItems([]);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '1rem',
-                      background: '#28a745',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      marginTop: '1rem'
-                    }}
-                  >
-                    AGREGAR ITEMS
-                  </button>
-                </div>
-              )}
+                  <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
+
+                  {newOrderItems.length > 0 && (
+                    <div className="new-order-list" style={{ marginTop: '1rem' }}>
+                      {newOrderItems.map((it, idx) => (
+                        <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
+                          <div>
+                            <div style={{ fontWeight: 'bold' }}>
+                              {it.name}
+                              {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                              Cantidad: {it.qty} {it.notes && `• ${it.notes}`}
+                            </div>
+                          </div>
+                          <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
+                        </div>
+                      ))}
+                      <button
+                        className="pay-all-btn"
+                        onClick={async () => {
+                          await addItemsToActiveOrder(newOrderItems);
+                          setNewOrderItems([]);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '1rem',
+                          background: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          marginTop: '1rem'
+                        }}
+                      >
+                        AGREGAR ITEMS
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -1983,124 +1769,35 @@ export default function DetalleMesa() {
               <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
                 Crear Nueva Orden
               </h2>
-              
-              {/* Botón OTRO */}
-              <button
-                onClick={() => {
-                  setEditingItem(null);
-                  setCustomName('');
-                  setCustomPrice('');
-                  setCustomQty(1);
-                  setCustomNotes('');
-                  setShowCustomProduct(true);
-                }}
-                className="custom-product-btn"
-                style={{
-                  padding: '0.75rem 1.25rem',
-                  background: '#F5BB4C',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  fontSize: '1rem'
-                }}
-              >
-                + Otro producto
-              </button>
-            
-              {/* Selector de categorías */}
-              <div className="category-tabs" style={{ marginBottom: '1rem' }}>
-                {Object.keys(productsByCategory).map(category => (
-                  <button
-                    key={category}
-                    className={`category-tab ${selectedCategory === category ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category.replace(/_/g, ' ')}
-                  </button>
-                ))}
-              </div>
 
-              {/* Productos de la categoría seleccionada */}
-              {selectedCategory && productsByCategory[selectedCategory] && (
-                <div className="products-grid-caja" style={{ marginBottom: '1rem' }}>
-                  {productsByCategory[selectedCategory].map((p) => (
-                    <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
-                      <div className="product-name-btn">{p.displayName || p.name}</div>
-                      <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              
+              <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
+
               {newOrderItems.length > 0 && (
-                <div className="new-order-list" style={{ 
-                  background: 'white', 
-                  padding: '1rem', 
+                <div className="new-order-list" style={{
+                  background: 'white',
+                  padding: '1rem',
                   borderRadius: '8px',
-                  border: '2px solid #F5BB4C'
+                  border: '2px solid #F5BB4C',
+                  marginTop: '1rem'
                 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Items a agregar:</h3>
                   {newOrderItems.map((it, idx) => (
-                    <div key={idx} className="new-order-item" style={{
-                      padding: '0.75rem',
-                      marginBottom: '0.5rem',
-                      background: '#f8f9fa',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      <div style={{ flex: 1, minWidth: '160px' }}>
+                    <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
+                      <div>
                         <div style={{ fontWeight: 'bold' }}>
                           {it.name}
                           {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
                         </div>
                         <div style={{ color: '#666', fontSize: '0.85rem' }}>
                           {it.qty}x {formatPriceCOP(it.price)} = {formatPriceCOP(it.qty * it.price)}
+                          {it.notes && ` • ${it.notes}`}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button onClick={() => updateNewOrderItem(idx, { qty: Math.max(1, it.qty - 1) })} style={{ padding: '0.25rem 0.5rem', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>−</button>
-                        <input
-                          type="number"
-                          value={it.qty}
-                          min="1"
-                          onChange={(e) => updateNewOrderItem(idx, { qty: parseInt(e.target.value) || 1 })}
-                          style={{ width: '50px', padding: '0.25rem', textAlign: 'center', border: '1px solid #ddd', borderRadius: '4px' }}
-                        />
-                        <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })} style={{ padding: '0.25rem 0.5rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+</button>
-                        <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)} style={{ padding: '0.25rem 0.5rem', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
-                      </div>
-                      {/* FASE: faltaban notas/salsas/sabores al crear una orden nueva desde
-                          Caja — solo existían al agregar items a una orden YA existente. */}
-                      <div style={{ flex: '1 1 100%', minWidth: 0 }}>
-                        <input
-                          className="new-order-notes"
-                          value={it.notes || ''}
-                          placeholder="Notas (opcional)"
-                          onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
-                          style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.9rem' }}
-                        />
-                        {categoriaLlevaSalsas(it.category) && (
-                          <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
-                        )}
-                        <SaboresChips
-                          flavors={it.flavors}
-                          flavorPrices={it.flavor_prices}
-                          basePrice={it.basePrice}
-                          value={it.notes || ''}
-                          onChange={(v) => updateNewOrderItem(idx, { notes: v })}
-                          onPriceChange={(price) => updateNewOrderItem(idx, { price })}
-                        />
-                      </div>
+                      <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
                     </div>
                   ))}
-                  <button 
-                    className="pay-all-btn" 
+                  <button
+                    className="pay-all-btn"
                     disabled={creatingOrder}
                     onClick={async () => {
                       await createOrderFromCaja();

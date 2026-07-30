@@ -3,12 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
-import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
-import SaboresChips from '../../components/SaboresChips';
 import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
+import ProductPicker from '../../components/ProductPicker.jsx';
 import '../Mesero/Mesero.css';
 import '../Caja/Caja.css';
 
@@ -32,13 +31,7 @@ export default function Domicilios() {
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
   const [productsByCategory, setProductsByCategory] = useState({});
   const [newOrderItems, setNewOrderItems] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showCustomProduct, setShowCustomProduct] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [customPrice, setCustomPrice] = useState('');
-  const [customQty, setCustomQty] = useState(1);
-  const [customNotes, setCustomNotes] = useState('');
   const [customerNote, setCustomerNote] = useState('');
   const [showClosedOrders, setShowClosedOrders] = useState(false);
 
@@ -67,10 +60,6 @@ export default function Domicilios() {
     try {
       const res = await axios.get('/products');
       setProductsByCategory(res.data);
-      const categories = Object.keys(res.data);
-      if (categories.length > 0) {
-        setSelectedCategory(categories[0]);
-      }
     } catch (error) {
       console.error('Error cargando productos:', error);
     }
@@ -188,53 +177,15 @@ export default function Domicilios() {
     }
   };
 
-  const addNewOrderItem = (product) => {
-    setNewOrderItems((prev) => [
-      ...prev,
-      {
-        name: product.displayName || product.name,
-        qty: 1,
-        price: product.price,
-        basePrice: product.price,
-        notes: '',
-        product_id: product.id,
-        flavors: product.flavors || null,
-        flavor_prices: product.flavor_prices || null,
-        category: product.category || selectedCategory
-      },
-    ]);
+  // ProductPicker (compartido con Mesero/DetalleMesa) ya entrega el item
+  // listo -- nombre, cantidad, precio resuelto por sabor, notas -- así que
+  // acá solo se agrega al carrito.
+  const addNewOrderItem = (item) => {
+    setNewOrderItems((prev) => [...prev, item]);
   };
 
   const removeNewOrderItem = (index) => {
     setNewOrderItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateNewOrderItem = (index, patch) => {
-    setNewOrderItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
-    );
-  };
-
-  const addCustomItem = () => {
-    if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
-      showAlert('Ingresa un nombre y precio válido');
-      return;
-    }
-    setNewOrderItems((prev) => [
-      ...prev,
-      {
-        name: customName.trim(),
-        qty: customQty,
-        price: parseFloat(customPrice),
-        notes: customNotes,
-        isCustom: true
-      }
-    ]);
-    setShowCustomProduct(false);
-    setCustomName('');
-    setCustomPrice('');
-    setCustomQty(1);
-    setCustomNotes('');
   };
 
   // Separar órdenes en Abiertas y Cerradas
@@ -248,7 +199,7 @@ export default function Domicilios() {
   const isCaja = user?.role === 'CAJA';
 
   return (
-    <div className="ventanilla-container">
+    <div className="ventanilla-container caja-bottom-nav-spacer mesero-bottom-nav-spacer">
       <header className="ventanilla-header">
         <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
         <h1>DOMICILIOS</h1>
@@ -580,85 +531,26 @@ export default function Domicilios() {
             </div>
           )}
 
-          <button 
-            onClick={() => {
-              setShowCustomProduct(true);
-              setCustomName('');
-              setCustomPrice('');
-              setCustomQty(1);
-              setCustomNotes('');
-            }}
-            className="custom-product-btn"
-            style={{ marginBottom: '1rem', padding: '0.75rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            + Otro producto
-          </button>
-
-          <div className="category-tabs">
-            {Object.keys(productsByCategory).map(category => (
-              <button
-                key={category}
-                className={`category-tab ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category.replace(/_/g, ' ')}
-              </button>
-            ))}
-          </div>
-
-          {selectedCategory && productsByCategory[selectedCategory] && (
-            <div className="products-grid-caja">
-              {productsByCategory[selectedCategory].map((p) => (
-                <button key={p.id} className="product-btn-caja" onClick={() => addNewOrderItem(p)}>
-                  <div className="product-name-btn">{p.displayName || p.name}</div>
-                  <div className="product-price-btn">{formatPriceCOP(p.price)}</div>
-                </button>
-              ))}
-            </div>
-          )}
+          <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
 
           {newOrderItems.length > 0 && (
             <div className="new-order-list" style={{ marginTop: '1rem' }}>
               {newOrderItems.map((it, idx) => (
-                <div key={idx} className="new-order-item">
-                  <div className="new-order-item-name">
-                    {it.name}
-                    {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
+                <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>
+                      {it.name}
+                      {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                      Cantidad: {it.qty} {it.notes && `• ${it.notes}`}
+                    </div>
                   </div>
-                  <div className="new-order-item-controls">
-                    <button onClick={() => updateNewOrderItem(idx, { qty: Math.max(1, it.qty - 1) })}>-</button>
-                    <input
-                      type="number"
-                      value={it.qty}
-                      min="1"
-                      onChange={(e) => updateNewOrderItem(idx, { qty: parseInt(e.target.value) || 1 })}
-                    />
-                    <button onClick={() => updateNewOrderItem(idx, { qty: it.qty + 1 })}>+</button>
-                  </div>
-                  <div style={{ flex: '1 1 100%', minWidth: 0 }}>
-                    <input
-                      className="new-order-notes"
-                      value={it.notes || ''}
-                      placeholder="Notas (opcional)"
-                      onChange={(e) => updateNewOrderItem(idx, { notes: e.target.value })}
-                    />
-                    {categoriaLlevaSalsas(it.category) && (
-                      <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
-                    )}
-                    <SaboresChips
-                      flavors={it.flavors}
-                      flavorPrices={it.flavor_prices}
-                      basePrice={it.basePrice}
-                      value={it.notes || ''}
-                      onChange={(v) => updateNewOrderItem(idx, { notes: v })}
-                      onPriceChange={(price) => updateNewOrderItem(idx, { price })}
-                    />
-                  </div>
-                  <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
+                  <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
                 </div>
               ))}
-              <button 
-                className="pay-all-btn" 
+              <button
+                className="pay-all-btn"
                 onClick={async () => {
                   if (selectedOrderId) {
                     await addItemsToOrder(selectedOrderId, newOrderItems);
@@ -671,81 +563,6 @@ export default function Domicilios() {
               >
                 {selectedOrderId ? 'AGREGAR ITEMS' : 'CREAR Y ENVIAR'}
               </button>
-            </div>
-          )}
-
-          {showCustomProduct && (
-            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-              <div className="modal-content" style={{ background: 'white', padding: '2rem', borderRadius: '12px', maxWidth: '500px', width: '90%' }}>
-                <h3>Producto Personalizado (OTRO)</h3>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Nombre del Producto *</label>
-                  <input
-                    type="text"
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    placeholder="Ej: Comida especial"
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Precio Unitario (COP) *</label>
-                  <input
-                    type="number"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    step="100"
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Cantidad</label>
-                  <div className="qty-controls" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <button onClick={() => setCustomQty(Math.max(1, customQty - 1))} style={{ padding: '0.5rem 1rem' }}>-</button>
-                    <input 
-                      type="number" 
-                      value={customQty} 
-                      onChange={(e) => setCustomQty(parseInt(e.target.value) || 1)} 
-                      min="1"
-                      style={{ width: '80px', padding: '0.5rem', textAlign: 'center' }}
-                    />
-                    <button onClick={() => setCustomQty(customQty + 1)} style={{ padding: '0.5rem 1rem' }}>+</button>
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Notas</label>
-                  <input
-                    type="text"
-                    value={customNotes}
-                    onChange={(e) => setCustomNotes(e.target.value)}
-                    placeholder="Opcional"
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button 
-                    onClick={addCustomItem} 
-                    className="add-item-btn"
-                    style={{ flex: 1, padding: '0.75rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    Agregar
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setShowCustomProduct(false);
-                      setCustomName('');
-                      setCustomPrice('');
-                      setCustomQty(1);
-                      setCustomNotes('');
-                    }}
-                    style={{ flex: 1, padding: '0.75rem', background: '#ccc', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </div>

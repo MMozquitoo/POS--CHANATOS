@@ -1,6 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import RequireRole from '../../components/RequireRole';
+import BottomNav from '../../components/caja/BottomNav';
+import OrdenesDrawer from '../../components/OrdenesDrawer';
+import MenuDrawer from '../../components/caja/MenuDrawer';
 
 const SesionCaja = lazy(() => import('./SesionCaja'));
 const CobrarPedidos = lazy(() => import('./CobrarPedidos'));
@@ -33,6 +36,13 @@ function HomeRedirect() {
 }
 
 export default function CajaRoutes() {
+  // FASE M14: barra inferior + cajones de Mesas/Menú, fijos sobre TODAS las
+  // rutas de Caja (mobile-only vía BottomNav.css) — un solo estado acá arriba
+  // para no montar dos veces "Órdenes abiertas" (el ☰ Menú también abre este
+  // mismo drawer en vez de duplicar la lista de mesas).
+  const [ordenesOpen, setOrdenesOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <RequireRole role="CAJA" redirectTo="/">
       <Suspense fallback={<div style={{padding:'2rem',textAlign:'center'}}>Cargando...</div>}>
@@ -62,6 +72,17 @@ export default function CajaRoutes() {
         <Route path="*" element={<Navigate to="/centro" replace />} />
       </Routes>
       </Suspense>
+
+      <BottomNav
+        onOpenOrdenes={() => setOrdenesOpen(true)}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
+      <OrdenesDrawer open={ordenesOpen} onClose={() => setOrdenesOpen(false)} />
+      <MenuDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onOpenOrdenes={() => setOrdenesOpen(true)}
+      />
     </RequireRole>
   );
 }

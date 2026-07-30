@@ -119,7 +119,7 @@ export default function Mesas() {
   }
 
   return (
-    <div className="mesero-container">
+    <div className="mesero-container mesero-bottom-nav-spacer">
       <header className="mesero-header">
         <h1>MESAS</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -139,7 +139,7 @@ export default function Mesas() {
           >
             {showPlano ? 'LISTA' : 'MESAS'}
           </button>
-          <button type="button" onClick={logout} className="logout-btn">
+          <button type="button" onClick={logout} className="logout-btn mesero-header-logout-btn">
             Salir
           </button>
         </div>
@@ -233,12 +233,6 @@ export default function Mesas() {
           )}
         </div>
       )}
-
-      <div className="mesero-footer">
-        <button type="button" onClick={() => navigate('/pedidos')} className="footer-btn">
-          Mis Pedidos
-        </button>
-      </div>
     </div>
   );
 }

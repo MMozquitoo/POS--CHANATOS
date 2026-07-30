@@ -46,7 +46,11 @@ input {
     max-width: 100%;
   }
 
-  /* Asegurar que el texto se ajuste */
+  /* Asegurar que el texto se ajuste sin partir palabras a la mitad con guion
+     ("Gaseosa Li-tro", "Mar-car Listo"): que ajuste entre palabras primero
+     (word-break: keep-all) y solo como último recurso, si una sola palabra no
+     cabe ni sola en su línea, se rompa (overflow-wrap: break-word evita que
+     se salga del contenedor en ese caso extremo). */
   p,
   span,
   div,
@@ -58,8 +62,8 @@ input {
   h6,
   label,
   button {
-    word-wrap: break-word;
+    word-break: keep-all;
     overflow-wrap: break-word;
-    hyphens: auto;
+    hyphens: none;
   }
 }

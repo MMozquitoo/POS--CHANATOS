@@ -175,7 +175,7 @@ export default function DashboardCaja() {
     : null;
 
   return (
-    <div className="caja-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="caja-container" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <CajaHeader
         title="CAJA"
         subtitle="Dashboard"
@@ -214,7 +214,7 @@ export default function DashboardCaja() {
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
+      <div className="caja-bottom-nav-spacer" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         {/* Bloque informativo: Sesión de Caja Abierta (SOLO INFO, sin botones) */}
         {session ? (
@@ -305,6 +305,12 @@ export default function DashboardCaja() {
           </div>
         )}
 
+        {/* FASE M15: en móvil la barra inferior (BottomNav) ya lleva a cocina,
+            cobrar y menú/salir — este bloque quedaba duplicando exactamente
+            esos mismos destinos. Se oculta solo en móvil vía CSS
+            (.dashboard-caja-launcher); en desktop, sin BottomNav, sigue
+            siendo la única forma de navegar desde acá. */}
+        <div className="dashboard-caja-launcher">
         {/* 3 Botones principales */}
         <div style={{ display: 'grid', gap: '1.5rem' }}>
           <button
@@ -357,6 +363,7 @@ export default function DashboardCaja() {
           >
             SALIR
           </button>
+        </div>
         </div>
         </div>
       </div>

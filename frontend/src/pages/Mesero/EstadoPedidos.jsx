@@ -54,7 +54,7 @@ export default function EstadoPedidos() {
         <h1>MIS PEDIDOS</h1>
       </header>
 
-      <div className="orders-list">
+      <div className="orders-list mesero-bottom-nav-spacer">
         {orders.length === 0 ? (
           <p className="empty-state">No tienes pedidos activos</p>
         ) : (

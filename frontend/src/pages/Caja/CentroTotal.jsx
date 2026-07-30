@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -20,6 +20,10 @@ import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 
 const FROM_CENTRO_TOTAL = { state: { from: '/centro-total' } };
+// Al entrar desde una tarjeta de "Listo para cobrar", Volver debe abrir de
+// nuevo esa misma pestaña (no MESAS por defecto) — fromTab viaja junto con
+// el "from" y DetalleMesa lo reenvía como state.tab al navegar de regreso.
+const FROM_CENTRO_TOTAL_LISTO = { state: { from: '/centro-total', fromTab: 'listo' } };
 
 // PASO 16.2.2-A: Helper para normalizar payload de POST /payments/items
 function normalizePaymentItemsPayload({
@@ -100,6 +104,7 @@ export default function CentroTotal() {
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
+  const location = useLocation();
   const { socket } = useAuth();
   const { isOnline } = useConnection();
   
@@ -149,10 +154,29 @@ export default function CentroTotal() {
   };
   
   // Estado para tabs (FASE 11.3: MESAS / COCINA / LISTO PARA COBRAR)
-  const [activeTab, setActiveTab] = useState('mesas'); // 'mesas', 'cocina', 'listo'
+  // El BottomNav navega acá con state:{tab:'listo'} (botón COBRAR) para abrir
+  // directo en "Listo para cobrar" en vez de aterrizar siempre en MESAS.
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'mesas'); // 'mesas', 'cocina', 'listo'
+
+  // El botón COBRAR de la barra inferior navega a esta misma ruta con
+  // state:{tab:'listo'} — si CentroTotal ya estaba montado (el usuario venía
+  // de acá mismo), React Router no la remonta, así que el useState de arriba
+  // (que solo lee el state inicial) nunca se entera del cambio. Este efecto
+  // sí reacciona cuando el state cambia con la página ya abierta.
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.tab, location.key]);
   
-  // Estado para vista de mesas (PLANO o LISTA)
-  const [mesasView, setMesasView] = useState('plano'); // 'plano' o 'lista'
+  // Estado para vista de mesas (PLANO o LISTA). PLANO reproduce la
+  // distribución física del local, útil en pantalla grande; en celular ese
+  // espaciado "de piso" se ve como huecos vacíos sin razón, así que en mobile
+  // arranca en LISTA (más compacta) — el mesero puede cambiar igual si quiere.
+  const [mesasView, setMesasView] = useState(
+    typeof window !== 'undefined' && window.innerWidth <= 480 ? 'lista' : 'plano'
+  );
   
   // Estados principales (Centro Total)
   const [selectedType, setSelectedType] = useState(null); // 'MESA', 'VENTANILLA', 'DOMICILIO'
@@ -927,7 +951,7 @@ export default function CentroTotal() {
   }, [navigate, tableIdVentanilla, tableIdDomicilio]);
 
   return (
-    <div className="caja-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="caja-container" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header unificado (FASE 13.3) */}
       <CajaHeader 
         title="CENTRO DE CONTROL"
@@ -1217,7 +1241,7 @@ export default function CentroTotal() {
                     description="Las mesas con pedidos aparecerán aquí."
                   />
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>
                     {regularTables.map((table) => (
                       <TableCard
                         key={table.id}
@@ -1241,7 +1265,7 @@ export default function CentroTotal() {
         </div>
       ) : activeTab === 'listo' ? (
         /* Tab LISTO PARA COBRAR (FASE 11.3) */
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
+        <div className="caja-bottom-nav-spacer" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
           {!checkingSession && !cashSessionActive && (
             <div style={{
               background: '#fff3cd',
@@ -1298,7 +1322,7 @@ export default function CentroTotal() {
                 // mientras respete las mismas condiciones que ya bloqueaban el botón.
                 const canOpen = !isEmpty && tableId && cashSessionActive && isOnline;
                 const openOrder = () => {
-                  if (canOpen) navigate(`/mesa/${tableId}`, FROM_CENTRO_TOTAL);
+                  if (canOpen) navigate(`/mesa/${tableId}`, FROM_CENTRO_TOTAL_LISTO);
                 };
 
                 const itemsSummary = pendingItems.length > 0

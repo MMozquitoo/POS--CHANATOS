@@ -28,11 +28,18 @@
 
 .cocina-columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   padding: 1rem;
-  height: calc(100vh - 80px);
+  height: calc(100dvh - 80px);
   overflow-y: auto;
+}
+
+/* Selector de sección (Nuevos/En preparación/Listos/Archivados): solo se ve
+   en móvil vía la media query de abajo; en desktop las 4 columnas ya se ven
+   juntas. */
+.cocina-mobile-tabs {
+  display: none;
 }
 
 .cocina-column {
@@ -63,6 +70,11 @@
 .column-title.listo {
   color: #2b8a3e;
   border-bottom-color: #2b8a3e;
+}
+
+.column-title.archivado {
+  color: #868e96;
+  border-bottom-color: #868e96;
 }
 
 .orders-column {
@@ -237,16 +249,53 @@
     white-space: nowrap;
   }
 
+  .cocina-mobile-tabs {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.6rem 0.75rem;
+    background: white;
+    border-bottom: 1px solid #eee;
+    overflow-x: auto;
+  }
+
+  .cocina-mobile-tab {
+    flex: 1 1 auto;
+    white-space: nowrap;
+    padding: 0.6rem 0.75rem;
+    min-height: 46px;
+    border-radius: 8px;
+    border: 1.5px solid #ddd;
+    background: #f8f9fa;
+    color: #555;
+    font-weight: bold;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .cocina-mobile-tab.active {
+    color: white;
+  }
+
   .cocina-columns {
     grid-template-columns: 1fr;
     padding: 0.75rem;
     gap: 0.75rem;
     height: auto;
+    overflow-y: visible;
   }
 
+  /* Una sola sección visible a la vez (elegida arriba en .cocina-mobile-tabs)
+     — antes las 3-4 columnas quedaban apiladas, cada una con su propio
+     scroll interno además del scroll de toda la página. */
   .cocina-column {
+    display: none !important;
     padding: 0.875rem;
     max-height: none;
+    overflow-y: visible;
+  }
+
+  .cocina-column.cocina-section-active {
+    display: block !important;
   }
 
   .column-title {
@@ -292,11 +341,12 @@
     font-size: 0.85rem;
   }
 
-  /* Asegurar que el texto respete márgenes */
+  /* Asegurar que el texto respete márgenes, sin partir palabras con guion —
+     copia local del mismo problema ya corregido en index.css. */
   p, span, div, h1, h2, h3, h4, h5, h6, label, button {
-    word-wrap: break-word;
+    word-break: keep-all;
     overflow-wrap: break-word;
-    hyphens: auto;
+    hyphens: none;
   }
 }
 
