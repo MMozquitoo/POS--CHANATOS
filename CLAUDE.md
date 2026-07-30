@@ -41,6 +41,13 @@ backend/
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
     inventory.js         # /inventory/low-stock ya existe (stock <= min_stock)
+    products.js         # CRUD productos (CAJA). flavors: CSV de sabores (ej. gaseosas,
+                         #   Michelada); flavor_prices: JSON {sabor:precio} (CAJA edita, ej.
+                         #   Michelada Poker≠Corona); flavors_active: JSON array = subconjunto de
+                         #   flavors disponible HOY (null = todos activos, compatibilidad). PATCH
+                         #   /:id/flavors-availability (CAJA + MESERO) solo toca flavors/
+                         #   flavors_active, nunca precio — el mesero prende/apaga sabores del día
+                         #   y puede agregar uno nuevo (crece flavors) pero NUNCA les pone precio.
     backup.js            # Respaldo movible: GET /backup/excel (un .xlsx con una hoja por tabla,
                          #   sin `sessions`), GET /backup/db (VACUUM INTO → copia exacta) y
                          #   POST /backup/import (sube el .xlsx y REEMPLAZA las tablas; FKs off
@@ -68,29 +75,77 @@ frontend/
       ModalHost.jsx      # Render de alert/confirm/prompt de marca (useAlert/useConfirm/usePrompt)
       SalsasChips.jsx    # Chips de salsas → escriben en notes del item. categoriaLlevaSalsas()
                          #   las oculta en BEBIDAS/CERVEZAS/JUGOS_NATURALES. Lista central aquí.
-      CajaHeader.jsx     # En compacto (<480px) oculta RoleBadge y subtítulo
+      SaboresChips.jsx   # Chips de sabor (single-select, va en notes como "Sabor: X"). Filtra
+                         #   por flavors_active vía parseActiveFlavors() — el mesero apaga un sabor
+                         #   en Sabores.jsx y automáticamente desaparece acá, un solo lugar alimenta
+                         #   ProductPicker/Ventanilla/Domicilios/DetalleMesa/PedidoMesa.
+      ProductPicker.jsx  # Selector compartido categoría→producto→cantidad/notas/sabores→"Agregar".
+                         #   Usado por Mesero, Caja (DetalleMesa) y Ventanilla/Domicilios — antes
+                         #   cada pantalla tenía su propia versión (algunas con el patrón viejo de
+                         #   "agregar al toque y editar después"), causaba desbordes/scroll
+                         #   inconsistentes entre pantallas al arreglar solo una.
+      OrdenesDrawer.jsx  # Modal con grid de mesas 1-8 + Ventanilla/Domicilios; compartido entre
+                         #   Caja y Mesero (antes vivía en components/caja/, se movió a components/
+                         #   raíz). OJO: goToTable() siempre navega a /mesa/:id — para Mesero eso
+                         #   redirige solo (PedidoMesa detecta mesa especial y manda a /ventanilla o
+                         #   /domicilios); para Caja, DetalleMesa.jsx ya maneja el caso especial
+                         #   inline (no hay redirect a página separada).
+      CajaHeader.jsx     # En compacto (<480px) oculta RoleBadge y subtítulo. position:'relative'
+                         #   explícito (NO sticky) — bug de iOS Safari: sticky dentro de un
+                         #   contenedor 100dvh+overflow:hidden (patrón usado por CentroTotal/
+                         #   DashboardCaja/CocinaCaja) hace que el header desaparezca al mostrar/
+                         #   ocultar la barra de direcciones. Si una pantalla nueva arma su propio
+                         #   header con className="caja-header" en vez de este componente, hay que
+                         #   poner position:'relative' a mano (CocinaCaja.jsx se olvidó una vez).
+      caja/BottomNav.jsx # Barra inferior fija (<768px): COCINA/COBRAR/"+"/RESUMEN/MENÚ. "+"
+                         #   abre OrdenesDrawer, MENÚ abre caja/MenuDrawer.jsx.
+      caja/MenuDrawer.jsx # Reusa las opciones de MasCaja.jsx (Reportes, Menú/Precios, Historial,
+                         #   Auditoría) + Cierre de caja + acceso a Órdenes abiertas.
+      mesero/BottomNav.jsx # PEDIDOS/"+"/MENÚ, acento azul #1971c2. "+" abre OrdenesDrawer
+                         #   (compartido con Caja), MENÚ abre mesero/MenuDrawer.jsx.
+      mesero/MenuDrawer.jsx # Sabores del menú (→ Sabores.jsx) + Salir.
       caja/PagoDividido.jsx # Split multi-método con botón "Resto" y validación exacta
     pages/
       Login.jsx          # PIN 4 dígitos con auto-ingreso (sin botón ENTRAR); autodescubrimiento al abrir
       ConfigServidor.jsx # Búsqueda automática + manual con prueba (pública, /config-servidor)
       Mesero/            # Mesas (tarjetas 9/10 → /ventanilla y /domicilios), PedidoMesa (separa
-                         #   "Ya en la orden" de "Nuevos items" — NUNCA reenviar items existentes),
-                         #   MeseroRoutes con catch-all → "/" (evita pantalla en blanco al cambiar rol)
-      Ventanilla/ Domicilios/  # Multi-orden (fila de clientes), unir cuentas (caja), importan Caja.css
-                         #   OJO: loadOrders es function declaration (hoisting) — useVentanillaRefresh
-                         #   la referencia antes de su línea (TDZ crasheaba la página)
+                         #   "Ya en la orden" de "Nuevos items" — NUNCA reenviar items existentes,
+                         #   usa ProductPicker), MeseroRoutes monta BottomNav/OrdenesDrawer/
+                         #   MenuDrawer + catch-all → "/" (evita pantalla en blanco al cambiar rol),
+                         #   Sabores.jsx (prender/apagar sabores del día, ver products.js arriba)
+      Ventanilla/ Domicilios/  # Multi-orden (fila de clientes), unir cuentas (caja), importan Caja.css,
+                         #   usan ProductPicker para agregar items. OJO: loadOrders es function
+                         #   declaration (hoisting) — useVentanillaRefresh la referencia antes de su
+                         #   línea (TDZ crasheaba la página)
       Cocina/            # Plato por plato (tocar item = listo, N/M, auto-LISTO), sonido con toggle,
                          #   cronómetro con semáforo (10/20 min), orden por antigüedad
-      Caja/              # DetalleMesa (layout altura natural + rieles sticky desktop / apilado móvil,
-                         #   propina y descuento en el panel de cobro; con descuento COBRAR usa orden
-                         #   completa), CobrarPedidos (split/propina/descuento/recibo), CocinaCaja
-                         #   (vista cocina de caja, también plato por plato), Reportes, CajaRoutes
-                         #   con catch-all → /centro
+      Caja/              # DetalleMesa (sin selector de mesas propio — se sacó a OrdenesDrawer;
+                         #   layout 2 columnas, riel de cobro sticky desktop ≥901px / apilado
+                         #   <900px; propina y descuento en el panel de cobro; con descuento COBRAR
+                         #   usa orden completa; usa ProductPicker para agregar items, tanto en
+                         #   orden existente como al crear orden nueva en mesa especial 9/10),
+                         #   CobrarPedidos (split/propina/descuento/recibo), CocinaCaja (vista
+                         #   cocina de caja, también plato por plato, tabs en móvil), CentroTotal
+                         #   ("Centro de Control": tabs MESAS/COCINA/LISTO en desktop, ocultas
+                         #   <768px porque BottomNav ya cubre lo mismo), DashboardCaja ("Resumen"),
+                         #   Reportes, CajaRoutes monta BottomNav/OrdenesDrawer/MenuDrawer +
+                         #   catch-all → /centro
     styles/
       chanatos-theme.css # Design tokens (modales z-index 3000: SIEMPRE encima de recibos)
-      mobile-polish.css  # Capa global móvil: targets 46px, safe-areas (notch), grillas de categorías
-                         #   TODAS visibles (no carrusel), colores explícitos en botones (iOS los pinta
-                         #   azul), headers sticky. Los ajustes móviles nuevos van AQUÍ.
+      mobile-polish.css  # Capa global móvil (@media max-width:768px, MISMO breakpoint que BottomNav):
+                         #   targets 46px, safe-areas (notch), grillas de categorías TODAS visibles
+                         #   (no carrusel), colores explícitos en botones (iOS los pinta azul),
+                         #   headers sticky, input/textarea/select a 16px (si queda más chico, Safari
+                         #   hace zoom automático al tocar el campo — bug real, no se ve en Chrome/
+                         #   Android). Acá también se ocultan los restos del nav viejo que ya cubre
+                         #   BottomNav (.centro-total-tabs, .dashboard-caja-launcher,
+                         #   .caja-header-opciones-btn) — TRAMPA: estaban en posMobile.css con
+                         #   @media max-width:480px y quedaban las DOS navegaciones a la vez entre
+                         #   480-768px (ventana de PC no maximizada). Cualquier regla que oculte algo
+                         #   porque "ya lo cubre BottomNav" tiene que ir en ESTE archivo a 768px, no
+                         #   en posMobile.css. Los ajustes móviles nuevos van AQUÍ.
+      posMobile.css      # Kit mínimo @media max-width:480px SOLAMENTE (anti word-break, espaciados
+                         #   chicos). No usar para nada relacionado con BottomNav (ver arriba).
   android/               # Proyecto Capacitor (generado, committeado). usesCleartextTraffic=true.
   assets/logo.png        # Fuente del icono (C oscura; @capacitor/assets genera los 74 recursos)
 
@@ -154,7 +209,7 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 
 ## Roles y acceso (PIN de 4 dígitos, auto-ingreso)
 
-- **MESERO** (1234) — Mesas, pedidos, ventanilla/domicilios multi-orden, enviar a preparación, cancelar pedidos NUEVO/EN_PREP, ver cualquier orden
+- **MESERO** (1234) — Mesas, pedidos, ventanilla/domicilios multi-orden, enviar a preparación, cancelar pedidos NUEVO/EN_PREP, ver cualquier orden, prender/apagar sabores del día (Sabores.jsx — nunca precio ni productos)
 - **COCINA** (5678) — Pedidos plato por plato, devolver a preparación, archivar
 - **CAJA** (9012) — Todo: cobrar (dividido/parcial/propina/descuento), unir cuentas, anular, caja, reportes, auditoría
 
@@ -193,6 +248,11 @@ Flujo sin reinstalar a mano: se corrige en la Mac, se publica a GitHub, el PC de
 
 - Archivos y UI en español; sin emojis en la interfaz (el dueño los detesta); enums nunca visibles (usar `statusLabels.js`)
 - UX móvil primero: el personal no debe pensar (targets ≥46px, todo visible sin deslizar, auto-avances, botón principal a ancho completo) — ver memoria "ux-movil-filosofia"
+- Navegación móvil (Caja/Mesero, <768px): barra inferior fija + "+" central (OrdenesDrawer) + ☰ MENÚ
+  (drawer propio por rol) — ver `components/caja/` y `components/mesero/`. Si se agrega una pantalla
+  nueva alcanzable por dos caminos (ej. barra inferior Y un botón viejo que hacía lo mismo), hay que
+  ocultar el viejo en mobile-polish.css a 768px — NO dejarlo "por si acaso", genera doble navegación
+  confusa (bug real ya reportado dos veces esta sesión: "menú duplicado").
 - Cambios de UI ⇒ `npm run build` + regenerar APK + actualizar zip de Windows si aplica; el usuario recibe los artefactos en su Escritorio. Para el PC del local ya instalado, publicar remoto con `publicar-actualizacion.sh` (ver "Actualización remota")
 - Branding: ámbar #F5BB4C (los rellenos de barras/datos usan #B8860B, validado para contraste); moneda COP (`formatPriceCOP`); zona America/Bogota
 - Commits en español con Co-Authored-By de Claude; push a `main` de https://github.com/MMozquitoo/POS--CHANATOS
