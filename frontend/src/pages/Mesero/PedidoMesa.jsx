@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
 import SalsasChips, { categoriaLlevaSalsas } from '../../components/SalsasChips';
-import SaboresChips from '../../components/SaboresChips';
+import SaboresChips, { resolveSaborPrice } from '../../components/SaboresChips';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { useAlert } from '../../hooks/useModal';
 import './Mesero.css';
@@ -130,7 +130,7 @@ export default function PedidoMesa() {
     const newItem = {
       name: selectedProduct.displayName || selectedProduct.name,
       qty: qty,
-      price: selectedProduct.price, // Incluir precio
+      price: resolveSaborPrice(selectedProduct.flavor_prices, selectedProduct.price, notes),
       notes: notes,
       product_id: selectedProduct.id  // Fase 1: incluir product_id
     };
@@ -418,7 +418,13 @@ export default function PedidoMesa() {
                   placeholder="Ej: Sin azúcar"
                 />
                 {categoriaLlevaSalsas(selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
-                <SaboresChips flavors={selectedProduct.flavors} value={notes} onChange={setNotes} />
+                <SaboresChips
+                  flavors={selectedProduct.flavors}
+                  flavorPrices={selectedProduct.flavor_prices}
+                  basePrice={selectedProduct.price}
+                  value={notes}
+                  onChange={setNotes}
+                />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={addItem} className="btn-success">Agregar</button>

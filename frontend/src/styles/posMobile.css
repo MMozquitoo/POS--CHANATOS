@@ -84,20 +84,29 @@
     margin-top: var(--pos-mobile-space-md, 0.75rem);
   }
 
-  /* --- FASE M4: Tabs Centro de Control — vertical en móvil --- */
+  /* --- FASE M4→M13: Tabs Centro de Control — en fila también en móvil (apiladas
+     en 3 filas completas se comían ~150px de pantalla solo en navegación, la
+     razón real de que "Listo para cobrar" pareciera necesitar scroll) --- */
   .centro-total-tabs {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap;
     width: 100%;
+    padding: 0.5rem !important;
+    gap: 0.35rem !important;
   }
 
   .centro-total-tab {
-    width: 100%;
-    min-height: 44px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0.4rem 0.3rem !important;
+    font-size: 0.75rem !important;
+    white-space: normal;
+    line-height: 1.15;
     hyphens: none;
     word-break: keep-all;
     overflow-wrap: normal;
     text-align: center;
-    flex-shrink: 0;
   }
 
   /* --- FASE M5: Mesas móvil PRO — Ventanilla/Domicilio fuera del grid --- */

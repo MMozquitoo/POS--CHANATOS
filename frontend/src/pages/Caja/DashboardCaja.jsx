@@ -165,7 +165,7 @@ export default function DashboardCaja() {
 
   // Calcular valores para el bloque informativo
   const initialCash = session?.initial_cash || 0;
-  const totalSales = summary?.totalSales || 0;
+  const totalSales = summary?.theoreticalSales || 0;
   const totalCash = summary?.byMethod?.find(m => m.method === 'EFECTIVO')?.total || 0;
   const totalCard = summary?.byMethod?.find(m => m.method === 'TARJETA')?.total || 0;
   const totalTransfer = summary?.byMethod?.find(m => m.method === 'TRANSFERENCIA')?.total || 0;

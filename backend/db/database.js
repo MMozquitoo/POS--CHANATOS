@@ -97,6 +97,7 @@ export const initDatabase = async () => {
       is_active INTEGER DEFAULT 1,
       display_order INTEGER DEFAULT 0,
       flavors TEXT,
+      flavor_prices TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -301,7 +302,7 @@ export const initDatabase = async () => {
         
         for (const product of productsFromJson) {
           await database.run(
-            "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors, flavor_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
               product.name,
               product.category,
@@ -310,6 +311,7 @@ export const initDatabase = async () => {
               product.display_order || 0,
               product.is_active === true || product.is_active === 1 ? 1 : 0,
               product.flavors || null,
+              product.flavor_prices || null,
             ]
           );
         }
@@ -731,6 +733,20 @@ export const initDatabase = async () => {
     }
   } catch (flavorsError) {
     console.error("⚠️  Error agregando flavors:", flavorsError);
+  }
+
+  // FASE F13: precio distinto por sabor (ej. Michelada según la cerveza) —
+  // JSON {"Sabor": precio} en products.flavor_prices; si un sabor no aparece
+  // ahí, el pedido usa el precio base normal. Chequeo incondicional.
+  try {
+    const productsCols = await database.all("PRAGMA table_info(products)");
+    if (!productsCols.some((c) => c.name === "flavor_prices")) {
+      console.log("  ➕ Agregando flavor_prices a products...");
+      await database.run("ALTER TABLE products ADD COLUMN flavor_prices TEXT");
+      console.log("  ✅ Campo flavor_prices agregado a products");
+    }
+  } catch (flavorPricesError) {
+    console.error("⚠️  Error agregando flavor_prices:", flavorPricesError);
   }
 
   // FASE F12: tabla de tokens push (instalaciones viejas que ya tenían todo el

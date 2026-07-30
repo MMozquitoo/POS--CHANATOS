@@ -7,6 +7,7 @@ import CajaHeader from "../../components/CajaHeader.jsx";
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import ConfigSalsasSabores from '../../components/caja/ConfigSalsasSabores.jsx';
+import { parseFlavors, parseFlavorPrices } from '../../components/SaboresChips.jsx';
 
 export default function Menu() {
   const navigate = useNavigate();
@@ -35,6 +36,7 @@ export default function Menu() {
     display_order: "0",
     is_active: true,
     flavors: "",
+    flavorPrices: {},
   });
 
   // Cargar datos iniciales
@@ -81,6 +83,7 @@ export default function Menu() {
       display_order: "0",
       is_active: true,
       flavors: "",
+      flavorPrices: {},
     });
     setEditingProductId(null);
     setSaving(false);
@@ -102,6 +105,7 @@ export default function Menu() {
         display_order: product.display_order?.toString() || "0",
         is_active: product.is_active === 1,
         flavors: product.flavors || "",
+        flavorPrices: parseFlavorPrices(product.flavor_prices),
       });
     } else {
       // Si es nuevo, usar valores por defecto limpios
@@ -157,6 +161,17 @@ export default function Menu() {
     setSaving(true);
 
     try {
+      // Solo quedan los sabores que siguen en la lista de `flavors` y con un precio
+      // válido escrito; el resto (vacío o de un sabor ya quitado) no se manda.
+      const currentFlavors = parseFlavors(formData.flavors);
+      const flavorPrices = {};
+      currentFlavors.forEach((flavor) => {
+        const raw = formData.flavorPrices[flavor];
+        if (raw !== undefined && raw !== "" && !isNaN(parseFloat(raw))) {
+          flavorPrices[flavor] = Math.round(parseFloat(raw));
+        }
+      });
+
       const payload = {
         name: formData.name.trim(),
         category: formData.category.trim(),
@@ -165,6 +180,7 @@ export default function Menu() {
         display_order: displayOrder,
         is_active: formData.is_active ? 1 : 0,
         flavors: formData.flavors.trim() || null,
+        flavor_prices: Object.keys(flavorPrices).length > 0 ? flavorPrices : null,
       };
 
       if (editingProductId) {
@@ -315,6 +331,9 @@ export default function Menu() {
                   {product.flavors && (
                     <div style={{ color: "#B8860B", fontSize: "0.8rem", marginTop: "0.2rem" }}>
                       Sabores: {product.flavors}
+                      {Object.keys(parseFlavorPrices(product.flavor_prices)).length > 0 && (
+                        <span> (precio distinto por sabor)</span>
+                      )}
                     </div>
                   )}
                   {product.is_active === 0 && (
@@ -574,6 +593,64 @@ export default function Menu() {
                   Si el producto tiene sabores, al agregarlo a un pedido se pedirá elegir uno
                 </div>
               </div>
+
+              {/* Precio por sabor (opcional): solo para productos donde el sabor SÍ cambia
+                  el precio (ej. Michelada según la cerveza). Si se deja en blanco, ese sabor
+                  usa el precio base de arriba. */}
+              {parseFlavors(formData.flavors).length > 0 && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "0.5rem",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Precio por sabor (opcional)
+                  </label>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#666",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    Deja en blanco el sabor que valga igual al precio base. Útil cuando el
+                    sabor cambia el precio (ej. Michelada con Poker vs. con Club Colombia).
+                  </div>
+                  {parseFlavors(formData.flavors).map((flavor) => (
+                    <div
+                      key={flavor}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        marginBottom: "0.4rem",
+                      }}
+                    >
+                      <span style={{ flex: 1, fontSize: "0.9rem" }}>{flavor}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.flavorPrices[flavor] ?? ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            flavorPrices: { ...formData.flavorPrices, [flavor]: e.target.value },
+                          })
+                        }
+                        placeholder={`Igual al base (${formData.price || 0})`}
+                        style={{
+                          width: "160px",
+                          padding: "0.5rem",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Orden de visualización */}
               <div style={{ marginBottom: "1rem" }}>

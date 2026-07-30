@@ -54,6 +54,7 @@ export function saveProductsToSource(products) {
         display_order: product.display_order || 0,
         is_active: product.is_active === 1 || product.is_active === true,
         flavors: product.flavors || null,
+        flavor_prices: product.flavor_prices || null,
       }));
 
     // Ordenar por categoría y display_order para mantener consistencia

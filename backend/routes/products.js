@@ -6,6 +6,37 @@ import { saveProductsToSource } from "../utils/productsSource.js";
 
 const router = express.Router();
 
+// Valida y normaliza flavor_prices: objeto {"Sabor": precio} donde el sabor no
+// necesariamente cubre todos los de `flavors` (el que falte usa el precio base).
+// Devuelve null (sin precios especiales) o un string JSON listo para guardar.
+function normalizeFlavorPrices(flavorPrices) {
+  if (flavorPrices === undefined || flavorPrices === null || flavorPrices === "") {
+    return { ok: true, value: null };
+  }
+  let parsed = flavorPrices;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return { ok: false, error: "flavor_prices debe ser un objeto válido" };
+    }
+  }
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, error: "flavor_prices debe ser un objeto {sabor: precio}" };
+  }
+  const clean = {};
+  for (const [flavor, price] of Object.entries(parsed)) {
+    const name = flavor.trim();
+    if (!name) continue;
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      return { ok: false, error: `Precio inválido para el sabor "${name}"` };
+    }
+    clean[name] = Math.round(priceNum);
+  }
+  return { ok: true, value: Object.keys(clean).length > 0 ? JSON.stringify(clean) : null };
+}
+
 // Función helper para registrar auditoría (mantenida para uso futuro con nuevo botón MENU)
 async function logAudit(db, userId, action, productId, beforeJson = null, afterJson = null) {
   try {
@@ -34,7 +65,7 @@ router.get("/", requireAuth, async (req, res) => {
     const { category } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, display_order, flavors
+      SELECT id, name, category, price, variant, display_order, flavors, flavor_prices
       FROM products
       WHERE is_active = 1
     `;
@@ -61,6 +92,7 @@ router.get("/", requireAuth, async (req, res) => {
         price: product.price,
         variant: product.variant,
         flavors: product.flavors,
+        flavor_prices: product.flavor_prices,
         displayName: product.variant
           ? `${product.name} - ${product.variant}`
           : product.name,
@@ -80,7 +112,7 @@ router.get("/flat", requireAuth, async (req, res) => {
     const db = getDb();
 
     const products = await db.all(
-      `SELECT id, name, category, price, variant, display_order, flavors
+      `SELECT id, name, category, price, variant, display_order, flavors, flavor_prices
        FROM products
        WHERE is_active = 1
        ORDER BY category, display_order, name`
@@ -95,6 +127,7 @@ router.get("/flat", requireAuth, async (req, res) => {
       category: product.category,
       variant: product.variant,
       flavors: product.flavors,
+      flavor_prices: product.flavor_prices,
     }));
 
     res.json(flatProducts);
@@ -131,7 +164,7 @@ router.get("/admin", requireAuth, requireRole("CAJA"), async (req, res) => {
     const { category, search } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, is_active, display_order, flavors, created_at
+      SELECT id, name, category, price, variant, is_active, display_order, flavors, flavor_prices, created_at
       FROM products
       WHERE 1=1
     `;
@@ -179,12 +212,17 @@ router.get("/admin/categories", requireAuth, requireRole("CAJA"), async (req, re
 // POST /api/products - Crear nuevo producto
 router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { name, category, price, variant, display_order, is_active, flavors } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices } = req.body;
     const db = getDb();
 
     // Validaciones
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "El nombre es requerido" });
+    }
+
+    const flavorPricesResult = normalizeFlavorPrices(flavor_prices);
+    if (!flavorPricesResult.ok) {
+      return res.status(400).json({ error: flavorPricesResult.error });
     }
 
     if (!category || !category.trim()) {
@@ -215,7 +253,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     // Crear producto
     const result = await db.run(
-      "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO products (name, category, price, variant, display_order, is_active, flavors, flavor_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         name.trim(),
         category.trim(),
@@ -224,6 +262,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
         displayOrder,
         isActive,
         flavors && flavors.trim() ? flavors.trim() : null,
+        flavorPricesResult.value,
       ]
     );
 
@@ -290,7 +329,7 @@ router.patch("/flavors/bulk", requireAuth, requireRole("CAJA"), async (req, res)
 router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const { name, category, price, variant, display_order, is_active, flavors } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices } = req.body;
     const db = getDb();
 
     // Verificar que el producto existe
@@ -301,6 +340,11 @@ router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     // Guardar estado anterior para auditoría
     const beforeState = { ...existingProduct };
+
+    const flavorPricesResult = normalizeFlavorPrices(flavor_prices);
+    if (flavor_prices !== undefined && !flavorPricesResult.ok) {
+      return res.status(400).json({ error: flavorPricesResult.error });
+    }
 
     // Validaciones
     if (name !== undefined && (!name || !name.trim())) {
@@ -362,6 +406,11 @@ router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
     if (flavors !== undefined) {
       updates.push("flavors = ?");
       params.push(flavors && flavors.trim() ? flavors.trim() : null);
+    }
+
+    if (flavor_prices !== undefined) {
+      updates.push("flavor_prices = ?");
+      params.push(flavorPricesResult.value);
     }
 
     if (is_active !== undefined) {

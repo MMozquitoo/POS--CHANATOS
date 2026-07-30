@@ -37,3 +37,8 @@
   border-color: #F5BB4C;
   color: #1a1a2e;
 }
+
+.sabor-chip-price {
+  font-weight: 700;
+  opacity: 0.85;
+}

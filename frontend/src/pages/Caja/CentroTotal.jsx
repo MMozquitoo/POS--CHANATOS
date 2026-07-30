@@ -1279,7 +1279,7 @@ export default function CentroTotal() {
               description="Cuando una orden esté lista, aparecerá aquí automáticamente."
             />
           ) : (
-            <div style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.6rem', alignItems: 'start' }}>
               {readyToPayOrders.map(order => {
                 const items = order.items || [];
                 const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
@@ -1293,121 +1293,103 @@ export default function CentroTotal() {
                 } else if (!tableId && order.table_number === 10) {
                   tableId = tableIdDomicilio ?? null;
                 }
-                
+
+                // Todo el cuadro navega a la orden (no solo el botón COBRAR),
+                // mientras respete las mismas condiciones que ya bloqueaban el botón.
+                const canOpen = !isEmpty && tableId && cashSessionActive && isOnline;
+                const openOrder = () => {
+                  if (canOpen) navigate(`/mesa/${tableId}`, FROM_CENTRO_TOTAL);
+                };
+
+                const itemsSummary = pendingItems.length > 0
+                  ? pendingItems
+                      .map(item => `${item.qty}x ${item.name}${item.notes ? ` (${item.notes})` : ''}`)
+                      .join('  ·  ')
+                  : null;
+
+                const time = new Date(order.created_at).toLocaleString('es-CO', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+
                 return (
                   <div
                     key={order.id}
+                    onClick={openOrder}
                     style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.3rem',
                       background: 'white',
-                      borderRadius: '12px',
-                      padding: '1.5rem',
+                      borderRadius: '10px',
+                      padding: '0.65rem 0.85rem',
                       border: isEmpty ? '2px solid #dc3545' : '2px solid #F5BB4C',
                       opacity: isEmpty ? 0.6 : 1,
-                      marginBottom: '1rem'
+                      cursor: canOpen ? 'pointer' : 'default'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <div>
-                        <div style={{ fontWeight: 'bold', fontSize: '1.3rem', color: '#333', marginBottom: '0.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#333' }}>
                           {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
                         </div>
-                        <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                          {order.table_label ? `Mesa: ${order.table_label}` : 'Sin mesa'}
+                        <div style={{ color: '#666', fontSize: '0.8rem' }}>
+                          {order.table_label || 'Sin mesa'}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '1.5rem', color: '#F5BB4C', marginBottom: '0.25rem' }}>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#F5BB4C' }}>
                           {formatPriceCOP(total)}
                         </div>
-                        <div style={{ color: '#666', fontSize: '0.85rem' }}>
+                        <div style={{ color: '#666', fontSize: '0.75rem' }}>
                           {pendingItems.length || 0} item(s)
                         </div>
                       </div>
                     </div>
 
-                    {pendingItems.length > 0 && (
-                      <div style={{
-                        marginBottom: '1rem',
-                        paddingTop: '0.5rem',
-                        borderTop: '1px solid #f0f0f0'
-                      }}>
-                        {pendingItems.map(item => (
-                          <div key={item.id} style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.2rem' }}>
-                            <span style={{ fontWeight: 'bold', color: '#F5BB4C' }}>{item.qty}x</span>{' '}
-                            {item.name}
-                            {item.notes && (
-                              <span style={{ color: '#B8860B', fontStyle: 'italic' }}> ({item.notes})</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div style={{ fontSize: '0.8rem', color: '#333', lineHeight: 1.3 }}>
+                      {itemsSummary || <span style={{ color: '#999' }}>Sin items</span>}
+                    </div>
 
-                    <div style={{
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      paddingTop: '1rem',
-                      borderTop: '1px solid #eee',
-                      gap: '0.5rem'
-                    }}>
-                      <div style={{ color: '#666', fontSize: '0.85rem' }}>
-                        {new Date(order.created_at).toLocaleString('es-CO', { 
-                          day: '2-digit', 
-                          month: '2-digit', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
+                      <div style={{ color: '#666', fontSize: '0.75rem' }}>
+                        {time}
                       </div>
+
                       {isEmpty ? (
                         <div style={{
-                          padding: '0.5rem 1rem',
+                          padding: '0.35rem 0.8rem',
                           background: '#dc3545',
                           color: 'white',
                           borderRadius: '6px',
                           fontWeight: 'bold',
-                          fontSize: '0.9rem'
+                          fontSize: '0.8rem'
                         }}>
                           ORDEN VACÍA
                         </div>
                       ) : tableId && cashSessionActive ? (
-                        <>
-                          {/* PASO 14.3: Mensaje cuando no hay conexión */}
-                          {!isOnline && (
-                            <div style={{
-                              padding: '0.5rem',
-                              background: '#fff3cd',
-                              border: '1px solid #ffc107',
-                              borderRadius: '6px',
-                              marginBottom: '0.5rem',
-                              textAlign: 'center',
-                              fontSize: '0.85rem',
-                              color: '#856404',
-                              fontWeight: 'bold'
-                            }}>
-                              No hay conexión. Operación no disponible.
-                            </div>
-                          )}
-                          <button
-                            onClick={() => navigate(`/mesa/${tableId}`, FROM_CENTRO_TOTAL)}
-                            disabled={!isOnline}
-                            style={{
-                              padding: '0.75rem 1.5rem',
-                              background: !isOnline ? '#6c757d' : '#28a745',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              cursor: !isOnline ? 'not-allowed' : 'pointer',
-                              fontWeight: 'bold',
-                              fontSize: '1rem',
-                              opacity: !isOnline ? 0.6 : 1
-                            }}
-                          >
-                            COBRAR
-                          </button>
-                        </>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openOrder(); }}
+                          disabled={!isOnline}
+                          title={!isOnline ? 'No hay conexión. Operación no disponible.' : undefined}
+                          style={{
+                            padding: '0.4rem 1rem',
+                            background: !isOnline ? '#6c757d' : '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: !isOnline ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '0.9rem',
+                            opacity: !isOnline ? 0.6 : 1
+                          }}
+                        >
+                          COBRAR
+                        </button>
                       ) : (
-                        <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                        <div style={{ color: '#666', fontSize: '0.8rem' }}>
                           {!cashSessionActive ? 'Abre caja para cobrar' : 'Mesa no encontrada'}
                         </div>
                       )}

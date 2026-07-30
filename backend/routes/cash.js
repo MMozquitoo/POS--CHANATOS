@@ -562,7 +562,7 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
 
     // Total general
     const totalResult = await db.get(
-      `SELECT 
+      `SELECT
          COUNT(*) as payment_count,
          COALESCE(SUM(amount), 0) as total_amount
        FROM payments
@@ -570,9 +570,23 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       [sessionId]
     );
 
+    // Ventas teóricas: valor de los items (no anulados, ya pagados) de cualquier
+    // orden que haya recibido al menos un pago en esta sesión. Usa cash_session_id
+    // (no una ventana de fechas) para que cuadre con el resto de este resumen,
+    // que también agrupa por esa columna.
+    const theoreticalSalesResult = await db.get(
+      `SELECT COALESCE(SUM(oi.qty * oi.price), 0) as total
+       FROM order_items oi
+       WHERE oi.voided_at IS NULL
+         AND oi.paid_at IS NOT NULL
+         AND oi.order_id IN (SELECT DISTINCT order_id FROM payments WHERE cash_session_id = ?)`,
+      [sessionId]
+    );
+
     res.json({
       sessionId,
       total: totalResult?.total_amount || 0,
+      theoreticalSales: theoreticalSalesResult?.total || 0,
       paymentCount: totalResult?.payment_count || 0,
       byMethod: paymentsByMethod || []
     });

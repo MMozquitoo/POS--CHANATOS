@@ -1090,10 +1090,12 @@ export default function DetalleMesa() {
         name: product.displayName || product.name,
         qty: 1,
         price: product.price,
+        basePrice: product.price,
         notes: '',
         product_id: product.id,
         category: product.category || selectedCategory,  // Fase 1: incluir product_id
         flavors: product.flavors || null,
+        flavor_prices: product.flavor_prices || null,
       },
     ]);
   };
@@ -1937,7 +1939,14 @@ export default function DetalleMesa() {
                     {categoriaLlevaSalsas(it.category) && (
                       <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                     )}
-                    <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                    <SaboresChips
+                      flavors={it.flavors}
+                      flavorPrices={it.flavor_prices}
+                      basePrice={it.basePrice}
+                      value={it.notes || ''}
+                      onChange={(v) => updateNewOrderItem(idx, { notes: v })}
+                      onPriceChange={(price) => updateNewOrderItem(idx, { price })}
+                    />
                   </div>
                   <button className="btn-danger-outline" onClick={() => removeNewOrderItem(idx)}>Quitar</button>
                 </div>
@@ -2079,7 +2088,14 @@ export default function DetalleMesa() {
                         {categoriaLlevaSalsas(it.category) && (
                           <SalsasChips value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
                         )}
-                        <SaboresChips flavors={it.flavors} value={it.notes || ''} onChange={(v) => updateNewOrderItem(idx, { notes: v })} />
+                        <SaboresChips
+                          flavors={it.flavors}
+                          flavorPrices={it.flavor_prices}
+                          basePrice={it.basePrice}
+                          value={it.notes || ''}
+                          onChange={(v) => updateNewOrderItem(idx, { notes: v })}
+                          onPriceChange={(price) => updateNewOrderItem(idx, { price })}
+                        />
                       </div>
                     </div>
                   ))}

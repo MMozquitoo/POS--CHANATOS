@@ -6,7 +6,8 @@
     "variant": "250 ml",
     "display_order": 1,
     "is_active": true,
-    "flavors": "Colombiana, Manzana, Pepsi"
+    "flavors": "Colombiana, Manzana, Pepsi",
+    "flavor_prices": null
   },
   {
     "name": "Jugo Hit",
@@ -15,7 +16,8 @@
     "variant": "500 ml",
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Mr Tea",
@@ -24,7 +26,8 @@
     "variant": "500 ml",
     "display_order": 3,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Coca-Cola Personal",
@@ -33,7 +36,8 @@
     "variant": "250 ml",
     "display_order": 4,
     "is_active": true,
-    "flavors": "Colombiana, Manzana, Pepsi"
+    "flavors": "Colombiana, Manzana, Pepsi",
+    "flavor_prices": null
   },
   {
     "name": "Gaseosa Litro",
@@ -42,7 +46,8 @@
     "variant": "1 L",
     "display_order": 5,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Cerveza Andina",
@@ -51,7 +56,8 @@
     "variant": null,
     "display_order": 0,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Cerveza Poker",
@@ -60,7 +66,8 @@
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Cerveza Heineken",
@@ -69,7 +76,8 @@
     "variant": null,
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Corona",
@@ -78,7 +86,8 @@
     "variant": null,
     "display_order": 3,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Cerveza Club Colombia",
@@ -87,7 +96,8 @@
     "variant": null,
     "display_order": 4,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Filete de Pollo",
@@ -96,7 +106,8 @@
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Filete de Cerdo",
@@ -105,7 +116,8 @@
     "variant": null,
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Baconera",
@@ -114,7 +126,8 @@
     "variant": null,
     "display_order": 0,
     "is_active": false,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Baconera",
@@ -123,7 +136,8 @@
     "variant": "Combo",
     "display_order": 0,
     "is_active": false,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Pepinillos",
@@ -132,7 +146,8 @@
     "variant": "Sencillo",
     "display_order": 0,
     "is_active": false,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Clásica",
@@ -141,7 +156,8 @@
     "variant": "Sencillo",
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Clásica",
@@ -150,7 +166,8 @@
     "variant": "Combo",
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -159,7 +176,8 @@
     "variant": "Sencillo",
     "display_order": 3,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -168,7 +186,8 @@
     "variant": "Combo",
     "display_order": 4,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -177,7 +196,8 @@
     "variant": "Sencillo",
     "display_order": 5,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -186,7 +206,8 @@
     "variant": "Combo",
     "display_order": 6,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Jugo Natural en Agua",
@@ -195,7 +216,8 @@
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Jugo Natural en Leche",
@@ -204,7 +226,8 @@
     "variant": null,
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Michelada",
@@ -213,7 +236,8 @@
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Limonada Natural",
@@ -222,7 +246,8 @@
     "variant": null,
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Porción de Papas Sencilla",
@@ -231,7 +256,8 @@
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Salchipapa Sencilla",
@@ -240,7 +266,8 @@
     "variant": null,
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Papa LoKa",
@@ -249,7 +276,8 @@
     "variant": null,
     "display_order": 3,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Perro Clásico",
@@ -258,7 +286,8 @@
     "variant": "Sencillo",
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Perro Especial",
@@ -267,7 +296,8 @@
     "variant": "Sencillo",
     "display_order": 2,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   },
   {
     "name": "Sándwich de Pollo",
@@ -276,6 +306,7 @@
     "variant": "Sencillo",
     "display_order": 1,
     "is_active": true,
-    "flavors": null
+    "flavors": null,
+    "flavor_prices": null
   }
 ]
