@@ -129,18 +129,17 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1>POS CHANATOS</h1>
+        <img src="/icon-192.png" alt="" className="login-logo" />
+        <h1>POS Chanatos</h1>
         <p className="login-subtitle">Ingresa tu PIN</p>
-        
-        <div className="pin-display">
-          <div className="pin-dots">
-            {[0, 1, 2, 3].map(i => (
-              <span
-                key={i}
-                className={`pin-dot ${i < pin.length ? 'filled' : ''}`}
-              />
-            ))}
-          </div>
+
+        <div className={`pin-dots ${error ? 'shake' : ''}`}>
+          {[0, 1, 2, 3].map(i => (
+            <span
+              key={i}
+              className={`pin-dot ${i < pin.length ? 'filled' : ''}`}
+            />
+          ))}
         </div>
 
         {error && (
@@ -163,26 +162,24 @@ export default function Login() {
         )}
 
         <div className="keypad">
-          <div className="keypad-row">
-            <button onClick={() => handleNumberClick('1')} disabled={blocked}>1</button>
-            <button onClick={() => handleNumberClick('2')} disabled={blocked}>2</button>
-            <button onClick={() => handleNumberClick('3')} disabled={blocked}>3</button>
-          </div>
-          <div className="keypad-row">
-            <button onClick={() => handleNumberClick('4')} disabled={blocked}>4</button>
-            <button onClick={() => handleNumberClick('5')} disabled={blocked}>5</button>
-            <button onClick={() => handleNumberClick('6')} disabled={blocked}>6</button>
-          </div>
-          <div className="keypad-row">
-            <button onClick={() => handleNumberClick('7')} disabled={blocked}>7</button>
-            <button onClick={() => handleNumberClick('8')} disabled={blocked}>8</button>
-            <button onClick={() => handleNumberClick('9')} disabled={blocked}>9</button>
-          </div>
-          <div className="keypad-row">
-            <button onClick={handleClear} className="clear-btn" disabled={blocked}>C</button>
-            <button onClick={() => handleNumberClick('0')} disabled={blocked}>0</button>
-            <button onClick={handleDelete} className="delete-btn" disabled={blocked}>⌫</button>
-          </div>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
+            <button
+              key={num}
+              className="key-digit"
+              onClick={() => handleNumberClick(num)}
+              disabled={blocked}
+            >
+              {num}
+            </button>
+          ))}
+          <button onClick={handleClear} className="key-action" disabled={blocked}>C</button>
+          <button className="key-digit" onClick={() => handleNumberClick('0')} disabled={blocked}>0</button>
+          <button onClick={handleDelete} className="key-action" disabled={blocked} aria-label="Borrar">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 4h11a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9L2.5 12 9 4z" />
+              <path d="M12.5 9.5l5 5M17.5 9.5l-5 5" />
+            </svg>
+          </button>
         </div>
 
         <button
@@ -190,7 +187,7 @@ export default function Login() {
           className="server-config-toggle"
           onClick={() => navigate('/config-servidor')}
         >
-          ⚙ Configurar servidor
+          Configurar servidor
         </button>
       </div>
     </div>

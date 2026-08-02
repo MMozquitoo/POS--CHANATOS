@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { IconPedidos, IconMenu, IconPlus } from '../NavIcons';
 import './BottomNav.css';
 
 // Barra de navegación fija para Mesero en celular (<768px), mismo patrón que
@@ -18,17 +19,19 @@ export default function BottomNav({ onOpenMesas, onOpenMenu }) {
         className={`mbn-tab ${isActive('/pedidos') ? 'active' : ''}`}
         onClick={() => navigate('/pedidos')}
       >
-        PEDIDOS
+        <IconPedidos />
+        <span>PEDIDOS</span>
       </button>
 
       <div className="mbn-fab-slot">
         <button type="button" className="mbn-fab" onClick={onOpenMesas} aria-label="Nueva orden">
-          +
+          <IconPlus />
         </button>
       </div>
 
       <button type="button" className="mbn-tab" onClick={onOpenMenu}>
-        MENÚ
+        <IconMenu />
+        <span>MENÚ</span>
       </button>
     </nav>
   );

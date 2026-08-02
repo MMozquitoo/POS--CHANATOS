@@ -68,10 +68,10 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
     zIndex: 1000,
     background: '#fff',
     pointerEvents: 'auto',
-    // FASE 18.5: Borde inferior por rol (rojo para CAJA, azul para MESERO)
-    borderBottom: roleTheme ? `3px solid ${roleTheme.accent}` : '1px solid #e0e0e0',
-    padding: compact ? '0.5rem 0.75rem' : '1rem',
-    maxHeight: compact ? 64 : undefined,
+    // Rediseño v2: hairline gris + acento de rol fino (antes 3px sólido)
+    borderBottom: roleTheme ? `2px solid ${roleTheme.accent}` : '1px solid var(--separator)',
+    padding: compact ? '0.5rem 0.75rem' : '0.7rem 1rem',
+    maxHeight: compact ? 60 : undefined,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -79,19 +79,20 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
     boxSizing: 'border-box',
   };
 
+  // Rediseño v2: botones de texto estilo barra iOS (sin caja alrededor)
   const backBtnStyle = {
     pointerEvents: 'auto',
     position: 'relative',
     zIndex: 1001,
     cursor: 'pointer',
-    padding: compact ? '0.4rem 0.75rem' : '0.5rem 1rem',
+    padding: compact ? '0.4rem 0.5rem' : '0.4rem 0.6rem',
     minHeight: 44,
-    background: '#f8f9fa',
-    border: '1px solid #ddd',
-    borderRadius: '6px',
-    fontWeight: 'bold',
-    fontSize: compact ? '0.85rem' : '0.9rem',
-    color: '#333',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: '10px',
+    fontWeight: 600,
+    fontSize: '0.9375rem',
+    color: 'var(--brand-deep)',
     whiteSpace: 'nowrap',
     flexShrink: 0,
   };
@@ -101,24 +102,24 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
     position: 'relative',
     zIndex: 1001,
     cursor: 'pointer',
-    background: '#6c757d',
-    color: 'white',
-    padding: compact ? '0.4rem 0.75rem' : '0.5rem 1rem',
+    background: 'var(--gray-50)',
+    color: 'var(--gray-900)',
+    padding: compact ? '0.4rem 0.7rem' : '0.4rem 0.85rem',
     minHeight: 44,
-    fontSize: compact ? '0.85rem' : '0.9rem',
+    fontSize: '0.9375rem',
     border: 'none',
-    borderRadius: '6px',
-    fontWeight: 'bold',
+    borderRadius: '999px',
+    fontWeight: 600,
     whiteSpace: 'nowrap',
     flexShrink: 0,
   };
 
-  // FASE 20.C: Jerarquía visual clara - título principal más prominente
   const titleStyle = {
     margin: 0,
-    fontSize: compact ? '1.1rem' : '1.2rem',
-    fontWeight: 600,
-    color: '#333',
+    fontSize: compact ? '1.0625rem' : '1.125rem',
+    fontWeight: 700,
+    letterSpacing: 'var(--tracking-title)',
+    color: 'var(--gray-900)',
     textAlign: 'center',
     minWidth: 0,
     overflow: 'hidden',
@@ -126,11 +127,10 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
     whiteSpace: 'nowrap',
   };
 
-  // FASE 20.C: Subtítulos con color y tamaño más sutiles
   const subtitleStyle = {
-    fontSize: compact ? '0.75rem' : '0.85rem',
-    color: '#666',
-    marginTop: compact ? '0.125rem' : '0.25rem',
+    fontSize: compact ? '0.75rem' : '0.8125rem',
+    color: 'var(--gray-500)',
+    marginTop: compact ? '0.125rem' : '0.2rem',
     fontWeight: 400
   };
 
@@ -140,7 +140,7 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
     <header className="caja-header" style={headerStyle}>
       {backTo ? (
         <button onClick={handleBack} className="back-btn" style={backBtnStyle}>
-          ← VOLVER
+          ‹ Volver
         </button>
       ) : (
         <div style={{ width: spacer, flexShrink: 0 }} />

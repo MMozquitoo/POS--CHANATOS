@@ -10,10 +10,11 @@ const STATUS_LABEL = {
   pedido_listo: 'Lista',
 };
 
-const STATUS_COLOR = {
-  libre: '#28a745',
-  pedido_activo: '#F5BB4C',
-  pedido_listo: '#dc3545',
+// Pills de estado (fondo tenue + texto oscuro, estilo iOS)
+const STATUS_PILL = {
+  libre: { background: 'var(--green-tint)', color: 'var(--green-text)' },
+  pedido_activo: { background: 'var(--brand-tint)', color: 'var(--brand-deep)' },
+  pedido_listo: { background: 'var(--red-tint)', color: 'var(--red-text)' },
 };
 
 // Reemplaza el panel "Mesas" que antes vivía fijo dentro de DetalleMesa
@@ -55,26 +56,27 @@ export default function OrdenesDrawer({ open, onClose }) {
       ) : (
         <>
           {specialTables.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem', marginBottom: '0.9rem' }}>
               {specialTables.map((table) => {
                 const type = getSpecialType(table);
                 return (
                   <button
                     key={table.id}
                     type="button"
+                    className="card--tap"
                     onClick={() => goToTable(table)}
                     style={{
                       padding: '1rem 0.5rem',
-                      background: type === 'VENTANILLA' ? '#FFF3D6' : '#e8f7ec',
-                      border: `2px solid ${type === 'VENTANILLA' ? '#F5BB4C' : '#28a745'}`,
-                      borderRadius: '10px',
-                      fontWeight: 'bold',
-                      fontSize: '0.95rem',
-                      color: '#333',
+                      background: type === 'VENTANILLA' ? 'var(--brand-tint)' : 'var(--green-tint)',
+                      border: 'none',
+                      borderRadius: 'var(--radius-lg)',
+                      fontWeight: 700,
+                      fontSize: 'var(--text-15)',
+                      color: type === 'VENTANILLA' ? 'var(--brand-deep)' : 'var(--green-text)',
                       cursor: 'pointer',
                     }}
                   >
-                    {type === 'VENTANILLA' ? 'VENTANILLA' : 'DOMICILIOS'}
+                    {type === 'VENTANILLA' ? 'Ventanilla' : 'Domicilios'}
                   </button>
                 );
               })}
@@ -86,20 +88,27 @@ export default function OrdenesDrawer({ open, onClose }) {
               <button
                 key={table.id}
                 type="button"
+                className="card--tap"
                 onClick={() => goToTable(table)}
                 style={{
-                  padding: '0.9rem 0.5rem',
-                  background: 'white',
-                  border: `2px solid ${STATUS_COLOR[table.status] || '#ddd'}`,
-                  borderRadius: '10px',
+                  padding: '0.8rem 0.5rem 0.7rem',
+                  background: 'var(--gray-50)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-lg)',
                   textAlign: 'center',
                   cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.35rem',
                 }}
               >
-                <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#333' }}>{table.number}</div>
-                <div style={{ fontSize: '0.75rem', color: STATUS_COLOR[table.status] || '#999', fontWeight: 'bold' }}>
-                  {STATUS_LABEL[table.status] || table.status}
+                <div className="tnum" style={{ fontSize: 'var(--text-22)', fontWeight: 800, color: 'var(--gray-900)', lineHeight: 1 }}>
+                  {table.number}
                 </div>
+                <span className="pill" style={STATUS_PILL[table.status] || { background: 'var(--gray-100)', color: 'var(--gray-600)' }}>
+                  {STATUS_LABEL[table.status] || table.status}
+                </span>
               </button>
             ))}
           </div>

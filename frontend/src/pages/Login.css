@@ -1,218 +1,202 @@
+/* Login estilo código de iPhone: teclado circular, puntos de progreso,
+   fondo degradado suave de marca. Rediseño visual fase 1 (2026-08). */
+
 .login-container {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #F5BB4C 0%, #e6a03d 100%);
+  background: linear-gradient(180deg, #FFFDF7 0%, var(--brand-tint) 55%, #FBE9C4 100%);
   padding: 1rem;
 }
 
 .login-box {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+.login-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 14px;
 }
 
 .login-box h1 {
-  text-align: center;
-  color: #333;
-  margin-bottom: 0.5rem;
-  font-size: 2rem;
+  color: var(--gray-900);
+  font-size: var(--text-22);
+  font-weight: 700;
+  letter-spacing: var(--tracking-title);
+  margin: 0 0 2px;
 }
 
 .login-subtitle {
-  text-align: center;
-  color: #666;
-  margin-bottom: 2rem;
-  font-size: 1rem;
-}
-
-.pin-display {
-  margin-bottom: 1.5rem;
+  color: var(--gray-500);
+  font-size: var(--text-15);
+  margin: 0 0 22px;
 }
 
 .pin-dots {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 22px;
+  margin-bottom: 26px;
 }
 
 .pin-dot {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 2px solid #ddd;
-  background: white;
-  transition: all 0.2s;
+  border: 1.5px solid var(--gray-400);
+  background: transparent;
+  transition: all 0.18s var(--ease-ios);
 }
 
 .pin-dot.filled {
-  background: #F5BB4C;
-  border-color: #F5BB4C;
+  background: var(--gray-900);
+  border-color: var(--gray-900);
+  transform: scale(1.1);
+}
+
+/* Sacudida al fallar el PIN, como el código de iPhone */
+.pin-dots.shake {
+  animation: pin-shake 0.4s ease;
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
 }
 
 .error-message {
-  background: #fee;
-  color: #c33;
-  padding: 0.75rem;
-  border-radius: 8px;
+  background: var(--red-tint);
+  color: var(--red-text);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
   text-align: center;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  margin-bottom: 14px;
+  font-size: var(--text-13);
+  font-weight: 600;
 }
 
 .blocked-message {
-  background: #ffeaa7;
-  color: #d63031;
-  padding: 0.75rem;
-  border-radius: 8px;
+  background: var(--orange-tint);
+  color: var(--orange-text);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
   text-align: center;
-  margin-bottom: 1rem;
-  font-weight: bold;
+  margin-bottom: 14px;
+  font-weight: 600;
+  font-size: var(--text-13);
 }
 
 .keypad {
-  margin-bottom: 1.5rem;
-}
-
-.keypad-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 76px);
+  gap: 18px 26px;
+  justify-content: center;
+  margin-bottom: 18px;
 }
 
 .keypad button {
-  flex: 1;
-  height: 60px;
-  font-size: 1.5rem;
-  font-weight: bold;
-  background: #f8f9fa;
-  border-radius: 8px;
-  transition: all 0.2s;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.keypad button:hover:not(:disabled) {
-  background: #e9ecef;
-  transform: scale(1.05);
+.key-digit {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow-sm);
+  font-size: 1.9rem;
+  font-weight: 500;
+  color: var(--gray-900);
+  font-variant-numeric: tabular-nums;
 }
 
-.keypad button:active:not(:disabled) {
-  transform: scale(0.95);
+.key-digit:hover:not(:disabled) {
+  background: #fff;
+}
+
+.key-digit:active:not(:disabled) {
+  background: var(--brand-light);
+  transform: scale(0.94);
+}
+
+.key-action {
+  background: transparent;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.key-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.key-action:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .keypad button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
-
-.clear-btn {
-  background: #ff6b6b !important;
-  color: white;
-}
-
-.delete-btn {
-  background: #4ecdc4 !important;
-  color: white;
-}
-
-.enter-btn {
-  width: 100%;
-  height: 50px;
-  background: #F5BB4C;
-  color: white;
-  font-size: 1.2rem;
-  font-weight: bold;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.enter-btn:hover:not(:disabled) {
-  background: #D4A03A;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 187, 76, 0.4);
-}
-
-.enter-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 
 .server-config-toggle {
-  margin-top: 12px;
+  margin-top: 6px;
   background: transparent;
   border: none;
-  color: #999;
-  font-size: 0.85rem;
+  color: var(--gray-500);
+  font-size: var(--text-13);
+  font-weight: 500;
   cursor: pointer;
+  padding: 10px;
 }
 
 .server-config-toggle:hover {
-  color: #D4A03A;
-}
-
-.server-config {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.server-config input {
-  flex: 1;
-  min-width: 200px;
-  height: 40px;
-  padding: 0 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-
-.server-config button {
-  height: 40px;
-  padding: 0 16px;
-  background: #F5BB4C;
-  color: white;
-  border-radius: 8px;
-  font-weight: bold;
-}
-
-.server-config-hint {
-  width: 100%;
-  margin: 0;
-  color: #999;
-  font-size: 0.75rem;
-  text-align: left;
+  color: var(--brand-deep);
 }
 
 .discovery-message {
-  margin: 8px 0;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  margin: 0 0 14px;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-13);
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  text-align: center;
 }
 
 .discovery-message.searching {
-  background: #FFF8E7;
-  color: #B8860B;
+  background: var(--brand-tint);
+  color: var(--brand-deep);
 }
 
 .discovery-message.failed {
-  background: #ffeaea;
-  color: #c0392b;
+  background: var(--red-tint);
+  color: var(--red-text);
 }
 
 .discovery-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid #F5BB4C;
+  border: 2px solid var(--brand);
   border-top-color: transparent;
   border-radius: 50%;
   flex-shrink: 0;

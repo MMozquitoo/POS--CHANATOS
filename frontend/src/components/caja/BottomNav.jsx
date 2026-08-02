@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { IconCocina, IconCobrar, IconResumen, IconMenu, IconPlus } from '../NavIcons';
 import './BottomNav.css';
 
 // Barra de navegación fija para Caja en celular (<768px). Reemplaza tener que
@@ -17,7 +18,8 @@ export default function BottomNav({ onOpenOrdenes, onOpenMenu }) {
         className={`bn-tab ${isActive('/cocina') ? 'active' : ''}`}
         onClick={() => navigate('/cocina')}
       >
-        COCINA
+        <IconCocina />
+        <span>COCINA</span>
       </button>
 
       <button
@@ -25,12 +27,13 @@ export default function BottomNav({ onOpenOrdenes, onOpenMenu }) {
         className={`bn-tab ${isActive('/centro-total') && location.state?.tab === 'listo' ? 'active' : ''}`}
         onClick={() => navigate('/centro-total', { state: { tab: 'listo' } })}
       >
-        COBRAR
+        <IconCobrar />
+        <span>COBRAR</span>
       </button>
 
       <div className="bn-fab-slot">
         <button type="button" className="bn-fab" onClick={onOpenOrdenes} aria-label="Nueva orden">
-          +
+          <IconPlus />
         </button>
       </div>
 
@@ -39,11 +42,13 @@ export default function BottomNav({ onOpenOrdenes, onOpenMenu }) {
         className={`bn-tab ${isActive('/centro') ? 'active' : ''}`}
         onClick={() => navigate('/centro')}
       >
-        RESUMEN
+        <IconResumen />
+        <span>RESUMEN</span>
       </button>
 
       <button type="button" className="bn-tab" onClick={onOpenMenu}>
-        MENÚ
+        <IconMenu />
+        <span>MENÚ</span>
       </button>
     </nav>
   );

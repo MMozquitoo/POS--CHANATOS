@@ -16,54 +16,36 @@ export default function MenuDrawer({ open, onClose }) {
   return (
     <>
       <Modal open={open} onClose={onClose} title="Menú">
-        <button
-          type="button"
-          style={{
-            display: 'block',
-            width: '100%',
-            textAlign: 'left',
-            padding: '0.85rem 1rem',
-            background: '#FFF8E7',
-            border: '1.5px solid #F5BB4C',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            fontSize: '0.95rem',
-            color: '#333',
-            cursor: 'pointer',
-            marginBottom: '0.75rem',
-          }}
-          onClick={() => {
-            onClose?.();
-            navigate('/sabores');
-          }}
-        >
-          SABORES DEL MENÚ
-        </button>
-
-        <button
-          type="button"
-          style={{
-            display: 'block',
-            width: '100%',
-            textAlign: 'left',
-            padding: '0.85rem 1rem',
-            background: '#fdecea',
-            border: '1.5px solid #dc3545',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            fontSize: '0.95rem',
-            color: '#dc3545',
-            cursor: 'pointer',
-          }}
-          onClick={async () => {
-            if (await showConfirm('¿Cerrar sesión?')) {
+        <div className="list-group list-group--inset" style={{ marginBottom: '0.9rem' }}>
+          <button
+            type="button"
+            className="list-row list-row--tap"
+            style={{ cursor: 'pointer', fontWeight: 700 }}
+            onClick={() => {
               onClose?.();
-              logout();
-            }
-          }}
-        >
-          SALIR
-        </button>
+              navigate('/sabores');
+            }}
+          >
+            <span className="list-row__main">Sabores del menú</span>
+            <span className="list-row__chevron" aria-hidden="true">›</span>
+          </button>
+        </div>
+
+        <div className="list-group list-group--inset">
+          <button
+            type="button"
+            className="list-row list-row--tap"
+            style={{ cursor: 'pointer', fontWeight: 500, color: 'var(--red-text)' }}
+            onClick={async () => {
+              if (await showConfirm('¿Cerrar sesión?')) {
+                onClose?.();
+                logout();
+              }
+            }}
+          >
+            <span className="list-row__main">Salir</span>
+          </button>
+        </div>
       </Modal>
       <ModalHost confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} />
     </>
