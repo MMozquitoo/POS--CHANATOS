@@ -1,0 +1,332 @@
+/* ============================================================
+   POS Chanatos — Primitivas del sistema de diseño (v2, 2026-08)
+   Componentes base estilo iOS. TODO estilo nuevo parte de aquí;
+   no inventar botones/cards/listas ad-hoc en CSS de página.
+   ============================================================ */
+
+/* ---------- Botones ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-family);
+  font-size: var(--text-17);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast), transform var(--transition-fast),
+    opacity var(--transition-fast);
+  user-select: none;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--primary {
+  background: var(--brand);
+  color: var(--gray-900);
+}
+.btn--primary:hover { background: var(--brand-hover); }
+.btn--primary:active { background: var(--brand-dark); }
+
+.btn--secondary {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+.btn--secondary:hover { background: var(--gray-100); }
+
+.btn--destructive {
+  background: var(--red-text);
+  color: #fff;
+}
+.btn--destructive:hover { background: #b80012; }
+
+/* Destructivo suave: acción peligrosa secundaria (iOS: texto rojo, fondo gris) */
+.btn--destructive-ghost {
+  background: var(--gray-50);
+  color: var(--red-text);
+}
+.btn--destructive-ghost:hover { background: var(--red-tint); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--brand-deep);
+}
+.btn--ghost:hover { background: var(--brand-tint); }
+
+/* Botón principal de pantalla: ancho completo, alto, para el pulgar */
+.btn--lg {
+  width: 100%;
+  min-height: 54px;
+  font-size: var(--text-17);
+  font-weight: 700;
+  border-radius: var(--radius-lg);
+}
+
+.btn--sm {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: var(--text-15);
+  border-radius: var(--radius-md);
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+}
+.card--elevated {
+  box-shadow: var(--shadow-md);
+}
+/* Card tocable (mesa, producto, orden) */
+.card--tap {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.card--tap:active {
+  transform: scale(0.97);
+}
+
+/* ---------- Listas agrupadas (estilo Ajustes de iOS) ---------- */
+.list-group {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 16px;
+  background: #fff;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-family);
+  font-size: var(--text-17);
+  color: var(--gray-900);
+  -webkit-tap-highlight-color: transparent;
+}
+/* Separador hairline con inset a la izquierda (no llega al borde) */
+.list-row + .list-row {
+  position: relative;
+}
+.list-row + .list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--separator);
+}
+.list-row--tap {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.list-row--tap:active {
+  background: var(--gray-50);
+}
+.list-row__main {
+  flex: 1;
+  min-width: 0;
+}
+.list-row__detail {
+  color: var(--gray-500);
+  font-size: var(--text-15);
+}
+.list-row__chevron {
+  color: var(--gray-300);
+  flex-shrink: 0;
+}
+/* Encabezado de sección de lista (13px mayúsculas gris, estilo iOS) */
+.list-header {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 18px 16px 8px;
+}
+
+/* ---------- Segmented control ---------- */
+.segmented {
+  display: flex;
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.segmented__btn {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-15);
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+.segmented__btn.is-active {
+  background: #fff;
+  color: var(--gray-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Pills de estado (enums SIEMPRE via statusLabels.js) ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-13);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pill--nuevo    { background: var(--blue-tint);   color: var(--blue-text); }
+.pill--enprep   { background: var(--orange-tint); color: var(--orange-text); }
+.pill--listo    { background: var(--green-tint);  color: var(--green-text); }
+.pill--pagada   { background: var(--gray-50);     color: var(--gray-600); }
+.pill--cancelado{ background: var(--red-tint);    color: var(--red-text); }
+.pill--brand    { background: var(--brand-tint);  color: var(--brand-deep); }
+/* Punto de estado opcional dentro de la pill */
+.pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------- Switch estilo iOS (CSS puro sobre un checkbox) ---------- */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+}
+.switch input {
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.switch__track {
+  position: absolute;
+  inset: 0;
+  background: var(--gray-100);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-normal);
+  pointer-events: none;
+}
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition-normal) var(--ease-ios);
+}
+.switch input:checked + .switch__track {
+  background: var(--green);
+}
+.switch input:checked + .switch__track::after {
+  transform: translateX(20px);
+}
+
+/* ---------- Números tabulares (precios, totales, reportes) ---------- */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Título de pantalla (Large Title) ---------- */
+.screen-title {
+  font-size: var(--text-28);
+  font-weight: 700;
+  letter-spacing: var(--tracking-title);
+  color: var(--gray-900);
+  margin: 0;
+}
+.screen-subtitle {
+  font-size: var(--text-15);
+  color: var(--gray-500);
+  margin: 2px 0 0;
+}
+
+/* ============================================================
+   Sheet móvil: los modales suben desde abajo en <768px.
+   CSS puro sobre .chanatos-modal — NO tocar Modal.jsx (el efecto
+   de foco con deps [open] es intocable, bug "solo deja una letra").
+   ============================================================ */
+@media (max-width: 768px) {
+  .chanatos-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .chanatos-modal {
+    max-width: 100%;
+    width: 100%;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    max-height: 92dvh;
+    padding: 28px 20px calc(20px + env(safe-area-inset-bottom));
+    animation: sheet-up 350ms var(--ease-ios);
+  }
+  /* Grabber (barrita gris de arrastre, decorativa) */
+  .chanatos-modal::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 5px;
+    border-radius: var(--radius-full);
+    background: var(--gray-300);
+    margin: -16px auto 14px;
+  }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(40%); opacity: 0.6; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chanatos-modal {
+    animation: none;
+  }
+  .btn:active,
+  .card--tap:active,
+  .btn-chanatos:active,
+  .btn-chanatos-outline:active,
+  .btn-danger:active,
+  .btn-success:active,
+  .btn-secondary:active {
+    transform: none;
+  }
+}

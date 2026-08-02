@@ -30,7 +30,7 @@ export default defineConfig({
         scope: '/'
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Sin esto, un service worker nuevo se instala pero se queda "esperando"
         // hasta que se cierren TODAS las pestañas abiertas de ese origen antes de
         // activarse — en la práctica, cambios que sí llegaron al servidor

@@ -1,81 +1,153 @@
+/* ============================================================
+   POS Chanatos — Design tokens v2 (rediseño visual 2026-08)
+   Lenguaje: estética Apple/iOS sobre la marca Chanatos (ámbar).
+   REGLA: los estilos nuevos usan los tokens nuevos; los nombres
+   --chanatos-* viejos quedan como ALIAS para el CSS existente y
+   se irán retirando en la fase 6 (purga).
+   ============================================================ */
+
+/* Inter Variable (gemela de SF Pro), empaquetada local — el POS corre sin internet */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  /* Chanatos Brand Colors */
-  --chanatos-primary: #F5BB4C;
-  --chanatos-primary-dark: #D4A03A;
-  --chanatos-primary-light: #F8CE7A;
-  --chanatos-primary-bg: #FFF8E7;
-  --chanatos-primary-hover: #E5AB3C;
+  /* ---- Marca ---- */
+  --brand: #F5BB4C;
+  --brand-dark: #D4A03A;      /* pressed */
+  --brand-deep: #8A6414;      /* texto ámbar legible sobre blanco (AA) */
+  --brand-light: #F8CE7A;
+  --brand-tint: #FFF8E7;      /* fondos suaves de marca */
+  --brand-hover: #E5AB3C;
 
-  /* Neutral Colors */
-  --chanatos-dark: #1a1a2e;
-  --chanatos-dark-light: #2d2d44;
-  --chanatos-gray-900: #212529;
-  --chanatos-gray-700: #495057;
-  --chanatos-gray-600: #6c757d;
-  --chanatos-gray-400: #ced4da;
-  --chanatos-gray-200: #e9ecef;
-  --chanatos-gray-100: #f8f9fa;
-  --chanatos-white: #ffffff;
+  /* ---- Grises (escala iOS systemGray) ---- */
+  --gray-50: #F2F2F7;   /* fondo agrupado */
+  --gray-100: #E5E5EA;  /* separadores, rellenos */
+  --gray-200: #D1D1D6;
+  --gray-300: #C7C7CC;
+  --gray-400: #AEAEB2;
+  --gray-500: #8E8E93;  /* texto secundario */
+  --gray-600: #6E6E73;
+  --gray-700: #48484A;
+  --gray-800: #2C2C2E;
+  --gray-900: #1C1C1E;  /* texto principal, casi negro iOS */
 
-  /* Status Colors */
-  --chanatos-success: #28a745;
-  --chanatos-success-light: #d4edda;
-  --chanatos-danger: #dc3545;
-  --chanatos-danger-light: #f8d7da;
-  --chanatos-warning: #ffc107;
-  --chanatos-info: #17a2b8;
+  /* ---- Semánticos (viva = rellenos/pills; -text = texto sobre blanco, AA) ---- */
+  --green: #34C759;
+  --green-text: #1E7B36;
+  --green-tint: #E9F9EE;
+  --red: #FF3B30;
+  --red-text: #D70015;
+  --red-tint: #FDECEB;
+  --orange: #FF9500;
+  --orange-text: #B25000;
+  --orange-tint: #FFF3E3;
+  --blue: #0A84FF;
+  --blue-text: #0058CC;
+  --blue-tint: #EAF3FF;
 
-  /* Spacing */
+  /* ---- Tipografía ---- */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Escala iOS (11/13/15/17/20/22/28/34) para pantallas rediseñadas */
+  --text-11: 0.6875rem;
+  --text-13: 0.8125rem;
+  --text-15: 0.9375rem;
+  --text-17: 1.0625rem;
+  --text-20: 1.25rem;
+  --text-22: 1.375rem;
+  --text-28: 1.75rem;
+  --text-34: 2.125rem;
+  --tracking-title: -0.02em; /* títulos grandes, ligeramente compactos como SF */
+
+  /* ---- Radios ---- */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-full: 999px;
+
+  /* ---- Sombras (2 capas, difusas — nada de bordes duros) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 6px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.06), 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* ---- Separadores ---- */
+  --separator: var(--gray-100);
+
+  /* ---- Movimiento ---- */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1); /* el de las sheets de iOS */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* ---- Espaciado ---- */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2rem;
 
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 50%;
+  /* ============================================================
+     ALIAS DE COMPATIBILIDAD (nombres v1 → valores v2)
+     No usar en código nuevo. Se retiran en fase 6.
+     ============================================================ */
+  --chanatos-primary: var(--brand);
+  --chanatos-primary-dark: var(--brand-dark);
+  --chanatos-primary-light: var(--brand-light);
+  --chanatos-primary-bg: var(--brand-tint);
+  --chanatos-primary-hover: var(--brand-hover);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
+  --chanatos-dark: var(--gray-900);
+  --chanatos-dark-light: var(--gray-800);
+  --chanatos-gray-900: var(--gray-900);
+  --chanatos-gray-700: var(--gray-700);
+  --chanatos-gray-600: var(--gray-600);
+  --chanatos-gray-400: var(--gray-300);
+  --chanatos-gray-200: var(--gray-100);
+  --chanatos-gray-100: var(--gray-50);
+  --chanatos-white: #ffffff;
 
-  /* Typography */
-  --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --chanatos-success: var(--green-text);
+  --chanatos-success-light: var(--green-tint);
+  --chanatos-danger: var(--red-text);
+  --chanatos-danger-light: var(--red-tint);
+  --chanatos-warning: var(--orange);
+  --chanatos-info: var(--blue);
+
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
   --font-size-xl: 1.5rem;
   --font-size-2xl: 2rem;
-
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
 }
 
-/* Utility classes */
+/* ============================================================
+   Utilidades v1 (compat) — restyled con los tokens v2
+   ============================================================ */
 .btn-chanatos {
-  background: var(--chanatos-primary);
-  color: var(--chanatos-dark);
+  background: var(--brand);
+  color: var(--gray-900);
   border: none;
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   font-size: var(--font-size-md);
-  min-height: 44px;
+  min-height: 46px;
 }
 .btn-chanatos:hover {
-  background: var(--chanatos-primary-hover);
+  background: var(--brand-hover);
 }
 .btn-chanatos:active {
-  background: var(--chanatos-primary-dark);
+  background: var(--brand-dark);
+  transform: scale(0.97);
 }
 .btn-chanatos:disabled {
   opacity: 0.5;
@@ -84,70 +156,81 @@
 
 .btn-chanatos-outline {
   background: transparent;
-  color: var(--chanatos-primary);
-  border: 2px solid var(--chanatos-primary);
+  color: var(--brand-deep);
+  border: 2px solid var(--brand);
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
   font-size: var(--font-size-md);
-  min-height: 44px;
+  min-height: 46px;
 }
 .btn-chanatos-outline:hover {
-  background: var(--chanatos-primary);
-  color: var(--chanatos-dark);
+  background: var(--brand);
+  color: var(--gray-900);
+}
+.btn-chanatos-outline:active {
+  transform: scale(0.97);
 }
 
 .btn-danger {
-  background: var(--chanatos-danger);
+  background: var(--red-text);
   color: white;
   border: none;
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   font-size: var(--font-size-md);
-  min-height: 44px;
+  min-height: 46px;
 }
 .btn-danger:hover {
-  background: #c82333;
+  background: #b80012;
+}
+.btn-danger:active {
+  transform: scale(0.97);
 }
 
 .btn-success {
-  background: var(--chanatos-success);
+  background: var(--green-text);
   color: white;
   border: none;
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   font-size: var(--font-size-md);
-  min-height: 44px;
+  min-height: 46px;
 }
 .btn-success:hover {
-  background: #218838;
+  background: #17662b;
+}
+.btn-success:active {
+  transform: scale(0.97);
 }
 
 .btn-secondary {
-  background: var(--chanatos-gray-600);
-  color: white;
+  background: var(--gray-50);
+  color: var(--gray-900);
   border: none;
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
   font-size: var(--font-size-md);
-  min-height: 44px;
+  min-height: 46px;
 }
 .btn-secondary:hover {
-  background: var(--chanatos-gray-700);
+  background: var(--gray-100);
+}
+.btn-secondary:active {
+  transform: scale(0.97);
 }
 
-/* Card styles */
 .chanatos-card {
   background: var(--chanatos-white);
   border-radius: var(--radius-lg);
@@ -155,14 +238,14 @@
   padding: var(--space-lg);
 }
 
-/* Modal overlay */
+/* Modal overlay — z-index 3000: SIEMPRE encima de recibos */
 .chanatos-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -172,7 +255,7 @@
 
 .chanatos-modal {
   background: var(--chanatos-white);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   max-width: 500px;
   width: 100%;
@@ -183,7 +266,9 @@
 
 .chanatos-modal h3 {
   margin: 0 0 var(--space-md);
-  font-size: var(--font-size-lg);
+  font-size: var(--text-20);
+  font-weight: 700;
+  letter-spacing: var(--tracking-title);
 }
 
 .chanatos-modal-actions {
