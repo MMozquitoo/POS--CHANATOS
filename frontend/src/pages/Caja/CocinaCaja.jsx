@@ -10,7 +10,7 @@ import { useAlert, useConfirm } from '../../hooks/useModal';
 import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 
 /* OrderCard extracted outside CocinaCaja to avoid re-creating on every render */
-function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus }) {
+function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus, onCobrar }) {
   const getActionButton = () => {
     if (order.status === 'NUEVO') {
       return (
@@ -38,6 +38,18 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
           style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
         >
           {isUpdating ? 'Marcando...' : 'Marcar Listo'}
+        </button>
+      );
+    } else if (order.status === 'LISTO' && onCobrar) {
+      // Cobro directo desde el tablero de cocina: sin recorrer la app
+      // buscando el pedido (dueño, 2026-08-02)
+      return (
+        <button
+          onClick={(e) => { e.stopPropagation(); onCobrar(order); }}
+          className="btn-chanatos"
+          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', fontWeight: 800 }}
+        >
+          COBRAR
         </button>
       );
     }
@@ -339,7 +351,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos nuevos</p>
             ) : (
               orders.NUEVO.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
               ))
             )}
           </div>
@@ -370,7 +382,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos en preparación</p>
             ) : (
               orders.EN_PREP.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
               ))
             )}
           </div>
@@ -401,7 +413,7 @@ export default function CocinaCaja({ hideHeader = false }) {
               <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos listos</p>
             ) : (
               orders.LISTO.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} />
+                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
               ))
             )}
           </div>

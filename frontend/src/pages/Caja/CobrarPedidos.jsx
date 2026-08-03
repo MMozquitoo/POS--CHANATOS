@@ -498,7 +498,10 @@ export default function CobrarPedidos() {
                       checked={selectedItemIds.has(item.id)}
                       onChange={() => toggleItem(item.id)}
                     />
-                    <span>{item.qty}x {item.name} ({formatPriceCOP(item.qty * (item.price ?? 0))})</span>
+                    <span>
+                      {item.qty}x {item.name} ({formatPriceCOP(item.qty * (item.price ?? 0))})
+                      {item.notes && <span style={{ display: 'block', color: '#B25000', fontSize: '0.85rem' }}>{item.notes}</span>}
+                    </span>
                   </label>
                 ))}
               </div>
