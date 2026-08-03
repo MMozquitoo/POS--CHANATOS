@@ -28,7 +28,9 @@ export default function UpdateBanner() {
       checkingRef.current = true;
       try {
         const { data } = await axios.get('/update/version');
-        if (data?.version && data.version !== BUILT_VERSION) {
+        // "desarrollo" = servidor sin archivo VERSION (Mac de desarrollo): no
+        // se puede comparar nada — sin esto el aviso salía en bucle infinito
+        if (data?.version && data.version !== 'desarrollo' && data.version !== BUILT_VERSION) {
           setNewVersion(data.version);
         }
       } catch {

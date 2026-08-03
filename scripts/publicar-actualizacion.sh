@@ -31,6 +31,11 @@ printf '%s\n' "$VERSION" > "$STAGE/VERSION"
 ( cd "$STAGE" && zip -qry "$OUT/POS-Chanatos-Update.zip" . )
 printf '%s\n' "$VERSION" > "$OUT/version.txt"
 
+# También en la raíz del repo: el dist recién compilado queda marcado con esta
+# versión, y si esta Mac sirve el POS, /api/update/version debe decir lo mismo
+# (si no, el aviso "Actualizar ahora" sale en bucle y nunca se quita).
+printf '%s\n' "$VERSION" > "$ROOT/VERSION"
+
 echo "→ Subiendo release a GitHub ($REPO)..."
 gh release create "v$VERSION" \
   "$OUT/POS-Chanatos-Update.zip" \
