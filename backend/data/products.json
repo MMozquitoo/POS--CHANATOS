@@ -46,7 +46,7 @@
   {
     "name": "Gaseosa Litro",
     "category": "BEBIDAS",
-    "price": 5500,
+    "price": 6000,
     "variant": "1 L",
     "display_order": 5,
     "is_active": true,
@@ -90,7 +90,7 @@
   {
     "name": "Corona",
     "category": "CERVEZAS",
-    "price": 6000,
+    "price": 8000,
     "variant": null,
     "display_order": 3,
     "is_active": true,
@@ -167,7 +167,7 @@
   {
     "name": "Hamburguesa Clásica",
     "category": "HAMBURGUESAS",
-    "price": 12000,
+    "price": 13000,
     "variant": "Sencillo",
     "display_order": 1,
     "is_active": true,
@@ -178,7 +178,7 @@
   {
     "name": "Hamburguesa Clásica",
     "category": "HAMBURGUESAS",
-    "price": 16000,
+    "price": 17000,
     "variant": "Combo",
     "display_order": 2,
     "is_active": true,
@@ -189,7 +189,7 @@
   {
     "name": "Hamburguesa Chanata",
     "category": "HAMBURGUESAS",
-    "price": 16000,
+    "price": 17000,
     "variant": "Sencillo",
     "display_order": 3,
     "is_active": true,
@@ -200,7 +200,7 @@
   {
     "name": "Hamburguesa Chanata",
     "category": "HAMBURGUESAS",
-    "price": 20000,
+    "price": 21000,
     "variant": "Combo",
     "display_order": 4,
     "is_active": true,
@@ -211,7 +211,7 @@
   {
     "name": "Hamburguesa Doble Carne",
     "category": "HAMBURGUESAS",
-    "price": 18000,
+    "price": 20000,
     "variant": "Sencillo",
     "display_order": 5,
     "is_active": true,
@@ -222,7 +222,7 @@
   {
     "name": "Hamburguesa Doble Carne",
     "category": "HAMBURGUESAS",
-    "price": 22000,
+    "price": 24000,
     "variant": "Combo",
     "display_order": 6,
     "is_active": true,
@@ -233,11 +233,11 @@
   {
     "name": "Jugo Natural en Agua",
     "category": "JUGOS_NATURALES",
-    "price": 7000,
+    "price": 5000,
     "variant": null,
     "display_order": 1,
     "is_active": true,
-    "flavors": null,
+    "flavors": "Fresa, guanabana, Mora, Lulo, Mango, Maracuya, Coco",
     "flavor_prices": null,
     "flavors_active": null
   },
@@ -259,14 +259,14 @@
     "variant": "Corona",
     "display_order": 1,
     "is_active": true,
-    "flavors": "Poker, Corona",
-    "flavor_prices": "{\"Poker\":9000,\"Corona\":10000}",
-    "flavors_active": "[\"Poker\",\"Corona\"]"
+    "flavors": "Poker, Corona, Club Col, Heineken",
+    "flavor_prices": "{\"Poker\":8000,\"Corona\":10000,\"Club Col\":9000,\"Heineken\":8996}",
+    "flavors_active": "[\"Poker\",\"Corona\",\"Club Col\",\"Heineken\"]"
   },
   {
     "name": "Limonada Natural",
     "category": "OTROS",
-    "price": 10000,
+    "price": 8000,
     "variant": null,
     "display_order": 2,
     "is_active": true,
@@ -299,7 +299,7 @@
   {
     "name": "Papa LoKa",
     "category": "PAPAS",
-    "price": 18000,
+    "price": 20000,
     "variant": null,
     "display_order": 3,
     "is_active": true,
@@ -310,7 +310,7 @@
   {
     "name": "Perro Clásico",
     "category": "PERROS_CALIENTES",
-    "price": 8000,
+    "price": 9000,
     "variant": "Sencillo",
     "display_order": 1,
     "is_active": true,
@@ -321,7 +321,7 @@
   {
     "name": "Perro Especial",
     "category": "PERROS_CALIENTES",
-    "price": 10000,
+    "price": 11000,
     "variant": "Sencillo",
     "display_order": 2,
     "is_active": true,
