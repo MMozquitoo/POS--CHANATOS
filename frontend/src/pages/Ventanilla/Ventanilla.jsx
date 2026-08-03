@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { formatPriceCOP } from '../../utils/currency.js';
@@ -80,6 +80,15 @@ export default function Ventanilla() {
       showAlert('Error al cargar items de la orden');
     }
   };
+
+  // Si llegan con ?orderId= (ej. "Modificar orden" desde Cocina), abrir esa
+  // orden directo — sin obligar a re-seleccionarla de la lista (dueño, 2026-08).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const oid = searchParams.get('orderId');
+    if (oid) selectOrder(Number(oid));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectOrder = async (orderId) => {
     setSelectedOrderId(orderId);

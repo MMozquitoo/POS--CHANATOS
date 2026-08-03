@@ -478,8 +478,8 @@ export default function CocinaCaja({ hideHeader = false }) {
                 onClick={() => {
                   const o = selectedOrder;
                   setSelectedOrder(null);
-                  if (o.channel === 'VENTANILLA') navigate('/ventanilla');
-                  else if (o.channel === 'DOMICILIO') navigate('/domicilios');
+                  if (o.channel === 'VENTANILLA') navigate('/ventanilla?orderId=' + o.id);
+                  else if (o.channel === 'DOMICILIO') navigate('/domicilios?orderId=' + o.id);
                   else navigate(`/mesa/${o.table_id}`);
                 }}
               >
