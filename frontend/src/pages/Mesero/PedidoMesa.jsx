@@ -5,6 +5,7 @@ import axios from 'axios';
 import Modal from '../../components/Modal';
 import ProductPicker from '../../components/ProductPicker';
 import { useAlert } from '../../hooks/useModal';
+import { formatPriceCOP } from '../../utils/currency.js';
 import './Mesero.css';
 
 const STATUS_LABELS = {
@@ -206,7 +207,7 @@ export default function PedidoMesa() {
   return (
     <div className="pedido-container">
       <header className="pedido-header">
-        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
+        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">‹ Volver</button>
         <h2>{table?.label || `Mesa ${tableId}`}</h2>
       </header>
 
@@ -216,21 +217,22 @@ export default function PedidoMesa() {
           <div style={{
             padding: '1rem',
             marginBottom: '1rem',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #ddd'
+            background: '#fff',
+            borderRadius: 'var(--radius-xl)',
+            boxShadow: 'var(--shadow-sm)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
               <div>
-                <strong>
-                  {order.daily_no ? `ORDEN ${order.daily_no}` : order.code || `ORDEN ${order.id}`}
+                <strong style={{ fontSize: 'var(--text-17)', letterSpacing: 'var(--tracking-title)' }}>
+                  {order.daily_no ? `Orden ${order.daily_no}` : order.code || `Orden ${order.id}`}
                 </strong>
-                <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
-                  Estado: <span style={{
-                    color: order.status === 'NUEVO' ? '#ffc107' :
-                           order.status === 'EN_PREP' ? '#F5BB4C' : '#28a745',
-                    fontWeight: 'bold'
-                  }}>{STATUS_LABELS[order.status] || order.status}</span>
+                <div style={{ marginTop: '0.35rem' }}>
+                  <span className={`order-status ${
+                    order.status === 'NUEVO' ? 'status-nuevo' :
+                    order.status === 'EN_PREP' ? 'status-en-prep' : 'status-listo'
+                  }`}>
+                    {STATUS_LABELS[order.status] || order.status}
+                  </span>
                 </div>
               </div>
               {order.status === 'NUEVO' && (
@@ -246,12 +248,12 @@ export default function PedidoMesa() {
 
             {/* Items ya enviados (solo lectura) */}
             {order.items && order.items.length > 0 && (
-              <div style={{ marginTop: '0.75rem', borderTop: '1px dashed #ddd', paddingTop: '0.75rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#999', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                  YA EN LA ORDEN
+              <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--separator)', paddingTop: '0.75rem' }}>
+                <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>
+                  Ya en la orden
                 </div>
                 {order.items.filter(it => !it.voided_at).map(it => (
-                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#555', padding: '0.15rem 0' }}>
+                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', padding: '0.18rem 0' }}>
                     <span>{it.qty}× {it.name}{it.notes ? ` • ${it.notes}` : ''}</span>
                   </div>
                 ))}
@@ -259,7 +261,7 @@ export default function PedidoMesa() {
             )}
 
             {order.status === 'LISTO' && (
-              <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: '#FFF8E7', borderRadius: '6px', fontSize: '0.85rem', color: '#B8860B' }}>
+              <div style={{ marginTop: '0.75rem', padding: '0.55rem 0.8rem', background: 'var(--brand-tint)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-13)', color: 'var(--brand-deep)', fontWeight: 500 }}>
                 Esta orden ya está lista. Si agregas algo más, volverá a cocina solo con lo nuevo.
               </div>
             )}
@@ -268,7 +270,7 @@ export default function PedidoMesa() {
               <button
                 type="button"
                 onClick={() => setShowCancelOrder(true)}
-                style={{ marginTop: '0.75rem', background: 'transparent', border: '1px solid #dc3545', color: '#dc3545', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer' }}
+                style={{ marginTop: '0.75rem', background: 'var(--gray-50)', border: 'none', color: 'var(--red-text)', padding: '0.5rem 0.9rem', borderRadius: '999px', fontSize: 'var(--text-15)', fontWeight: 600, cursor: 'pointer', minHeight: 40 }}
               >
                 Cancelar pedido
               </button>
@@ -306,7 +308,11 @@ export default function PedidoMesa() {
           className="send-btn"
           disabled={items.length === 0}
         >
-          {order && order.id ? 'AGREGAR ITEMS' : 'CREAR Y ENVIAR'}
+          {(() => {
+            const label = order && order.id ? 'AGREGAR ITEMS' : 'ENVIAR A COCINA';
+            const total = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+            return total > 0 ? `${label} · ${formatPriceCOP(total)}` : label;
+          })()}
         </button>
       </div>
 

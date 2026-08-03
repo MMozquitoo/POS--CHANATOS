@@ -66,15 +66,16 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
 
   return (
     <div className="product-selector">
-      <h3>Agregar Producto</h3>
-
-      <button
-        onClick={() => setShowCustomProduct(true)}
-        className="custom-product-btn"
-        style={{ marginBottom: '1rem', padding: '0.75rem', background: '#F5BB4C', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-      >
-        + Otro producto
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', gap: '0.5rem' }}>
+        <h3 style={{ margin: 0 }}>Agregar producto</h3>
+        <button
+          onClick={() => setShowCustomProduct(true)}
+          className="custom-product-btn"
+          style={{ padding: '0.45rem 0.9rem', background: 'var(--gray-50)', color: 'var(--gray-900)', border: 'none', borderRadius: '999px', fontWeight: 600, fontSize: 'var(--text-15)', cursor: 'pointer', whiteSpace: 'nowrap', minHeight: 40 }}
+        >
+          + Otro
+        </button>
+      </div>
 
       <div className="category-tabs">
         {Object.keys(productsByCategory || {}).map(category => (
@@ -134,16 +135,16 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
               onChange={setNotes}
             />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={addItem} className="btn-success">Agregar</button>
-          </div>
+          <button onClick={addItem} className="btn btn--primary btn--lg">
+            Agregar{qty > 1 ? ` (${qty})` : ''}
+          </button>
         </div>
       )}
 
       {showCustomProduct && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content" style={{ background: 'white', padding: '2rem', borderRadius: '12px', maxWidth: '500px', width: '90%' }}>
-            <h3>Producto Personalizado (OTRO)</h3>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="modal-content" style={{ background: 'white', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: 'var(--text-20)', fontWeight: 700, letterSpacing: 'var(--tracking-title)', margin: '0 0 1rem' }}>Otro producto</h3>
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label>Nombre del Producto *</label>
               <input
@@ -193,13 +194,6 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
-                onClick={addCustomItem}
-                className="add-item-btn"
-                style={{ flex: 1, padding: '0.75rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-              >
-                Agregar
-              </button>
-              <button
                 onClick={() => {
                   setShowCustomProduct(false);
                   setCustomName('');
@@ -207,9 +201,13 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
                   setCustomQty(1);
                   setCustomNotes('');
                 }}
-                style={{ flex: 1, padding: '0.75rem', background: '#ccc', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                className="btn btn--secondary"
+                style={{ flex: 1 }}
               >
                 Cancelar
+              </button>
+              <button onClick={addCustomItem} className="btn btn--primary" style={{ flex: 1 }}>
+                Agregar
               </button>
             </div>
           </div>

@@ -121,23 +121,25 @@ export default function Mesas() {
   return (
     <div className="mesero-container mesero-bottom-nav-spacer">
       <header className="mesero-header">
-        <h1>MESAS</h1>
+        <h1>Mesas</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             type="button"
             onClick={() => setShowPlano(!showPlano)}
             className="toggle-btn"
             style={{
-              padding: '0.5rem 1rem',
-              background: showPlano ? '#F5BB4C' : '#6c757d',
-              color: 'white',
+              padding: '0.45rem 0.9rem',
+              background: 'var(--gray-50)',
+              color: 'var(--gray-900)',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '999px',
               cursor: 'pointer',
-              fontSize: '0.9rem'
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              minHeight: 44
             }}
           >
-            {showPlano ? 'LISTA' : 'MESAS'}
+            {showPlano ? 'Ver lista' : 'Ver plano'}
           </button>
           <button type="button" onClick={logout} className="logout-btn mesero-header-logout-btn">
             Salir

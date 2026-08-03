@@ -50,8 +50,8 @@ export default function EstadoPedidos() {
   return (
     <div className="pedidos-container">
       <header className="pedidos-header">
-        <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
-        <h1>MIS PEDIDOS</h1>
+        <button onClick={() => navigate('/')} className="back-btn">‹ Volver</button>
+        <h1>Mis pedidos</h1>
       </header>
 
       <div className="orders-list mesero-bottom-nav-spacer">

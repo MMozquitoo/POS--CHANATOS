@@ -111,8 +111,8 @@ export default function Sabores() {
   return (
     <div className="mesero-container mesero-bottom-nav-spacer">
       <header className="mesero-header">
-        <button onClick={() => navigate(-1)} className="back-btn">← Volver</button>
-        <h1>SABORES DEL MENÚ</h1>
+        <button onClick={() => navigate(-1)} className="back-btn">‹ Volver</button>
+        <h1>Sabores del menú</h1>
       </header>
 
       <div style={{ padding: '1rem' }}>
@@ -123,7 +123,7 @@ export default function Sabores() {
 
         {categories.map((category) => (
           <section key={category} style={{ marginBottom: '1.75rem' }}>
-            <h2 style={{ fontSize: '1rem', marginBottom: '0.6rem', color: '#333' }}>
+            <h2 style={{ fontSize: 'var(--text-13)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.6rem', color: 'var(--gray-500)' }}>
               {category.replace(/_/g, ' ')}
             </h2>
 
@@ -141,8 +141,8 @@ export default function Sabores() {
                   key={product.id}
                   style={{
                     background: 'white',
-                    borderRadius: '10px',
-                    border: '1px solid #eee',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-sm)',
                     padding: '0.85rem',
                     marginBottom: '0.6rem',
                   }}
@@ -152,7 +152,7 @@ export default function Sabores() {
                       <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
                         {product.displayName || product.name}
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#F5BB4C', fontWeight: 'bold', marginTop: '0.1rem' }}>
+                      <div className="tnum" style={{ fontSize: '0.85rem', color: 'var(--brand-deep)', fontWeight: 700, marginTop: '0.1rem' }}>
                         {formatPriceCOP(product.price)}
                       </div>
                     </div>
