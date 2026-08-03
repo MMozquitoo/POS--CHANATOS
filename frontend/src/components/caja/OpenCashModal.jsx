@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useConnection } from '../../contexts/ConnectionContext';
 import ModalHost from '../ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
+import { parseMontoCOP } from '../../utils/currency.js';
 
 /**
  * Modal para abrir caja
@@ -32,7 +33,7 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const cash = parseFloat(initialCash);
+    const cash = parseMontoCOP(initialCash);
     if (isNaN(cash) || cash < 0) {
       showAlert('Ingresa un monto válido (>= 0)');
       return;
@@ -144,7 +145,7 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
             </button>
             <button
               type="submit"
-              disabled={loading || !initialCash || isNaN(parseFloat(initialCash)) || parseFloat(initialCash) < 0 || !isOnline}
+              disabled={loading || !initialCash || isNaN(parseMontoCOP(initialCash)) || parseMontoCOP(initialCash) < 0 || !isOnline}
               className="btn-success"
               style={{ flex: 1 }}
             >

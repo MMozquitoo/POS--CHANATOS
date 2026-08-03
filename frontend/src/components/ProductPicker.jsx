@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import SalsasChips, { categoriaLlevaSalsas } from './SalsasChips';
 import SaboresChips, { resolveSaborPrice } from './SaboresChips';
-import { formatPriceCOP } from '../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import { useAlert } from '../hooks/useModal';
 import '../pages/Mesero/Mesero.css';
 
@@ -46,14 +46,14 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
   };
 
   const addCustomItem = () => {
-    if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
+    if (!customName.trim() || !customPrice || parseMontoCOP(customPrice) <= 0) {
       showAlert('Ingresa un nombre y precio válido');
       return;
     }
     onAdd({
       name: customName.trim(),
       qty: customQty,
-      price: parseFloat(customPrice),
+      price: parseMontoCOP(customPrice),
       notes: customNotes,
       isCustom: true,
     });

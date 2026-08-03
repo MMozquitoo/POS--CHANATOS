@@ -55,6 +55,36 @@ export function parsePriceSimplified(priceStr) {
 }
 
 /**
+ * Interpreta un monto digitado por el usuario en formato colombiano.
+ * El punto (o la coma) se trata como separador de miles: "678.000" = 678000.
+ * parseFloat("678.000") daba 678 — bug real del cierre de caja 2026-08-02.
+ * @param {string|number} value - Lo digitado (ej: "678.000", "12,500", "9000")
+ * @returns {number} Monto en pesos, o NaN si no es un número
+ */
+export function parseMontoCOP(value) {
+  if (typeof value === 'number') return value;
+  if (value === null || value === undefined) return NaN;
+
+  let s = String(value).trim().replace(/[$\s]/g, '');
+  if (!s) return NaN;
+
+  // Un solo . o , al final con 1-2 dígitos = decimal real (ej: "1.5"); se redondea al peso
+  let decimales = '';
+  const m = s.match(/^(-?[\d.,]+)[.,](\d{1,2})$/);
+  if (m) {
+    s = m[1];
+    decimales = m[2];
+  }
+
+  // Todo otro . o , es separador de miles
+  s = s.replace(/[.,]/g, '');
+  if (!/^-?\d+$/.test(s)) return NaN;
+
+  const entero = parseInt(s, 10);
+  return decimales ? Math.round(parseFloat(`${entero}.${decimales}`)) : entero;
+}
+
+/**
  * Formatea un monto en COP usando formato estándar colombiano (sin formato simplificado)
  * Útil para reportes o cuando se necesita el formato completo
  * @param {number} amount - Monto en pesos colombianos

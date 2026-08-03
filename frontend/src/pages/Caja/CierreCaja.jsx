@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import axios from 'axios';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import { formatBogotaDateTime } from '../../utils/timezone.js';
 import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
@@ -93,7 +93,7 @@ export default function CierreCaja() {
   };
 
   const handleClose = async () => {
-    const cash = parseFloat(closingCash);
+    const cash = parseMontoCOP(closingCash);
     if (isNaN(cash) || cash < 0) {
       await showAlert('Ingresa un monto válido (>= 0)');
       return;
@@ -108,6 +108,19 @@ export default function CierreCaja() {
     const openingCash = session.initial_cash || 0;
     const totalCash = summary.byMethod.find(m => m.method === 'EFECTIVO')?.total || 0;
     const expectedCash = openingCash + totalCash;
+
+    // Alerta de sanidad: un descuadre gigante casi siempre es un monto mal digitado
+    const diff = cash - expectedCash;
+    if (expectedCash > 0 && Math.abs(diff) > expectedCash * 0.5) {
+      const sanityMsg = `OJO: estás declarando ${formatPriceCOP(cash)} y se esperaban ` +
+        `${formatPriceCOP(expectedCash)}.\n\n` +
+        `Eso deja una diferencia de ${formatPriceCOP(Math.abs(diff))} ` +
+        `(${diff < 0 ? 'FALTANTE' : 'SOBRANTE'}).\n\n` +
+        `¿Seguro que escribiste el monto completo?`;
+      if (!(await showConfirm(sanityMsg))) {
+        return;
+      }
+    }
 
     // Confirmación
     const confirmMsg = `¿Cerrar caja?\n\n` +
@@ -414,25 +427,25 @@ export default function CierreCaja() {
             />
           </div>
 
-          {closingCash && !isNaN(parseFloat(closingCash)) && (
+          {closingCash && !isNaN(parseMontoCOP(closingCash)) && (
             <div style={{
               padding: '1rem 1.1rem',
-              background: getDiffTint(parseFloat(closingCash) - expectedCash),
+              background: getDiffTint(parseMontoCOP(closingCash) - expectedCash),
               borderRadius: 'var(--radius-lg)',
               marginTop: '1rem',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: getDiffColor(parseFloat(closingCash) - expectedCash), textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
-                {getDiffLabel(parseFloat(closingCash) - expectedCash)}
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: getDiffColor(parseMontoCOP(closingCash) - expectedCash), textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+                {getDiffLabel(parseMontoCOP(closingCash) - expectedCash)}
               </div>
               <div className="tnum" style={{
                 fontWeight: 800,
                 fontSize: '2.125rem',
                 letterSpacing: '-0.02em',
                 lineHeight: 1.1,
-                color: getDiffColor(parseFloat(closingCash) - expectedCash)
+                color: getDiffColor(parseMontoCOP(closingCash) - expectedCash)
               }}>
-                {formatPriceCOP(Math.abs(parseFloat(closingCash) - expectedCash))}
+                {formatPriceCOP(Math.abs(parseMontoCOP(closingCash) - expectedCash))}
               </div>
             </div>
           )}
@@ -458,7 +471,7 @@ export default function CierreCaja() {
         {/* Botón cerrar: única acción final de la pantalla → ancho completo está bien */}
         <button
           onClick={handleClose}
-          disabled={closing || !closingCash || isNaN(parseFloat(closingCash)) || !isOnline}
+          disabled={closing || !closingCash || isNaN(parseMontoCOP(closingCash)) || !isOnline}
           className="btn-danger"
           style={{ width: '100%', padding: '1rem', fontSize: '1.2rem' }}
         >

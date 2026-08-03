@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./Caja.css";
-import { formatPriceCOP } from "../../utils/currency.js";
+import { formatPriceCOP, parseMontoCOP } from "../../utils/currency.js";
 import CajaHeader from "../../components/CajaHeader.jsx";
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
@@ -145,7 +145,7 @@ export default function Menu() {
       return;
     }
 
-    const price = parseFloat(formData.price);
+    const price = parseMontoCOP(formData.price);
     if (isNaN(price) || price < 0) {
       await showAlert("El precio debe ser un número >= 0");
       return;
@@ -167,8 +167,8 @@ export default function Menu() {
       const flavorPrices = {};
       currentFlavors.forEach((flavor) => {
         const raw = formData.flavorPrices[flavor];
-        if (raw !== undefined && raw !== "" && !isNaN(parseFloat(raw))) {
-          flavorPrices[flavor] = Math.round(parseFloat(raw));
+        if (raw !== undefined && raw !== "" && !isNaN(parseMontoCOP(raw))) {
+          flavorPrices[flavor] = Math.round(parseMontoCOP(raw));
         }
       });
 

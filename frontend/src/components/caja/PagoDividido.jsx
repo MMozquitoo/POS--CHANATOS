@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import './PagoDividido.css';
 
 // TARJETA oculta a pedido del dueño: no hay datáfono activo todavía (ver
@@ -19,9 +19,9 @@ export default function PagoDividido({ total, onCancel, onConfirm }) {
   ]);
   const [busy, setBusy] = useState(false);
 
-  const sum = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+  const sum = lines.reduce((s, l) => s + (parseMontoCOP(l.amount) || 0), 0);
   const restante = Math.round((total - sum) * 100) / 100;
-  const listo = Math.abs(restante) < 1 && lines.every(l => parseFloat(l.amount) > 0);
+  const listo = Math.abs(restante) < 1 && lines.every(l => parseMontoCOP(l.amount) > 0);
 
   const updateLine = (idx, patch) => {
     setLines(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -49,7 +49,7 @@ export default function PagoDividido({ total, onCancel, onConfirm }) {
   };
 
   const completeLine = (idx) => {
-    const others = lines.reduce((s, l, i) => (i === idx ? s : s + (parseFloat(l.amount) || 0)), 0);
+    const others = lines.reduce((s, l, i) => (i === idx ? s : s + (parseMontoCOP(l.amount) || 0)), 0);
     const falta = Math.max(0, total - others);
     updateLine(idx, { amount: falta > 0 ? String(falta) : '' });
   };
@@ -58,7 +58,7 @@ export default function PagoDividido({ total, onCancel, onConfirm }) {
     if (!listo || busy) return;
     setBusy(true);
     try {
-      await onConfirm(lines.map(l => ({ method: l.method, amount: parseFloat(l.amount) })));
+      await onConfirm(lines.map(l => ({ method: l.method, amount: parseMontoCOP(l.amount) })));
     } finally {
       setBusy(false);
     }

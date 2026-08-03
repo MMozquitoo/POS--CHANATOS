@@ -227,10 +227,13 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   import("bonjour-service")
     .then(({ Bonjour }) => {
       const bonjour = new Bonjour();
+      // host explícito: sin él, bonjour-service anuncia el hostname de la máquina
+      // y macOS lo detecta como conflicto → renombra el equipo ("Mozquinator-3296")
       bonjour.publish({
         name: "POS Chanatos",
         type: "pos-chanatos",
         port: Number(PORT),
+        host: "pos-chanatos.local",
       });
       console.log(`📡 Servicio anunciado por mDNS (_pos-chanatos._tcp.local)`);
     })

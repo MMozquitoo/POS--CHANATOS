@@ -5,7 +5,7 @@ import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import axios from 'axios';
 import './Caja.css';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import PagoDividido from '../../components/caja/PagoDividido.jsx';
 import Recibo from '../../components/Recibo.jsx';
@@ -168,7 +168,7 @@ export default function CobrarPedidos() {
     }
 
     try {
-      const tip = Math.max(0, parseFloat(tipAmount) || 0);
+      const tip = Math.max(0, parseMontoCOP(tipAmount) || 0);
       const res = await axios.post('/payments', {
         orderId: selectedOrder.id,
         method: paymentMethod,
@@ -212,7 +212,7 @@ export default function CobrarPedidos() {
     }
 
     try {
-      const tip = Math.max(0, parseFloat(tipAmount) || 0);
+      const tip = Math.max(0, parseMontoCOP(tipAmount) || 0);
       await axios.post('/payments', {
         orderId: selectedOrder.id,
         payments: paymentLines,
@@ -649,7 +649,7 @@ export default function CobrarPedidos() {
                   <button className="btn-secondary" onClick={() => applyDiscount(0, '')}>Quitar descuento</button>
                 )}
                 <button className="btn-secondary" onClick={() => setShowDiscount(false)}>Volver</button>
-                <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseFloat(discountValue) || 0), discountReason.trim())}>
+                <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseMontoCOP(discountValue) || 0), discountReason.trim())}>
                   Aplicar
                 </button>
               </>}>

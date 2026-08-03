@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
 import { formatBogotaTime, formatBogotaDate, getBogotaDateString } from '../../utils/timezone.js';
-import { formatPriceCOP, formatPriceSimplified } from '../../utils/currency.js';
+import { formatPriceCOP, formatPriceSimplified, parseMontoCOP } from '../../utils/currency.js';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
@@ -67,7 +67,7 @@ export default function HistorialSesiones() {
 
   const addManualTransaction = async () => {
     if (!selectedDate) return;
-    if (!newTransaction.description.trim() || !newTransaction.amount || parseFloat(newTransaction.amount) <= 0) {
+    if (!newTransaction.description.trim() || !newTransaction.amount || parseMontoCOP(newTransaction.amount) <= 0) {
       showAlert('Completa todos los campos correctamente');
       return;
     }
@@ -77,7 +77,7 @@ export default function HistorialSesiones() {
         transaction_date: selectedDate,
         type: newTransaction.type,
         description: newTransaction.description.trim(),
-        amount: parseFloat(newTransaction.amount)
+        amount: parseMontoCOP(newTransaction.amount)
       });
       
       // Recargar transacciones y estadísticas
@@ -346,7 +346,7 @@ export default function HistorialSesiones() {
                           <button
                             type="button"
                             onClick={() => {
-                              const current = parseFloat(newTransaction.amount) || 0;
+                              const current = parseMontoCOP(newTransaction.amount) || 0;
                               setNewTransaction({ ...newTransaction, amount: (current + 500).toString() });
                             }}
                             style={{

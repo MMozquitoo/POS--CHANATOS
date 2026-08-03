@@ -6,6 +6,7 @@ import CajaHeader from '../../components/CajaHeader.jsx';
 import './Caja.css';
 import Modal from '../../components/Modal';
 import { useAlert } from '../../hooks/useModal';
+import { parseMontoCOP } from '../../utils/currency.js';
 
 export default function AperturaCaja() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function AperturaCaja() {
   };
 
   const handleOpen = async () => {
-    const cash = parseFloat(initialCash);
+    const cash = parseMontoCOP(initialCash);
     if (isNaN(cash) || cash < 0) {
       await showAlert('Ingresa un monto válido (>= 0)');
       return;
@@ -165,7 +166,7 @@ export default function AperturaCaja() {
 
           <button
             onClick={handleOpen}
-            disabled={opening || !initialCash || isNaN(parseFloat(initialCash)) || parseFloat(initialCash) < 0 || !isOnline}
+            disabled={opening || !initialCash || isNaN(parseMontoCOP(initialCash)) || parseMontoCOP(initialCash) < 0 || !isOnline}
             className="btn-success"
             style={{
               width: '100%',

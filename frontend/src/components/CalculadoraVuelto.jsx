@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { formatPriceCOP } from '../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import './CalculadoraVuelto.css';
 
 export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
@@ -7,14 +7,14 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
   const [vuelto, setVuelto] = useState(0);
 
   useEffect(() => {
-    const totalNum = parseFloat(total) || 0;
-    const recibidoNum = parseFloat(recibido) || 0;
+    const totalNum = parseMontoCOP(total) || 0;
+    const recibidoNum = parseMontoCOP(recibido) || 0;
     const vueltoCalculado = recibidoNum - totalNum;
     setVuelto(vueltoCalculado >= 0 ? vueltoCalculado : 0);
   }, [total, recibido]);
 
   const handleBillClick = (amount) => {
-    const current = parseFloat(recibido) || 0;
+    const current = parseMontoCOP(recibido) || 0;
     setRecibido((current + amount).toString());
   };
 
@@ -24,7 +24,7 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
 
   const handleConfirm = () => {
     // Devolver el monto recibido al flujo de cobro (para vuelto en el recibo)
-    const recibidoNum = parseFloat(recibido) || 0;
+    const recibidoNum = parseMontoCOP(recibido) || 0;
     onConfirm && onConfirm(recibidoNum);
     onClose && onClose();
   };

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
@@ -414,7 +414,7 @@ export default function DetalleMesa() {
 
   // Abrir sesión de caja
   async function openCashSession() {
-    const cash = parseFloat(initialCash) || 0;
+    const cash = parseMontoCOP(initialCash) || 0;
     if (cash < 0) {
       showAlert('El efectivo inicial no puede ser negativo');
       return;
@@ -497,7 +497,7 @@ export default function DetalleMesa() {
   // FASE F9: pago dividido desde la vista de mesa (varios métodos en un cobro)
   const processSplitPayment = async (paymentLines) => {
     try {
-      const splitTip = Math.max(0, parseFloat(tipAmount) || 0);
+      const splitTip = Math.max(0, parseMontoCOP(tipAmount) || 0);
       await axios.post('/payments', { orderId: activeOrder.id, payments: paymentLines, tipAmount: splitTip });
       setTipAmount('');
       setShowSplit(false);
@@ -550,7 +550,7 @@ export default function DetalleMesa() {
       throw new Error('No hay orden activa para cobrar');
     }
     // La propina (si el cajero la puso) se aplica solo en el primer grupo cobrado.
-    const tip = itemSplitTipAppliedRef.current ? 0 : Math.max(0, parseFloat(tipAmount) || 0);
+    const tip = itemSplitTipAppliedRef.current ? 0 : Math.max(0, parseMontoCOP(tipAmount) || 0);
 
     await axios.post('/payments/items', {
       orderId: activeOrder.id,
@@ -700,7 +700,7 @@ export default function DetalleMesa() {
       }
 
       // FASE F10: propina opcional; con descuento el cobro va por orden completa
-      const tip = Math.max(0, parseFloat(tipAmount) || 0);
+      const tip = Math.max(0, parseMontoCOP(tipAmount) || 0);
       const discountNow = activeOrder?.discount_amount || 0;
       const paymentRes = discountNow > 0
         ? await axios.post('/payments', { orderId: activeOrder.id, method: paymentMethod, amount: Math.max(0, total - discountNow), tipAmount: tip })
@@ -1148,7 +1148,7 @@ export default function DetalleMesa() {
   };
 
   const addCustomItem = () => {
-    if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
+    if (!customName.trim() || !customPrice || parseMontoCOP(customPrice) <= 0) {
       showAlert('Ingresa un nombre y precio válido');
       return;
     }
@@ -1157,7 +1157,7 @@ export default function DetalleMesa() {
       // Editar item existente en la lista de nuevo pedido
       updateNewOrderItem(editingItem, {
         name: customName.trim(),
-        price: parseFloat(customPrice),
+        price: parseMontoCOP(customPrice),
         qty: customQty,
         notes: customNotes,
         isCustom: true
@@ -1169,7 +1169,7 @@ export default function DetalleMesa() {
         {
           name: customName.trim(),
           qty: customQty,
-          price: parseFloat(customPrice),
+          price: parseMontoCOP(customPrice),
           notes: customNotes,
           isCustom: true
         }
@@ -1197,7 +1197,7 @@ export default function DetalleMesa() {
   };
 
   const saveEditedItem = async () => {
-    if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
+    if (!customName.trim() || !customPrice || parseMontoCOP(customPrice) <= 0) {
       showAlert('Ingresa un nombre y precio válido');
       return;
     }
@@ -1207,7 +1207,7 @@ export default function DetalleMesa() {
       try {
         await axios.patch(`/orders/items/${itemId}`, {
           name: customName.trim(),
-          price: parseFloat(customPrice),
+          price: parseMontoCOP(customPrice),
           qty: customQty,
           notes: customNotes
         });
@@ -2297,7 +2297,7 @@ export default function DetalleMesa() {
                 <button
                   type="button"
                   onClick={() => {
-                    const current = parseFloat(customPrice) || 0;
+                    const current = parseMontoCOP(customPrice) || 0;
                     setCustomPrice((current + 500).toString());
                   }}
                   style={{
@@ -2374,7 +2374,7 @@ export default function DetalleMesa() {
               <button className="btn-secondary" onClick={() => applyDiscount(0, '')}>Quitar descuento</button>
             )}
             <button className="btn-secondary" onClick={() => setShowDiscount(false)}>Volver</button>
-            <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseFloat(discountValue) || 0), discountReason.trim())}>
+            <button className="btn-chanatos" onClick={() => applyDiscount(Math.max(0, parseMontoCOP(discountValue) || 0), discountReason.trim())}>
               Aplicar
             </button>
           </>}>

@@ -6,7 +6,7 @@ import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import axios from 'axios';
 import './Caja.css';
 import { formatBogotaDateTime, formatBogotaTime } from '../../utils/timezone.js';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 
@@ -64,13 +64,13 @@ export default function SesionCaja() {
 
 
   const openCash = async () => {
-    if (!initialCash || parseFloat(initialCash) < 0) {
+    if (!initialCash || parseMontoCOP(initialCash) < 0) {
       await showAlert('Ingresa un monto inicial válido');
       return;
     }
 
     try {
-      await axios.post('/cash/open', { initialCash: parseFloat(initialCash) });
+      await axios.post('/cash/open', { initialCash: parseMontoCOP(initialCash) });
       loadSession();
       setInitialCash('');
     } catch (error) {
@@ -80,7 +80,7 @@ export default function SesionCaja() {
   };
 
   const closeCash = async () => {
-    if (!finalCash || parseFloat(finalCash) < 0) {
+    if (!finalCash || parseMontoCOP(finalCash) < 0) {
       await showAlert('Ingresa un monto final válido');
       return;
     }
@@ -90,7 +90,7 @@ export default function SesionCaja() {
     }
 
     try {
-      const res = await axios.post('/cash/close', { finalCash: parseFloat(finalCash) });
+      const res = await axios.post('/cash/close', { finalCash: parseMontoCOP(finalCash) });
       setCloseSummary(res.data.summary);
       setShowCloseSummary(true);
       setFinalCash('');

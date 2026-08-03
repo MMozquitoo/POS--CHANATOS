@@ -6,7 +6,7 @@ import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import { useCentroTotalRefresh } from '../../hooks/useOrdersRefresh.js';
 import axios from 'axios';
 import './Caja.css';
-import { formatPriceCOP } from '../../utils/currency.js';
+import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import { splitTables, getSpecialType } from '../../utils/tables.js';
 import Recibo from '../../components/Recibo.jsx';
 import ComandaCocina from '../../components/ComandaCocina.jsx';
@@ -795,7 +795,7 @@ export default function CentroTotal() {
   };
 
   const addCustomItem = () => {
-    if (!customName.trim() || !customPrice || parseFloat(customPrice) <= 0) {
+    if (!customName.trim() || !customPrice || parseMontoCOP(customPrice) <= 0) {
       showAlert('Ingresa un nombre y precio válido');
       return;
     }
@@ -803,7 +803,7 @@ export default function CentroTotal() {
     setNewItems(prev => [...prev, {
       name: customName.trim(),
       qty: customQty,
-      price: parseFloat(customPrice),
+      price: parseMontoCOP(customPrice),
       notes: customNotes,
       isCustom: true
     }]);
