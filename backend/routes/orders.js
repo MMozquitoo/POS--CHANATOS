@@ -4,8 +4,86 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getBogotaDateString, toBogotaSQLiteTimestamp } from "../utils/timezone.js";
 import { logAudit } from "../utils/audit.js";
 import { sendPushToRole } from "../utils/pushNotifications.js";
+import { deductInventoryFromOrderItems } from "./inventoryMovements.js";
 
 const router = express.Router();
+
+// PAGO ADELANTADO (2026-08): en VENTANILLA/DOMICILIO el cliente puede pagar
+// mientras cocina prepara (payments.js permite cobrar en NUEVO/EN_PREP sin
+// cerrar la orden). Cuando la orden llega a LISTO, si los pagos válidos ya
+// cubren el total, se cierra sola: PAGADA + archivada + inventario, igual
+// que un cobro normal de orden LISTO. Devuelve true si la cerró.
+async function closeOrderIfPrepaid(db, orderId, io, userId) {
+  const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+  if (!order || order.status !== "LISTO" || order.paid_at) return false;
+
+  const items = await db.all(
+    "SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL",
+    [orderId]
+  );
+  const total = Math.max(
+    0,
+    items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0) -
+      (order.discount_amount || 0)
+  );
+  if (total <= 0) return false;
+
+  const paidRow = await db.get(
+    "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE order_id = ? AND voided_at IS NULL",
+    [orderId]
+  );
+  if ((paidRow?.total || 0) < total - 1) return false; // tolerancia de 1 peso
+
+  const ts = toBogotaSQLiteTimestamp(new Date());
+  await db.run("BEGIN IMMEDIATE");
+  try {
+    await db.run(
+      "UPDATE order_items SET paid_at = COALESCE(paid_at, ?) WHERE order_id = ? AND voided_at IS NULL",
+      [ts, orderId]
+    );
+    await db.run(
+      "UPDATE orders SET status = 'PAGADA', paid_at = ?, archived_at = ? WHERE id = ?",
+      [ts, ts, orderId]
+    );
+    await db.run("COMMIT");
+  } catch (e) {
+    try { await db.run("ROLLBACK"); } catch { /* ignorar */ }
+    throw e;
+  }
+
+  // Mismo contrato que el cobro normal: inventario al quedar PAGADA
+  try {
+    await deductInventoryFromOrderItems(db, items, userId);
+  } catch (inventoryError) {
+    console.error("⚠️  Error descontando inventario (cierre prepago):", inventoryError);
+    await logAudit({
+      action: 'INVENTORY_ERROR',
+      entity_type: 'order',
+      entity_id: orderId,
+      user_id: userId,
+      summary: `Fallo descontando inventario al cerrar prepago de orden ${orderId}: ${inventoryError.message}`,
+      meta: { order_id: orderId, error: inventoryError.message }
+    }).catch(() => {});
+  }
+
+  await logAudit({
+    action: 'ORDER_STATUS_CHANGED',
+    entity_type: 'order',
+    entity_id: orderId,
+    order_id: orderId,
+    user_id: userId,
+    summary: `Orden ${order.daily_no || order.code || orderId} quedó LISTA ya pagada (pago adelantado): se cerró sola`,
+    meta: { from: 'LISTO', to: 'PAGADA', reason: 'PREPAID_AUTOCLOSE' }
+  }).catch(() => {});
+
+  if (io) {
+    const closed = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    io.emit("order:status-changed", { order: { ...closed, items } });
+    io.emit("order:archived", { orderId });
+    io.emit("table:updated", { tableId: order.table_id });
+  }
+  return true;
+}
 
 const formatYyyyMmDdLocal = () => {
   // YYYY-MM-DD en horario local America/Bogota
@@ -912,9 +990,17 @@ router.patch(
         });
       }
 
+      // PAGO ADELANTADO: si la orden llegó a LISTO y ya estaba pagada
+      // (ventanilla/domicilio que pagó al pedir), se cierra sola acá.
+      let cerradaPorPrepago = false;
+      if (status === "LISTO") {
+        cerradaPorPrepago = await closeOrderIfPrepaid(db, req.params.id, io, req.user.id);
+      }
+
       // Notificación push a CAJA cuando la orden queda LISTA para cobrar
       // (celular con pantalla apagada). Best-effort: nunca lanza ni bloquea.
-      if (status === "LISTO") {
+      // Si se cerró por prepago no hay nada que cobrar: no molestar.
+      if (status === "LISTO" && !cerradaPorPrepago) {
         const pushTableLabel = tableNumber ? `Mesa ${tableNumber}` : "Ventanilla/Domicilio";
         sendPushToRole("CAJA", {
           title: "Orden lista para cobrar",
@@ -922,7 +1008,10 @@ router.patch(
         }).catch(() => {});
       }
 
-      res.json({ order: { ...updatedOrder, items } });
+      const finalOrder = cerradaPorPrepago
+        ? await db.get("SELECT * FROM orders WHERE id = ?", [req.params.id])
+        : updatedOrder;
+      res.json({ order: { ...finalOrder, items } });
     } catch (error) {
       console.error("Error actualizando estado:", error);
       res.status(500).json({ error: "Error interno del servidor" });
@@ -2050,6 +2139,13 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
       }
     }
 
+    // PAGO ADELANTADO: si al completar los platos la orden ya estaba pagada
+    // (ventanilla/domicilio que pagó al pedir), se cierra sola acá.
+    let cerradaPorPrepago = false;
+    if (orderAdvanced) {
+      cerradaPorPrepago = await closeOrderIfPrepaid(db, item.order_id, req.app.get("io"), req.user.id);
+    }
+
     const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [item.order_id]);
     const allItems = await db.all(
       "SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL",
@@ -2067,7 +2163,8 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
 
     // Notificación push a CAJA cuando la orden queda LISTA para cobrar
     // (celular con pantalla apagada). Best-effort: nunca lanza ni bloquea.
-    if (orderAdvanced) {
+    // Si se cerró por prepago no hay nada que cobrar: no molestar.
+    if (orderAdvanced && !cerradaPorPrepago) {
       (async () => {
         try {
           let pushTableLabel = "Ventanilla/Domicilio";

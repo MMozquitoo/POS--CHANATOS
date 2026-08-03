@@ -126,7 +126,7 @@ export default function Mesas() {
           <button
             type="button"
             onClick={() => setShowPlano(!showPlano)}
-            className="toggle-btn"
+            className="toggle-btn plano-lista-toggle"
             style={{
               padding: '0.45rem 0.9rem',
               background: 'var(--gray-50)',

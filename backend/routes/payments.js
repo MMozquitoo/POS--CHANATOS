@@ -704,8 +704,15 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       return res.status(404).json({ error: "Pedido no encontrado" });
     }
 
-    // FASE 12.4: Validar que la orden esté en estado LISTO
-    if (order.status !== "LISTO") {
+    // FASE 12.4: Validar que la orden esté en estado LISTO.
+    // PAGO ADELANTADO (2026-08): en VENTANILLA/DOMICILIO el cliente paga al
+    // pedir (asegura la venta) mientras cocina sigue preparando — se permite
+    // cobrar en NUEVO/EN_PREP solo en esos canales; la orden NO se cierra acá:
+    // se cierra sola al pasar a LISTO (ver closeOrderIfPrepaid en orders.js).
+    const esPrepagoPermitido =
+      ["VENTANILLA", "DOMICILIO"].includes(order.channel) &&
+      ["NUEVO", "EN_PREP"].includes(order.status);
+    if (order.status !== "LISTO" && !esPrepagoPermitido) {
       // Registrar auditoría de bloqueo
       const tableInfo = await db.get("SELECT t.number FROM tables t WHERE t.id = ?", [order.table_id]);
       await logAudit({
@@ -782,6 +789,10 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     const paymentTimestamp = toBogotaSQLiteTimestamp(new Date());
     const timestamp = paymentTimestamp;
     const quedaPagada = yaPagadoNum + sumLines >= totalOrden - 1;
+    // Prepago cubierto pero la orden sigue en cocina: NO se cierra todavía
+    // (si se marcara PAGADA+archivada acá, desaparecería de cocina sin
+    // preparar). El cierre ocurre al llegar a LISTO.
+    const cierraOrden = quedaPagada && order.status === "LISTO";
     const insertedIds = [];
 
     await db.run("BEGIN IMMEDIATE");
@@ -797,7 +808,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
         first = false;
       }
 
-      if (quedaPagada) {
+      if (cierraOrden) {
         // Marcar items como pagados y cerrar la orden
         for (const item of orderItems) {
           if (!item.paid_at) {
@@ -810,6 +821,8 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
         );
       }
       // Pago parcial: la orden sigue LISTO y sin paid_at (la mesa sigue activa con saldo)
+      // Prepago total (ventanilla/domicilio en preparación): pagos registrados,
+      // la orden sigue su flujo en cocina y se cierra sola al quedar LISTO.
 
       await db.run("COMMIT");
     } catch (txError) {
@@ -819,8 +832,9 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     console.log(`💰 Cobro orden ${orderId}: ${normalizedLines.map(l => `${l.method} ${l.amount}`).join(' + ')} | pagada=${quedaPagada}`);
 
-    // Descontar inventario SOLO cuando la orden queda totalmente pagada
-    if (quedaPagada) {
+    // Descontar inventario SOLO cuando la orden queda cerrada (PAGADA); en
+    // prepago se descuenta al cerrarse en LISTO (closeOrderIfPrepaid)
+    if (cierraOrden) {
       try {
         await deductInventoryFromOrderItems(db, orderItems, req.user.id);
       } catch (inventoryError) {
@@ -873,10 +887,13 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       for (const p of insertedPayments) {
         io.emit("payment:created", { payment: p, orderId });
       }
-      if (quedaPagada) {
+      if (cierraOrden) {
         io.emit("order:status-changed", { order: { ...orderInfo, items: orderItems } });
         io.emit("order:archived", { orderId });
         io.emit("table:updated", { tableId: orderInfo?.table_id });
+      } else if (quedaPagada) {
+        // Prepago completo: refrescar vistas (badge de pagado) sin archivar
+        io.emit("order:updated", { orderId });
       }
     }
 
@@ -884,6 +901,7 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       payment: insertedPayments[0],
       payments: insertedPayments,
       fullyPaid: quedaPagada,
+      prepaid: quedaPagada && !cierraOrden,
       saldoPendiente: quedaPagada ? 0 : saldoPendiente - sumLines,
     });
   } catch (error) {

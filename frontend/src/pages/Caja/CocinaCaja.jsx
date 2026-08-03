@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
+import { statusLabel } from '../../utils/statusLabels.js';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
@@ -464,8 +465,27 @@ export default function CocinaCaja({ hideHeader = false }) {
               {selectedOrder.table_label && (
                 <div>Mesa: {selectedOrder.table_label}</div>
               )}
-              <div>Estado: <strong>{selectedOrder.status}</strong></div>
+              <div>Estado: <strong>{statusLabel(selectedOrder.status)}</strong></div>
             </div>
+
+            {/* El cliente cambió algo con la orden ya andando: acceso directo a
+                la pantalla donde se modifica (agregar items, anular, etc.) */}
+            {['NUEVO', 'EN_PREP', 'LISTO'].includes(selectedOrder.status) && !selectedOrder.archived_at && (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                style={{ width: '100%', marginBottom: '0.5rem' }}
+                onClick={() => {
+                  const o = selectedOrder;
+                  setSelectedOrder(null);
+                  if (o.channel === 'VENTANILLA') navigate('/ventanilla');
+                  else if (o.channel === 'DOMICILIO') navigate('/domicilios');
+                  else navigate(`/mesa/${o.table_id}`);
+                }}
+              >
+                Modificar orden (agregar o anular items)
+              </button>
+            )}
 
             <div style={{ marginTop: '1.5rem' }}>
               <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 'bold' }}>Items:</h3>

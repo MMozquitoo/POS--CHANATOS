@@ -1956,8 +1956,13 @@ export default function DetalleMesa() {
                 </div>
               </div>
 
-              {/* Métodos de pago - SOLO visible cuando status === LISTO */}
-              {activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === true ? (
+              {/* Métodos de pago: con orden LISTO siempre; en Ventanilla/
+                  Domicilios TAMBIÉN en NUEVO/EN_PREP (el cliente paga al pedir
+                  y asegura la venta; la orden sigue en cocina y se cierra sola
+                  al quedar lista — "pago adelantado", 2026-08). */}
+              {(activeOrder.status === 'LISTO' ||
+                (isSpecialTable(tableData?.table?.number) && ['NUEVO', 'EN_PREP'].includes(activeOrder.status)))
+                && activeOrderItems.length > 0 && cashSessionActive === true ? (
                 <div style={{
                   background: 'white',
                   padding: '1.1rem',
@@ -1965,6 +1970,11 @@ export default function DetalleMesa() {
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Método de pago</h3>
+                  {activeOrder.status !== 'LISTO' && (
+                    <div style={{ padding: '0.55rem 0.8rem', background: 'var(--blue-tint)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-13)', color: 'var(--blue-text)', fontWeight: 500, marginBottom: '0.6rem' }}>
+                      Pago por adelantado: la orden sigue en cocina y se cierra sola cuando esté lista.
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía.
                         Se deja el código de payments/reportes intacto (reversible) — ver

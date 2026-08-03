@@ -171,11 +171,12 @@ export default function CentroTotal() {
   }, [location.state?.tab, location.key]);
   
   // Estado para vista de mesas (PLANO o LISTA). PLANO reproduce la
-  // distribución física del local, útil en pantalla grande; en celular ese
-  // espaciado "de piso" se ve como huecos vacíos sin razón, así que en mobile
-  // arranca en LISTA (más compacta) — el mesero puede cambiar igual si quiere.
+  // distribución física del local, útil SOLO en pantalla grande; en angosto
+  // (<768px, MISMO breakpoint que BottomNav — la trampa 480 vs 768 ya mordió
+  // acá: entre 481-768 arrancaba en plano apretado a la izquierda) se fuerza
+  // LISTA y el toggle se oculta vía mobile-polish.css (.plano-lista-toggle).
   const [mesasView, setMesasView] = useState(
-    typeof window !== 'undefined' && window.innerWidth <= 480 ? 'lista' : 'plano'
+    typeof window !== 'undefined' && window.innerWidth <= 768 ? 'lista' : 'plano'
   );
   
   // Estados principales (Centro Total)
@@ -1104,11 +1105,11 @@ export default function CentroTotal() {
       {activeTab === 'mesas' ? (
         /* Tab MESAS - FASE M9.2: PLANO = V/D cards + plano solo 1–8; LISTA = toggle V/D + órdenes + grid 1–8 */
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* Toggle PLANO / LISTA */}
-          <div style={{ 
-            padding: '0.75rem 1rem', 
-            background: 'white', 
-            borderBottom: '1px solid #ddd',
+          {/* Toggle PLANO / LISTA (oculto en <768px: el plano no sirve en angosto) */}
+          <div className="plano-lista-toggle" style={{
+            padding: '0.75rem 1rem',
+            background: 'white',
+            borderBottom: '1px solid var(--separator)',
             display: 'flex',
             justifyContent: 'center',
             gap: '0.5rem',

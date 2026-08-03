@@ -99,6 +99,14 @@
     visibility: hidden !important;
   }
 
+  /* El PLANO de mesas reproduce la distribución física del salón: en pantalla
+     angosta queda todo apretado a la izquierda (reporte real del dueño,
+     2026-08-02). En móvil SIEMPRE lista; el toggle se oculta en CentroTotal
+     (contenedor) y en Mesas del mesero (botón). */
+  .plano-lista-toggle {
+    display: none !important;
+  }
+
   /* Targets táctiles cómodos en los botones de acción */
   .btn-chanatos,
   .btn-primary,
@@ -187,19 +195,30 @@
     padding: 0.85rem !important;
   }
 
-  /* Grillas de productos: tarjetas uniformes de dos columnas en teléfono
-     (130px, no 150px, por la misma razón que .category-tabs arriba: en
-     DetalleMesa este grid vive anidado con menos ancho real disponible). */
+  /* Grillas de productos: TRES columnas en teléfono (104px mín). Reporte del
+     dueño (2026-08-02): el mesero scrolleaba demasiado para armar un pedido —
+     en los POS de tablet el pedido se arma casi sin scroll. Más densidad =
+     menos scroll; el target táctil se mantiene (≥46px de alto). */
   .products-grid-caja,
   .products-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
-    gap: 8px !important;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+    gap: 6px !important;
   }
 
   .product-btn-caja,
   .product-btn {
-    min-height: 64px;
+    min-height: 56px;
+    padding: 0.5rem 0.35rem !important;
+  }
+
+  .product-btn .product-name-btn {
+    font-size: 0.78rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .product-btn .product-price-btn {
+    font-size: 0.72rem !important;
   }
 
   /* Filas de item nuevo (cantidad, notas, salsas, quitar): que respiren */

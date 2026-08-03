@@ -278,11 +278,12 @@ export default function PedidoMesa() {
           </div>
         )}
 
-        <div className="pedido-items">
-          <h3>{order && order.id ? 'Nuevos items por enviar' : 'Pedido'}</h3>
-          {items.length === 0 ? (
-            <p className="empty-state">{order && order.id ? 'Agrega productos para sumarlos a la orden' : 'No hay items en el pedido'}</p>
-          ) : (
+        {/* Solo aparece cuando hay items nuevos: con la sección vacía era una
+            card más que empujaba el selector de productos fuera de pantalla
+            (reporte del dueño: "scroll pronunciado para armar el pedido") */}
+        {items.length > 0 && (
+          <div className="pedido-items">
+            <h3>{order && order.id ? 'Nuevos items por enviar' : 'Pedido'}</h3>
             <div className="items-list">
               {items.map((item, index) => (
                 <div key={index} className="item-card">
@@ -296,8 +297,8 @@ export default function PedidoMesa() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <ProductPicker productsByCategory={productsByCategory} onAdd={addPickedItem} />
       </div>

@@ -31,6 +31,10 @@ backend/
                          #   ver cualquier orden (piso compartido). Cancelar exige motivo ≥3 y cero pagos.
     payments.js          # /payments (orden completa; acepta payments:[{method,amount}] dividido y
                          #   tipAmount); /payments/items (por items; incompatible con descuento → 409);
+                         #   PAGO ADELANTADO (2026-08): VENTANILLA/DOMICILIO puede cobrarse en
+                         #   NUEVO/EN_PREP (cliente paga al pedir); la orden NO se cierra ahí —
+                         #   sigue en cocina y closeOrderIfPrepaid (orders.js) la cierra sola al
+                         #   llegar a LISTO (PAGADA+archivada+inventario). MESA sigue exigiendo LISTO.
                          #   valida montos contra el saldo REAL; pago parcial NO libera la mesa;
                          #   inventario se descuenta solo al quedar PAGADA; anular pago: bloqueado si
                          #   su caja ya cerró, repone inventario y devuelve items a pendiente
