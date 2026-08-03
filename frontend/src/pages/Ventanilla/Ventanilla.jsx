@@ -145,8 +145,12 @@ export default function Ventanilla() {
       setShowNewOrderForm(false);
       await loadOrders();
 
-      if (res.data?.order?.id) {
-        await selectOrder(res.data.order.id);
+      // Flujo lineal de ventanilla (dueño, 2026-08): el cliente paga al pedir,
+      // así que crear la orden lleva DIRECTO al panel de cobro (pago adelantado).
+      // Si no van a cobrar todavía, con "Volver" quedan en la fila de siempre.
+      if (res.data?.order?.id && res.data?.order?.table_id) {
+        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/ventanilla' } });
+        return;
       }
 
       showAlert('Pedido creado');
