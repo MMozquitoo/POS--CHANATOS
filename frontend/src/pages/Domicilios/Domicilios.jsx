@@ -299,7 +299,7 @@ export default function Domicilios() {
                       }}>
                         {statusLabel(order.status)}
                       </span>
-                      <button
+                      {user?.role === 'CAJA' && <button
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/mesa/${order.table_id}?orderId=${order.id}`);
@@ -307,7 +307,7 @@ export default function Domicilios() {
                         style={{ background: '#F5BB4C', color: '#1C1C1E', border: 'none', padding: '0.45rem 1rem', borderRadius: '999px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', minHeight: 40 }}
                       >
                         COBRAR
-                      </button>
+                      </button>}
                       {order.status === 'NUEVO' && (
                         <button
                           onClick={async (e) => {

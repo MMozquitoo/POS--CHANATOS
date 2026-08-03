@@ -148,11 +148,15 @@ export default function Ventanilla() {
       // Flujo lineal de ventanilla (dueño, 2026-08): el cliente paga al pedir,
       // así que crear la orden lleva DIRECTO al panel de cobro (pago adelantado).
       // Si no van a cobrar todavía, con "Volver" quedan en la fila de siempre.
-      if (res.data?.order?.id && res.data?.order?.table_id) {
+      if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
         navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/ventanilla' } });
         return;
       }
 
+      // MESERO no cobra: se queda en la fila con la orden abierta
+      if (res.data?.order?.id) {
+        await selectOrder(res.data.order.id);
+      }
       showAlert('Pedido creado');
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -306,7 +310,7 @@ export default function Ventanilla() {
                       }}>
                         {statusLabel(order.status)}
                       </span>
-                      <button
+                      {user?.role === 'CAJA' && <button
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/mesa/${order.table_id}?orderId=${order.id}`);
@@ -314,7 +318,7 @@ export default function Ventanilla() {
                         style={{ background: '#F5BB4C', color: '#1C1C1E', border: 'none', padding: '0.45rem 1rem', borderRadius: '999px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', minHeight: 40 }}
                       >
                         COBRAR
-                      </button>
+                      </button>}
                       {order.status === 'NUEVO' && (
                         <button
                           onClick={async (e) => {
