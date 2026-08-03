@@ -36,23 +36,34 @@ export default function SalsasChips({ value, onChange }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Con TODAS las salsas puestas, las notas dicen solo "Todas las salsas"
+  // (listarlas una por una ocupaba media observación — dueño, 2026-08-02).
+  const ALL_TOKEN = 'Todas las salsas';
   const parts = parseParts(value);
-  const isOn = (salsa) => parts.some(p => p.toLowerCase() === salsa.toLowerCase());
-  const allOn = salsas.every(isOn);
+  const isToken = (p) => p.toLowerCase() === ALL_TOKEN.toLowerCase();
+  const hasAllToken = parts.some(isToken);
+  const esSalsa = (p) => salsas.some(s => s.toLowerCase() === p.toLowerCase());
+  const isOn = (salsa) => hasAllToken || parts.some(p => p.toLowerCase() === salsa.toLowerCase());
+  const allOn = hasAllToken || salsas.every(isOn);
+
+  // Conservar SIEMPRE lo que no es salsa ni el token (observaciones a mano,
+  // "Sabor: X") — antes se borraba la observación del mesero (bug real).
+  const rest = () => parts.filter(p => !isToken(p) && !esSalsa(p));
 
   const toggle = (salsa) => {
-    const next = isOn(salsa)
-      ? parts.filter(p => p.toLowerCase() !== salsa.toLowerCase())
-      : [...parts, salsa];
+    // Si estaba el token, expandir a la lista completa antes de quitar una
+    const seleccionadas = hasAllToken ? [...salsas] : parts.filter(esSalsa);
+    const on = seleccionadas.some(p => p.toLowerCase() === salsa.toLowerCase());
+    const nuevas = on
+      ? seleccionadas.filter(p => p.toLowerCase() !== salsa.toLowerCase())
+      : [...seleccionadas, salsa];
+    // Si quedaron todas marcadas, colapsar al token
+    const next = nuevas.length === salsas.length ? [...rest(), ALL_TOKEN] : [...rest(), ...nuevas];
     onChange(next.join(', '));
   };
 
   const toggleAll = () => {
-    // Conservar lo que NO es salsa (observaciones escritas a mano, "Sabor: X"):
-    // antes esto reemplazaba las notas COMPLETAS y borraba la observación
-    // del mesero (bug real reportado por el dueño, 2026-08-02).
-    const rest = parts.filter(p => !salsas.some(s => s.toLowerCase() === p.toLowerCase()));
-    const next = allOn ? rest : [...rest, ...salsas];
+    const next = allOn ? rest() : [...rest(), ALL_TOKEN];
     onChange(next.join(', '));
   };
 
