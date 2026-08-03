@@ -113,9 +113,4 @@
     padding-bottom: 150px !important;
   }
 
-  /* El "Salir" del header de Mesas.jsx quedó duplicado con el ☰ MENÚ de la
-     barra inferior. */
-  .mesero-header-logout-btn {
-    visibility: hidden !important;
-  }
 }

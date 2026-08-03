@@ -131,7 +131,18 @@ frontend/
                          #   Reportes, CajaRoutes monta BottomNav/OrdenesDrawer/MenuDrawer +
                          #   catch-all → /centro
     styles/
-      chanatos-theme.css # Design tokens (modales z-index 3000: SIEMPRE encima de recibos)
+      chanatos-theme.css # Design tokens v2 "estilo Apple" (rediseño 2026-08): grises iOS (--gray-*),
+                         #   semánticos con variante -text legible (--green/-red/-orange/-blue),
+                         #   marca (--brand, --brand-deep para texto ámbar AA), escala --text-11..34,
+                         #   radios/sombras 2 capas/--ease-ios; carga la fuente Inter Variable local
+                         #   (public/fonts/, el POS corre sin internet). Los alias --chanatos-* v1 se
+                         #   RETIRARON en fase 6 — no reintroducirlos. Modales z-index 3000: SIEMPRE
+                         #   encima de recibos. Plan completo: docs/plan-rediseno-visual-2026-08.md
+      primitives.css     # Primitivas del sistema: .btn (variantes), .card, .list-group/.list-row
+                         #   (+ .list-group--inset para dentro de modales), .segmented, .pill,
+                         #   .switch (iOS), .tnum (números tabulares: SIEMPRE en precios), sheet
+                         #   móvil de .chanatos-modal (<768px, CSS puro — Modal.jsx intocado).
+                         #   TODO estilo nuevo parte de acá; no inventar botones/cards ad-hoc.
       mobile-polish.css  # Capa global móvil (@media max-width:768px, MISMO breakpoint que BottomNav):
                          #   targets 46px, safe-areas (notch), grillas de categorías TODAS visibles
                          #   (no carrusel), colores explícitos en botones (iOS los pinta azul),
@@ -139,7 +150,8 @@ frontend/
                          #   hace zoom automático al tocar el campo — bug real, no se ve en Chrome/
                          #   Android). Acá también se ocultan los restos del nav viejo que ya cubre
                          #   BottomNav (.centro-total-tabs, .dashboard-caja-launcher,
-                         #   .caja-header-opciones-btn) — TRAMPA: estaban en posMobile.css con
+                         #   .caja-header-opciones-btn, .mesero-header-logout-btn) — TRAMPA: estaban
+                         #   en posMobile.css con
                          #   @media max-width:480px y quedaban las DOS navegaciones a la vez entre
                          #   480-768px (ventana de PC no maximizada). Cualquier regla que oculte algo
                          #   porque "ya lo cubre BottomNav" tiene que ir en ESTE archivo a 768px, no

@@ -91,6 +91,14 @@
     visibility: hidden !important;
   }
 
+  /* El "Salir" del header de Mesas.jsx (Mesero) duplica el ☰ MENÚ de la
+     barra inferior. (Regla movida acá desde mesero/BottomNav.css en la fase
+     6 del rediseño: TODO ocultamiento "porque BottomNav ya lo cubre" vive
+     en ESTE archivo a 768px.) */
+  .mesero-header-logout-btn {
+    visibility: hidden !important;
+  }
+
   /* Targets táctiles cómodos en los botones de acción */
   .btn-chanatos,
   .btn-primary,

@@ -1,9 +1,9 @@
 /* ============================================================
    POS Chanatos — Design tokens v2 (rediseño visual 2026-08)
    Lenguaje: estética Apple/iOS sobre la marca Chanatos (ámbar).
-   REGLA: los estilos nuevos usan los tokens nuevos; los nombres
-   --chanatos-* viejos quedan como ALIAS para el CSS existente y
-   se irán retirando en la fase 6 (purga).
+   REGLA: todo estilo usa estos tokens + las primitivas de
+   primitives.css (los alias --chanatos-* v1 se retiraron en la
+   fase 6; no reintroducirlos).
    ============================================================ */
 
 /* Inter Variable (gemela de SF Pro), empaquetada local — el POS corre sin internet */
@@ -92,39 +92,6 @@
   --space-lg: 1.5rem;
   --space-xl: 2rem;
 
-  /* ============================================================
-     ALIAS DE COMPATIBILIDAD (nombres v1 → valores v2)
-     No usar en código nuevo. Se retiran en fase 6.
-     ============================================================ */
-  --chanatos-primary: var(--brand);
-  --chanatos-primary-dark: var(--brand-dark);
-  --chanatos-primary-light: var(--brand-light);
-  --chanatos-primary-bg: var(--brand-tint);
-  --chanatos-primary-hover: var(--brand-hover);
-
-  --chanatos-dark: var(--gray-900);
-  --chanatos-dark-light: var(--gray-800);
-  --chanatos-gray-900: var(--gray-900);
-  --chanatos-gray-700: var(--gray-700);
-  --chanatos-gray-600: var(--gray-600);
-  --chanatos-gray-400: var(--gray-300);
-  --chanatos-gray-200: var(--gray-100);
-  --chanatos-gray-100: var(--gray-50);
-  --chanatos-white: #ffffff;
-
-  --chanatos-success: var(--green-text);
-  --chanatos-success-light: var(--green-tint);
-  --chanatos-danger: var(--red-text);
-  --chanatos-danger-light: var(--red-tint);
-  --chanatos-warning: var(--orange);
-  --chanatos-info: var(--blue);
-
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-2xl: 2rem;
 }
 
 /* ============================================================
@@ -139,7 +106,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--text-17);
   min-height: 46px;
 }
 .btn-chanatos:hover {
@@ -163,7 +130,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--text-17);
   min-height: 46px;
 }
 .btn-chanatos-outline:hover {
@@ -183,7 +150,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--text-17);
   min-height: 46px;
 }
 .btn-danger:hover {
@@ -202,7 +169,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--text-17);
   min-height: 46px;
 }
 .btn-success:hover {
@@ -221,7 +188,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--text-17);
   min-height: 46px;
 }
 .btn-secondary:hover {
@@ -232,7 +199,7 @@
 }
 
 .chanatos-card {
-  background: var(--chanatos-white);
+  background: #fff;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-lg);
@@ -254,7 +221,7 @@
 }
 
 .chanatos-modal {
-  background: var(--chanatos-white);
+  background: #fff;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   max-width: 500px;
