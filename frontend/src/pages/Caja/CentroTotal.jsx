@@ -1321,9 +1321,12 @@ export default function CentroTotal() {
 
                 // Todo el cuadro navega a la orden (no solo el botón COBRAR),
                 // mientras respete las mismas condiciones que ya bloqueaban el botón.
+                // ?orderId=: en Ventanilla/Domicilios hay VARIAS órdenes en la misma
+                // "mesa" — sin esto DetalleMesa abría siempre la primera y tocaba
+                // buscar la clickeada a mano (reporte del dueño, 2026-08-02).
                 const canOpen = !isEmpty && tableId && cashSessionActive && isOnline;
                 const openOrder = () => {
-                  if (canOpen) navigate(`/mesa/${tableId}`, FROM_CENTRO_TOTAL_LISTO);
+                  if (canOpen) navigate(`/mesa/${tableId}?orderId=${order.id}`, FROM_CENTRO_TOTAL_LISTO);
                 };
 
                 const itemsSummary = pendingItems.length > 0
