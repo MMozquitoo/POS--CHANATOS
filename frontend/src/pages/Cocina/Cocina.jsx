@@ -225,6 +225,11 @@ export default function Cocina() {
 
     return (
       <div className={`order-card-kitchen ${isRecent && order.status !== 'LISTO' ? 'order-card-recent' : ''}`}>
+        {markable && activeItems.length > 1 && (
+          <div className="order-progressbar">
+            <div style={{ width: `${(readyCount / activeItems.length) * 100}%` }} />
+          </div>
+        )}
         <div className="order-header-kitchen">
           <div className="order-code-kitchen">
             {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
@@ -288,15 +293,18 @@ export default function Cocina() {
   return (
     <div className="cocina-container">
       <header className="cocina-header">
-        <h1>COCINA</h1>
+        <h1>Cocina</h1>
         <div className="header-actions">
-          <button
-            onClick={toggleSound}
-            className="sound-toggle-btn"
+          <label
+            className="sound-toggle"
             title={soundOn ? 'Silenciar alertas' : 'Activar alertas sonoras'}
           >
-            {soundOn ? 'SONIDO: SÍ' : 'SONIDO: NO'}
-          </button>
+            <span className="sound-toggle-label">Sonido</span>
+            <span className="switch">
+              <input type="checkbox" checked={soundOn} onChange={toggleSound} />
+              <span className="switch__track" />
+            </span>
+          </label>
           {orders.LISTO.length > 0 && (
             <button onClick={archiveDayOrders} className="archive-day-btn">
               ARCHIVAR DÍA
@@ -320,7 +328,7 @@ export default function Cocina() {
             type="button"
             onClick={() => setMobileSection(key)}
             className={`cocina-mobile-tab ${mobileSection === key ? 'active' : ''}`}
-            style={mobileSection === key ? { background: color, borderColor: color } : undefined}
+            style={mobileSection === key ? { color } : undefined}
           >
             {label} ({orders[key].length})
           </button>

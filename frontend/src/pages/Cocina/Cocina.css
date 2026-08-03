@@ -1,15 +1,19 @@
+/* Cocina — restyle v2 (2026-08). Regla de esta pantalla: CONTRASTE ALTO,
+   se mira de lejos y con las manos ocupadas. Tipos grandes, estados por
+   color semántico, un toque por plato. */
+
 .cocina-container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--gray-50);
 }
 
 .cocina-header {
   background: white;
-  padding: 1rem;
+  padding: 0.8rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--separator);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -22,8 +26,11 @@
 }
 
 .cocina-header h1 {
-  font-size: 1.5rem;
-  color: #333;
+  font-size: var(--text-20);
+  font-weight: 700;
+  letter-spacing: var(--tracking-title);
+  color: var(--gray-900);
+  margin: 0;
 }
 
 .cocina-columns {
@@ -35,180 +42,217 @@
   overflow-y: auto;
 }
 
-/* Selector de sección (Nuevos/En preparación/Listos/Archivados): solo se ve
-   en móvil vía la media query de abajo; en desktop las 4 columnas ya se ven
-   juntas. */
+/* Selector de sección (Nuevos/En preparación/Listos/Archivados): solo móvil */
 .cocina-mobile-tabs {
   display: none;
 }
 
 .cocina-column {
   background: white;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 1rem;
   overflow-y: auto;
 }
 
 .column-title {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
+  font-size: var(--text-13);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.9rem;
   padding-bottom: 0.5rem;
-  border-bottom: 3px solid;
+  border-bottom: 1px solid var(--separator);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.column-title.nuevo {
-  color: #1971c2;
-  border-bottom-color: #1971c2;
+.column-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
-.column-title.en-prep {
-  color: #f59f00;
-  border-bottom-color: #f59f00;
-}
-
-.column-title.listo {
-  color: #2b8a3e;
-  border-bottom-color: #2b8a3e;
-}
-
-.column-title.archivado {
-  color: #868e96;
-  border-bottom-color: #868e96;
-}
+.column-title.nuevo { color: var(--blue-text); }
+.column-title.en-prep { color: var(--orange-text); }
+.column-title.listo { color: var(--green-text); }
+.column-title.archivado { color: var(--gray-500); }
 
 .orders-column {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
 .empty-column {
   text-align: center;
-  color: #999;
+  color: var(--gray-500);
   padding: 2rem;
 }
 
+/* Comanda: card blanca elevada; la columna ya es blanca, así que en desktop
+   se diferencia por sombra + fondo gris muy suave */
 .order-card-kitchen {
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  border-left: 4px solid #F5BB4C;
+  border-left: none;
 }
 
 .order-header-kitchen {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+  gap: 0.5rem;
 }
 
 .order-code-kitchen {
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #333;
+  font-weight: 800;
+  font-size: var(--text-20);
+  letter-spacing: var(--tracking-title);
+  color: var(--gray-900);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .order-time-kitchen {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--gray-500);
 }
 
+/* La mesa es lo que canta el cocinero: grande */
 .order-table-kitchen {
-  font-size: 0.9rem;
-  color: #666;
-  margin-bottom: 0.75rem;
+  font-size: var(--text-17);
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 0.6rem;
 }
 
 .order-items-kitchen {
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 .order-item-kitchen {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  font-size: 0.95rem;
+  font-size: var(--text-17);
+  align-items: baseline;
 }
 
 .item-qty {
-  font-weight: bold;
-  color: #F5BB4C;
+  font-weight: 800;
+  color: var(--brand-deep);
+  font-variant-numeric: tabular-nums;
 }
 
 .item-name {
   flex: 1;
-  color: #333;
+  color: var(--gray-900);
+  font-weight: 600;
 }
 
+/* Notas/sabores: naranja, es lo que diferencia el plato */
 .item-notes {
-  color: #666;
-  font-style: italic;
+  color: var(--orange-text);
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--text-15);
 }
 
 .action-btn {
   width: 100%;
-  padding: 0.75rem;
-  font-weight: bold;
-  border-radius: 8px;
-  font-size: 1rem;
+  min-height: 48px;
+  padding: 0.7rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  font-size: var(--text-17);
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-btn:active {
+  transform: scale(0.97);
 }
 
 .iniciar-btn {
-  background: #1971c2;
+  background: var(--blue);
   color: white;
 }
 
 .listo-btn {
-  background: #2b8a3e;
+  background: var(--green-text);
   color: white;
 }
 
 .archivar-btn {
-  background: #868e96;
-  color: white;
+  background: var(--gray-100);
+  color: var(--gray-700);
 }
 
 .archivar-btn:hover {
-  background: #6c757d;
+  background: var(--gray-200);
 }
 
 .archive-day-btn {
-  padding: 0.5rem 1rem;
-  font-weight: bold;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: #868e96;
-  color: white;
+  padding: 0.5rem 0.9rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  font-size: var(--text-13);
+  background: var(--gray-50);
+  color: var(--gray-700);
   border: none;
   cursor: pointer;
   transition: background 0.2s;
+  min-height: 40px;
 }
 
 .archive-day-btn:hover {
-  background: #6c757d;
+  background: var(--gray-100);
 }
 
 .logout-btn {
-  padding: 0.5rem 1rem;
-  font-weight: bold;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: #dc3545;
-  color: white;
+  padding: 0.5rem 0.9rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  font-size: var(--text-15);
+  background: var(--gray-50);
+  color: var(--red-text);
   border: none;
   cursor: pointer;
   transition: background 0.2s;
+  min-height: 40px;
 }
 
 .logout-btn:hover {
-  background: #c82333;
+  background: var(--red-tint);
 }
 
 .loading {
   text-align: center;
   padding: 2rem;
-  color: #666;
+  color: var(--gray-500);
+}
+
+/* Toggle de sonido: switch estilo iOS con etiqueta */
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sound-toggle-label {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--gray-600);
+  white-space: nowrap;
 }
 
 /* Estilos responsive para mobile */
@@ -220,7 +264,7 @@
   }
 
   .cocina-header {
-    padding: 0.75rem;
+    padding: 0.7rem 0.85rem;
     flex-wrap: nowrap;
     gap: 0.5rem;
     align-items: center;
@@ -228,11 +272,10 @@
   }
 
   .cocina-header h1 {
-    font-size: 1.1rem;
+    font-size: 1.0625rem;
     flex: 1;
-    text-align: center;
+    text-align: left;
     margin: 0;
-    padding: 0 0.25rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -249,31 +292,49 @@
     white-space: nowrap;
   }
 
+  /* Tabs móviles como segmented control iOS; el color del estado va en el
+     TEXTO del segmento activo (no en el fondo) */
   .cocina-mobile-tabs {
     display: flex;
-    gap: 0.4rem;
+    gap: 2px;
     padding: 0.6rem 0.75rem;
     background: white;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--separator);
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cocina-mobile-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .cocina-mobile-tab {
     flex: 1 1 auto;
     white-space: nowrap;
-    padding: 0.6rem 0.75rem;
+    padding: 0.55rem 0.7rem;
     min-height: 46px;
-    border-radius: 8px;
-    border: 1.5px solid #ddd;
-    background: #f8f9fa;
-    color: #555;
-    font-weight: bold;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    font-weight: 600;
     font-size: 0.8rem;
     cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .cocina-mobile-tab:first-child {
+    border-radius: var(--radius-md) var(--radius-sm) var(--radius-sm) var(--radius-md);
+  }
+
+  .cocina-mobile-tab:last-child {
+    border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-sm);
   }
 
   .cocina-mobile-tab.active {
-    color: white;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    font-weight: 700;
   }
 
   .cocina-columns {
@@ -284,65 +345,57 @@
     overflow-y: visible;
   }
 
-  /* Una sola sección visible a la vez (elegida arriba en .cocina-mobile-tabs)
-     — antes las 3-4 columnas quedaban apiladas, cada una con su propio
-     scroll interno además del scroll de toda la página. */
+  /* Una sola sección visible a la vez (elegida arriba en .cocina-mobile-tabs) */
   .cocina-column {
     display: none !important;
     padding: 0.875rem;
     max-height: none;
     overflow-y: visible;
+    background: transparent;
+    box-shadow: none;
   }
 
   .cocina-column.cocina-section-active {
     display: block !important;
   }
 
-  .column-title {
-    font-size: 1rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.4rem;
-  }
-
+  /* En móvil la columna es transparente: cada comanda es una card blanca */
   .order-card-kitchen {
-    padding: 0.875rem;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    padding: 0.9rem;
   }
 
-  .order-code-kitchen {
-    font-size: 1rem;
-  }
-
-  .order-time-kitchen {
-    font-size: 0.8rem;
-  }
-
-  .order-table-kitchen {
-    font-size: 0.85rem;
+  .column-title {
     margin-bottom: 0.6rem;
   }
 
+  .order-code-kitchen {
+    font-size: var(--text-17);
+  }
+
+  .order-table-kitchen {
+    font-size: var(--text-15);
+    margin-bottom: 0.5rem;
+  }
+
   .order-item-kitchen {
-    font-size: 0.9rem;
+    font-size: var(--text-15);
     margin-bottom: 0.4rem;
   }
 
   .action-btn {
     padding: 0.6rem;
-    font-size: 0.95rem;
+    font-size: 1rem;
   }
 
-  .logout-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.85rem;
-  }
-
+  .logout-btn,
   .archive-day-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.85rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
   }
 
-  /* Asegurar que el texto respete márgenes, sin partir palabras con guion —
-     copia local del mismo problema ya corregido en index.css. */
+  /* Sin partir palabras con guion — copia local del arreglo de index.css. */
   p, span, div, h1, h2, h3, h4, h5, h6, label, button {
     word-break: keep-all;
     overflow-wrap: break-word;
@@ -350,93 +403,103 @@
   }
 }
 
-/* FASE 2: cronómetro de espera por pedido */
+/* Cronómetro de espera por pedido (semáforo 10/20 min) */
 .order-elapsed {
-  font-size: 0.85rem;
+  font-size: var(--text-15);
   font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 999px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .order-elapsed-ok {
-  background: #eafaf1;
-  color: #1e8e50;
+  background: var(--green-tint);
+  color: var(--green-text);
 }
 
 .order-elapsed-warn {
-  background: #FFF3D6;
-  color: #B8860B;
+  background: var(--orange-tint);
+  color: var(--orange-text);
 }
 
 .order-elapsed-late {
-  background: #fdecea;
-  color: #c0392b;
+  background: var(--red);
+  color: #fff;
   animation: elapsed-blink 1.2s ease-in-out infinite;
 }
 
 .order-elapsed-done {
-  background: #f0f0f0;
-  color: #888;
+  background: var(--gray-100);
+  color: var(--gray-500);
 }
 
 @keyframes elapsed-blink {
-  50% { opacity: 0.45; }
+  50% { opacity: 0.55; }
 }
 
 /* Pedido recién llegado (menos de 1 minuto) */
 .order-card-recent {
   animation: card-pulse 1.6s ease-in-out 3;
-  border: 2px solid #F5BB4C !important;
+  box-shadow: 0 0 0 2px var(--brand) !important;
 }
 
 @keyframes card-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 187, 76, 0.0); }
-  50% { box-shadow: 0 0 0 8px rgba(245, 187, 76, 0.35); }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 187, 76, 0.9); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 187, 76, 0.25); }
 }
 
-/* Botón de sonido */
-.sound-toggle-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 8px;
-  font-size: 1.2rem;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-/* FASE F7: cocina plato por plato */
+/* Cocina plato por plato */
 .order-progress {
   margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #f0f0f0;
-  color: #888;
-  font-size: 0.8rem;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--gray-100);
+  color: var(--gray-500);
+  font-size: var(--text-13);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .order-progress.started {
-  background: #FFF3D6;
-  color: #B8860B;
+  background: var(--brand-tint);
+  color: var(--brand-deep);
+}
+
+/* Barra fina de avance N/M (estilo progreso de descarga iOS) */
+.order-progressbar {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--gray-100);
+  overflow: hidden;
+  margin-bottom: 0.7rem;
+}
+
+.order-progressbar > div {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--green);
+  transition: width 300ms var(--ease-ios);
 }
 
 .item-touchable {
   display: flex;
   width: 100%;
-  min-height: 46px;
+  min-height: 48px;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: white;
-  border: 1.5px solid #eee;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
   margin-bottom: 6px;
   cursor: pointer;
   text-align: left;
   font-size: inherit;
   transition: all 0.12s;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .item-touchable:active {
@@ -444,10 +507,10 @@
 }
 
 .item-check {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 2px solid #ddd;
+  border: 2px solid var(--gray-300);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -458,29 +521,29 @@
 }
 
 .item-ready {
-  border-color: #2ecc71 !important;
-  background: #f4fcf7 !important;
+  border-color: var(--green) !important;
+  background: var(--green-tint) !important;
 }
 
 .item-ready .item-check {
-  background: #2ecc71;
-  border-color: #2ecc71;
+  background: var(--green);
+  border-color: var(--green);
 }
 
 .item-ready .item-name,
 .item-ready .item-qty {
   text-decoration: line-through;
-  color: #999;
+  color: var(--gray-400);
 }
 
 /* Plato pendiente cuando otros ya están listos: es lo que falta */
 .item-pending-hot {
-  border-color: #F5BB4C !important;
-  background: #FFFDF5 !important;
+  border-color: var(--brand) !important;
+  background: var(--brand-tint) !important;
 }
 
 .devolver-btn {
-  background: #f0f0f0;
-  color: #555;
-  min-width: 44px;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  min-width: 48px;
 }
