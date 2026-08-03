@@ -16,6 +16,34 @@ import { useDetalleMesaRefresh } from '../../hooks/useOrdersRefresh.js';
 import ModalHost from '../../components/ModalHost';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
+import { statusLabel } from '../../utils/statusLabels.js';
+
+// Pill de estado (estilo iOS: tinte suave + texto oscuro, nunca el enum crudo)
+const STATUS_PILL_STYLE = {
+  NUEVO: { background: 'var(--blue-tint)', color: 'var(--blue-text)' },
+  EN_PREP: { background: 'var(--orange-tint)', color: 'var(--orange-text)' },
+  LISTO: { background: 'var(--green-tint)', color: 'var(--green-text)' },
+  PAGADA: { background: 'var(--gray-50)', color: 'var(--gray-600)' },
+  CANCELADO: { background: 'var(--red-tint)', color: 'var(--red-text)' },
+};
+
+function StatusPill({ status }) {
+  if (!status) return null;
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '0.25rem 0.75rem',
+        borderRadius: '999px',
+        fontSize: '0.8125rem',
+        fontWeight: 600,
+        ...(STATUS_PILL_STYLE[status] || STATUS_PILL_STYLE.PAGADA),
+      }}
+    >
+      {statusLabel(status)}
+    </span>
+  );
+}
 
 // FASE M9.1: helper para Ventanilla (9) / Domicilios (10) — múltiples órdenes permitidas
 const isSpecialTable = (tableNumber) => {
@@ -1398,8 +1426,8 @@ export default function DetalleMesa() {
                   <h2 className="pos-mobile-no-break" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
                     {activeOrder.daily_no ? `ORDEN ${activeOrder.daily_no}` : (activeOrder.code || `ORDEN ${activeOrder.id}`)}
                   </h2>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-                    Estado: <strong>{activeOrder.status || 'N/A'}</strong>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <StatusPill status={activeOrder.status} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -1888,57 +1916,42 @@ export default function DetalleMesa() {
 
           {activeOrder && activeOrder.id ? (
             <>
-              <div style={{ 
-                background: 'white', 
-                padding: '1.5rem', 
-                borderRadius: '12px',
-                border: '2px solid #F5BB4C'
+              <div style={{
+                background: 'white',
+                padding: '1.4rem',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-md)'
               }}>
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>Resumen</h3>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ color: '#666' }}>Items:</span>
-                    <span style={{ fontWeight: 'bold' }}>{safeActiveOrderItems.length}</span>
+                {/* El TOTAL es lo primero que ve el ojo */}
+                <div style={{ textAlign: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--separator)' }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                    Total a cobrar
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ color: '#666' }}>Estado:</span>
-                    <span style={{ 
-                      fontWeight: 'bold',
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: '4px',
-                      background: (activeOrder.status === 'NUEVO') ? '#ffc107' :
-                                 (activeOrder.status === 'EN_PREP') ? '#F5BB4C' :
-                                 (activeOrder.status === 'LISTO') ? '#28a745' : '#6c757d',
-                      color: 'white'
-                    }}>
-                      {activeOrder.status || 'N/A'}
-                    </span>
+                  <div className="tnum" style={{ fontSize: '2.125rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--gray-900)', lineHeight: 1.1 }}>
+                    {formatPriceCOP(Math.max(0, activeOrderTotal - orderDiscount))}
                   </div>
                 </div>
 
-                <div style={{ 
-                  borderTop: '2px solid #333', 
-                  paddingTop: '1rem',
-                  marginTop: '1rem'
-                }}>
+                <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {orderDiscount > 0 && (
                     <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#666' }}>
-                        <span>Subtotal:</span>
-                        <span>{formatPriceCOP(activeOrderTotal)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)' }}>
+                        <span>Subtotal</span>
+                        <span className="tnum">{formatPriceCOP(activeOrderTotal)}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#B8860B', marginBottom: '0.5rem' }}>
-                        <span>Descuento ({activeOrder.discount_reason}):</span>
-                        <span>-{formatPriceCOP(orderDiscount)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--brand-deep)' }}>
+                        <span>Descuento ({activeOrder.discount_reason})</span>
+                        <span className="tnum">-{formatPriceCOP(orderDiscount)}</span>
                       </div>
                     </>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>TOTAL:</span>
-                    <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#F5BB4C' }}>
-                      {formatPriceCOP(Math.max(0, activeOrderTotal - orderDiscount))}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', alignItems: 'center' }}>
+                    <span>Items</span>
+                    <span className="tnum" style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{safeActiveOrderItems.length}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', alignItems: 'center' }}>
+                    <span>Estado</span>
+                    <StatusPill status={activeOrder.status} />
                   </div>
                 </div>
               </div>
@@ -1948,63 +1961,49 @@ export default function DetalleMesa() {
                 <div style={{
                   background: 'white',
                   padding: '1.1rem',
-                  borderRadius: '12px',
-                  border: '2px solid #28a745'
+                  borderRadius: 'var(--radius-xl)',
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
-                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Método de Pago</h3>
+                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Método de pago</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                    <button
-                      onClick={() => setPaymentMethod('EFECTIVO')}
-                      style={{
-                        padding: '0.55rem 0.1rem',
-                        minHeight: '44px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        background: paymentMethod === 'EFECTIVO' ? '#28a745' : '#f0f0f0',
-                        color: paymentMethod === 'EFECTIVO' ? 'white' : '#333',
-                        border: paymentMethod === 'EFECTIVO' ? '3px solid #1e7e34' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.72rem',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      EFECTIVO
-                    </button>
                     {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía.
                         Se deja el código de payments/reportes intacto (reversible) — ver
                         CLAUDE.md "Pendientes conocidos": evalúa Bold/Wompi. */}
-                    <button
-                      onClick={() => setPaymentMethod('TRANSFERENCIA')}
-                      title="TRANSFERENCIA"
-                      style={{
-                        padding: '0.55rem 0.1rem',
-                        minHeight: '44px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        background: paymentMethod === 'TRANSFERENCIA' ? '#28a745' : '#f0f0f0',
-                        color: paymentMethod === 'TRANSFERENCIA' ? 'white' : '#333',
-                        border: paymentMethod === 'TRANSFERENCIA' ? '3px solid #1e7e34' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.72rem',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      TRANSFER.
-                    </button>
+                    {[
+                      { key: 'EFECTIVO', label: 'Efectivo' },
+                      { key: 'TRANSFERENCIA', label: 'Transfer.' },
+                    ].map(({ key, label }) => {
+                      const selected = paymentMethod === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setPaymentMethod(key)}
+                          title={key}
+                          style={{
+                            padding: '0.55rem 0.3rem',
+                            minHeight: '48px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            background: selected ? 'var(--brand-tint)' : 'var(--gray-50)',
+                            color: selected ? 'var(--brand-deep)' : 'var(--gray-700)',
+                            border: selected ? '2px solid var(--brand)' : '2px solid transparent',
+                            borderRadius: 'var(--radius-lg)',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            fontSize: '0.9375rem',
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent'
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <button
@@ -2012,24 +2011,24 @@ export default function DetalleMesa() {
                       setShowCalculator(true);
                     }}
                     style={{
-                      padding: '0.5rem 1.25rem',
+                      padding: '0.5rem 1.1rem',
                       minHeight: '44px',
-                      background: '#6c757d',
-                      color: 'white',
+                      background: 'var(--gray-50)',
+                      color: 'var(--gray-900)',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '999px',
                       cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      fontSize: '0.9375rem',
                       marginBottom: '0.6rem'
                     }}
                   >
-                    CALCULADORA
+                    Calculadora de vuelto
                   </button>
 
                   {/* FASE F10: propina opcional + descuento */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                    <label style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Propina:</label>
+                    <label style={{ fontSize: '0.9375rem', fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--gray-700)' }}>Propina</label>
                     <input
                       type="number"
                       inputMode="numeric"
@@ -2037,14 +2036,15 @@ export default function DetalleMesa() {
                       placeholder="0 (opcional)"
                       value={tipAmount}
                       onChange={(e) => setTipAmount(e.target.value)}
-                      style={{ flex: 1, minWidth: 0, height: '42px', padding: '0 10px', border: '1.5px solid #e5e5e5', borderRadius: '8px' }}
+                      className="tnum"
+                      style={{ flex: 1, minWidth: 0, height: '44px', padding: '0 12px', border: '1.5px solid var(--gray-100)', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)', fontSize: '16px' }}
                     />
                     <button
                       type="button"
                       onClick={() => setShowDiscount(true)}
-                      style={{ padding: '0 12px', height: '42px', background: 'transparent', border: '1.5px solid #B8860B', color: '#B8860B', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      style={{ padding: '0 14px', height: '44px', background: orderDiscount > 0 ? 'var(--brand-tint)' : 'var(--gray-50)', border: 'none', color: 'var(--brand-deep)', borderRadius: '999px', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
-                      {orderDiscount > 0 ? 'DESC. ✓' : 'DESCUENTO'}
+                      {orderDiscount > 0 ? 'Desc. aplicado' : 'Descuento'}
                     </button>
                   </div>
 
@@ -2087,27 +2087,19 @@ export default function DetalleMesa() {
                     disabled={loadingPay || !isOnline}
                     style={{
                       width: '100%',
-                      padding: '1.1rem',
-                      background: loadingPay || !isOnline ? '#6c757d' : '#F5BB4C',
-                      color: 'white',
+                      padding: '1rem',
+                      minHeight: '56px',
+                      background: 'var(--brand)',
+                      color: 'var(--gray-900)',
                       border: 'none',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-lg)',
                       cursor: loadingPay || !isOnline ? 'not-allowed' : 'pointer',
-                      fontSize: '1.4rem',
-                      fontWeight: 'bold',
-                      boxShadow: loadingPay || !isOnline ? 'none' : '0 4px 12px rgba(245, 187, 76, 0.4)',
-                      opacity: loadingPay || !isOnline ? 0.6 : 1,
+                      fontSize: '1.25rem',
+                      fontWeight: 800,
+                      letterSpacing: '-0.01em',
+                      boxShadow: loadingPay || !isOnline ? 'none' : '0 8px 20px rgba(245, 187, 76, 0.45)',
+                      opacity: loadingPay || !isOnline ? 0.45 : 1,
                       transition: 'opacity 0.2s, transform 0.1s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!loadingPay && isOnline) {
-                        e.currentTarget.style.opacity = '0.85';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!loadingPay && isOnline) {
-                        e.currentTarget.style.opacity = '1';
-                      }
                     }}
                     onMouseDown={(e) => {
                       if (!loadingPay && isOnline) {
@@ -2128,21 +2120,21 @@ export default function DetalleMesa() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 'fit-content',
-                      minHeight: '44px',
-                      margin: '0.75rem auto 0',
+                      width: '100%',
+                      minHeight: '48px',
+                      margin: '0.6rem auto 0',
                       padding: '0.7rem 1.5rem',
-                      background: '#1a1a2e',
-                      color: 'white',
+                      background: 'var(--gray-50)',
+                      color: 'var(--gray-900)',
                       border: 'none',
-                      borderRadius: '10px',
+                      borderRadius: 'var(--radius-lg)',
                       cursor: loadingPay || !isOnline ? 'not-allowed' : 'pointer',
-                      fontSize: '0.95rem',
-                      fontWeight: 'bold',
-                      opacity: loadingPay || !isOnline ? 0.6 : 1
+                      fontSize: '0.9375rem',
+                      fontWeight: 700,
+                      opacity: loadingPay || !isOnline ? 0.45 : 1
                     }}
                   >
-                    DIVIDIR CUENTA
+                    Dividir cuenta
                   </button>
                 </div>
               ) : activeOrder.status === 'LISTO' && activeOrderItems.length > 0 && cashSessionActive === false ? (
@@ -2459,7 +2451,7 @@ export default function DetalleMesa() {
                 Orden: {activeOrder.daily_no ? `ORDEN ${activeOrder.daily_no}` : (activeOrder.code || `#${activeOrder.id}`)}
               </div>
               <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-                Estado: {activeOrder.status}
+                Estado: {statusLabel(activeOrder.status)}
               </div>
             </div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>

@@ -33,18 +33,18 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
     <div className="calculadora-vuelto-overlay">
       <div className="calculadora-vuelto-container">
         <div className="calculadora-header">
-          <h2>CALCULADORA DE VUELTO</h2>
-          <button onClick={onClose} className="close-btn">✕</button>
+          <h2>Vuelto</h2>
+          <button onClick={onClose} className="close-btn" aria-label="Cerrar">✕</button>
         </div>
 
         <div className="calculadora-content">
           <div className="calculadora-total-section">
-            <label>Total a Cobrar:</label>
+            <label>Total a cobrar</label>
             <div className="total-display">{formatPriceCOP(total)}</div>
           </div>
 
           <div className="calculadora-recibido-section">
-            <label>Recibido:</label>
+            <label>Recibido</label>
             <input
               type="number"
               value={recibido}
@@ -56,14 +56,14 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
           </div>
 
           <div className="calculadora-vuelto-section">
-            <label>Vuelto:</label>
+            <label>Vuelto</label>
             <div className={`vuelto-display ${vuelto >= 0 ? 'positive' : 'negative'}`}>
               {vuelto >= 0 ? formatPriceCOP(vuelto) : `Faltan: ${formatPriceCOP(Math.abs(vuelto))}`}
             </div>
           </div>
 
           <div className="calculadora-bills">
-            <h3>Billetes Rápidos</h3>
+            <h3>Billetes rápidos</h3>
             <div className="bills-grid">
               {[1000, 2000, 5000, 10000, 20000, 50000, 100000].map(bill => (
                 <button
@@ -79,10 +79,10 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
 
           <div className="calculadora-actions">
             <button onClick={handleClear} className="clear-btn">
-              LIMPIAR
+              Limpiar
             </button>
             <button onClick={handleConfirm} className="confirm-btn">
-              LISTO
+              Listo
             </button>
           </div>
         </div>
