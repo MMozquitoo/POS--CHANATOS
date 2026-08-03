@@ -1531,7 +1531,7 @@ router.delete("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) =
 // Permite editar nombre, precio, cantidad y notas de un item
 router.patch("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { name, price, qty, notes } = req.body;
+    const { name, price, qty, notes, productId } = req.body;
     const db = getDb();
     const itemId = parseInt(req.params.id);
 
@@ -1624,6 +1624,18 @@ router.patch("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) =>
     if (notes !== undefined) {
       updates.push("notes = ?");
       params.push(notes || null);
+    }
+
+    // CAMBIO DE VARIANTE (2026-08): "pidió Sencilla, la quiere en Combo" —
+    // al cambiar el producto asociado se actualiza product_id para que el
+    // inventario descuente la receta correcta al pagar.
+    if (productId !== undefined) {
+      const prod = await db.get("SELECT id FROM products WHERE id = ?", [productId]);
+      if (!prod) {
+        return res.status(400).json({ error: "Producto no encontrado" });
+      }
+      updates.push("product_id = ?");
+      params.push(parseInt(productId));
     }
 
     if (updates.length === 0) {

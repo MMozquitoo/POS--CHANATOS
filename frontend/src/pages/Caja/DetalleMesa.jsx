@@ -228,6 +228,33 @@ export default function DetalleMesa() {
   const [cancelOrderReason, setCancelOrderReason] = useState('');
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [showVoidItemModal, setShowVoidItemModal] = useState(false);
+  // CAMBIO DE VARIANTE (2026-08): "pidió Sencilla, la quiere en Combo" —
+  // item a cambiar por otra variante del mismo producto, sin anular+reagregar
+  const [swapItem, setSwapItem] = useState(null);
+
+  // Variantes hermanas: mismo product.name, distinto id (Sencillo/Combo/Doble)
+  const getVariantSiblings = (item) => {
+    if (!item?.product_id) return [];
+    const all = Object.values(productsByCategory || {}).flat();
+    const current = all.find(p => p.id === item.product_id);
+    if (!current) return [];
+    return all.filter(p => p.name === current.name && p.id !== current.id);
+  };
+
+  const swapItemVariant = async (item, prod) => {
+    try {
+      await axios.patch(`/orders/items/${item.id}`, {
+        productId: prod.id,
+        name: prod.displayName || prod.name,
+        price: prod.price,
+      });
+      setSwapItem(null);
+      await loadActiveOrder();
+    } catch (e) {
+      setSwapItem(null);
+      showAlert(e.response?.data?.error || 'Error cambiando el producto');
+    }
+  };
   const [voidItemReason, setVoidItemReason] = useState('');
   const [voidingItem, setVoidingItem] = useState(false);
   const [selectedItemToVoid, setSelectedItemToVoid] = useState(null);
@@ -1669,6 +1696,29 @@ export default function DetalleMesa() {
                         </div>
                       )}
                       
+                      {/* CAMBIO DE VARIANTE: solo si el producto tiene hermanas
+                          (mismo nombre, otra variante: Sencillo/Combo) y la orden
+                          aún es editable (NUEVO/EN_PREP, regla del backend) */}
+                      {!item.paid_at && !item.voided_at && ['NUEVO', 'EN_PREP'].includes(activeOrder.status)
+                        && getVariantSiblings(item).length > 0 && (
+                        <button
+                          onClick={() => setSwapItem(item)}
+                          style={{
+                            padding: '0.5rem 0.85rem',
+                            minHeight: 40,
+                            background: 'var(--gray-50)',
+                            color: 'var(--gray-900)',
+                            border: 'none',
+                            borderRadius: '999px',
+                            cursor: 'pointer',
+                            fontSize: '0.8125rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          Cambiar
+                        </button>
+                      )}
+
                       {/* FASE 12.6: Botón anular item — solo cuando la orden YA NO es editable
                           (NUEVO/EN_PREP tienen arriba su propio +/-/✕ para ajustar sin necesitar
                           un anular con motivo; mostrar ambos a la vez era redundante y apretado). */}
@@ -2761,6 +2811,34 @@ export default function DetalleMesa() {
           </div>
         </div>
       )}
+      {/* Cambio de variante: lista de hermanas del mismo producto */}
+      <Modal open={!!swapItem} onClose={() => setSwapItem(null)} title="Cambiar producto">
+        {swapItem && (
+          <>
+            <p style={{ margin: '0 0 0.9rem', color: 'var(--gray-600)', fontSize: '0.9375rem' }}>
+              Cambiar <strong>{swapItem.name}</strong> por:
+            </p>
+            <div className="list-group list-group--inset">
+              {getVariantSiblings(swapItem).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="list-row list-row--tap"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => swapItemVariant(swapItem, p)}
+                >
+                  <span className="list-row__main">{p.displayName || p.name}</span>
+                  <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP(p.price)}</span>
+                </button>
+              ))}
+            </div>
+            <p style={{ margin: '0.9rem 0 0', color: 'var(--gray-500)', fontSize: '0.8125rem' }}>
+              Las notas y salsas del plato se conservan; el total se ajusta solo.
+            </p>
+          </>
+        )}
+      </Modal>
+
       <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
