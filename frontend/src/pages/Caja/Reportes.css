@@ -1,51 +1,62 @@
+/* Reportes — restyle v2 (2026-08): segmented de periodo, KPIs como stat
+   tiles, secciones como cards suaves. Barras: un solo tono #B8860B (validado). */
+
 .rep-content {
   max-width: 900px;
   margin: 0 auto;
   padding: 16px;
 }
 
+/* Periodos como segmented control iOS */
 .rep-periods {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   margin-bottom: 14px;
-  flex-wrap: wrap;
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 2px;
 }
 
 .rep-period-btn {
   flex: 1 1 auto;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 1.5px solid #e5e5e5;
-  background: white;
-  border-radius: 10px;
-  font-weight: 700;
-  color: #666;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: var(--text-15);
+  color: var(--gray-600);
   cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .rep-period-btn.active {
-  background: #F5BB4C;
-  border-color: #F5BB4C;
-  color: #1a1a2e;
+  background: white;
+  color: var(--gray-900);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
 .rep-low-stock {
-  background: #FFF3D6;
-  border: 1.5px solid #E0B84E;
-  color: #7a5d00;
-  border-radius: 10px;
+  background: var(--orange-tint);
+  border: none;
+  color: var(--orange-text);
+  border-radius: var(--radius-md);
   padding: 10px 14px;
   margin-bottom: 14px;
-  font-size: 0.9rem;
+  font-size: var(--text-13);
   line-height: 1.5;
 }
 
 .rep-loading {
   text-align: center;
-  color: #999;
+  color: var(--gray-500);
   padding: 3rem 0;
 }
 
+/* KPIs como widgets */
 .rep-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -55,42 +66,50 @@
 
 .rep-kpi {
   background: white;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  padding: 14px;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .rep-kpi-value {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 800;
-  color: #1a1a2e;
+  letter-spacing: var(--tracking-title);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-900);
   line-height: 1.2;
   word-break: break-word;
 }
 
 .rep-kpi-label {
   margin-top: 4px;
-  font-size: 0.8rem;
-  color: #888;
+  font-size: var(--text-13);
+  color: var(--gray-500);
+  font-weight: 500;
 }
 
 .rep-section {
   background: white;
-  border: 1px solid #eee;
-  border-radius: 12px;
+  border: none;
+  border-radius: var(--radius-xl);
   padding: 16px;
   margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 .rep-section h3 {
   margin: 0 0 12px;
-  font-size: 1rem;
-  color: #1a1a2e;
+  font-size: var(--text-13);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
 }
 
 .rep-empty {
-  color: #999;
-  font-size: 0.9rem;
+  color: var(--gray-500);
+  font-size: var(--text-15);
   margin: 0;
 }
 
@@ -99,21 +118,21 @@
   grid-template-columns: minmax(90px, 160px) 1fr minmax(110px, auto);
   align-items: center;
   gap: 10px;
-  padding: 5px 0;
+  padding: 6px 0;
 }
 
 .rep-bar-label {
-  font-size: 0.85rem;
-  color: #333;
+  font-size: var(--text-15);
+  color: var(--gray-900);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rep-bar-track {
-  height: 10px;
-  background: #F1ECE0;
-  border-radius: 4px;
+  height: 8px;
+  background: var(--gray-50);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
@@ -121,13 +140,14 @@
 .rep-bar-fill {
   height: 100%;
   background: #B8860B;
-  border-radius: 4px;
+  border-radius: var(--radius-full);
 }
 
 .rep-bar-value {
-  font-size: 0.85rem;
+  font-size: var(--text-15);
   font-weight: 700;
-  color: #1a1a2e;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-900);
   text-align: right;
   white-space: nowrap;
 }
@@ -135,8 +155,8 @@
 .rep-bar-extra {
   margin-left: 6px;
   font-weight: 400;
-  color: #999;
-  font-size: 0.75rem;
+  color: var(--gray-500);
+  font-size: var(--text-13);
 }
 
 @media (max-width: 600px) {
@@ -146,12 +166,19 @@
   }
 
   .rep-bar-value {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+  }
+
+  .rep-period-btn {
+    font-size: 0.8125rem;
+    padding: 8px 6px;
   }
 }
 
 .rep-section-hint {
   font-weight: 400;
-  font-size: 0.8rem;
-  color: #999;
+  font-size: var(--text-13);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--gray-400);
 }

@@ -2906,28 +2906,29 @@
    alto/padding de cada fila. */
 .caja-menu-list {
   background: white;
-  border-radius: 12px;
-  border: 1px solid #eee;
+  border-radius: var(--radius-lg);
+  border: none;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .caja-menu-option {
   background: white;
-  color: #333;
-  font-weight: 600;
-  font-size: 1rem;
+  color: var(--gray-900);
+  font-weight: 500;
+  font-size: 1.0625rem;
   padding: 0.85rem 1rem;
-  min-height: 46px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   border: none;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--separator);
   border-radius: 0;
   cursor: pointer;
   text-align: left;
   transition: background 150ms ease;
   width: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .caja-menu-list .caja-menu-option:last-child {
@@ -2935,7 +2936,11 @@
 }
 
 .caja-menu-option:hover {
-  background: #FFF8E7;
+  background: var(--gray-50);
+}
+
+.caja-menu-option:active {
+  background: var(--gray-100);
 }
 
 /* Dashboard main action button */

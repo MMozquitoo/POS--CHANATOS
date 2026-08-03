@@ -75,7 +75,7 @@ export default function Reportes() {
 
   return (
     <div className="caja-container">
-      <CajaHeader title="REPORTES" backTo="/centro" />
+      <CajaHeader title="Reportes" backTo="/centro" />
 
       <div className="caja-content caja-page rep-content">
         {/* Periodo */}
@@ -94,7 +94,7 @@ export default function Reportes() {
         {/* Alerta de stock bajo (estado, con icono y texto — nunca solo color) */}
         {lowStock.length > 0 && (
           <div className="rep-low-stock">
-            <strong>⚠ Stock bajo ({lowStock.length}):</strong>{' '}
+            <strong>Stock bajo ({lowStock.length}):</strong>{' '}
             {lowStock.slice(0, 6).map(i => `${i.ingredient_name} (${i.stock_qty} ${i.unit})`).join(' · ')}
             {lowStock.length > 6 && ` · y ${lowStock.length - 6} más`}
           </div>

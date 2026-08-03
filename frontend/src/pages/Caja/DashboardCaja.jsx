@@ -192,7 +192,7 @@ export default function DashboardCaja() {
           fontSize: '0.85rem',
           lineHeight: 1.5
         }}>
-          <strong>⚠ Stock bajo ({lowStock.length}):</strong>{' '}
+          <strong>Stock bajo ({lowStock.length}):</strong>{' '}
           {lowStock.slice(0, 5).map(i => `${i.ingredient_name} (${i.stock_qty} ${i.unit})`).join(' · ')}
           {lowStock.length > 5 && ` · y ${lowStock.length - 5} más`}
         </div>
@@ -218,80 +218,71 @@ export default function DashboardCaja() {
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         {/* Bloque informativo: Sesión de Caja Abierta (SOLO INFO, sin botones) */}
         {session ? (
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            border: '2px solid #28a745',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold', color: '#28a745' }}>
-                Sesión de Caja Abierta
-              </h2>
-              {/* FASE 17.9: Badge "Caja abierta" */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            {/* Encabezado de la sesión */}
+            <div style={{
+              background: 'white',
+              borderRadius: 'var(--radius-xl)',
+              padding: '1.1rem 1.25rem',
+              marginBottom: '0.75rem',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              flexWrap: 'wrap'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Apertura
+                </div>
+                <div style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--gray-900)', marginTop: 2 }}>
+                  {formatBogotaDateTime(session.opened_at)}
+                </div>
+                <div className="tnum" style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginTop: 2 }}>
+                  Monto inicial: {formatPriceCOP(initialCash)}
+                </div>
+              </div>
               <span style={{
-                background: '#28a745',
-                color: 'white',
-                padding: '0.5rem 1rem',
-                borderRadius: '20px',
-                fontSize: '0.9rem',
-                fontWeight: 'bold'
+                background: 'var(--green-tint)',
+                color: 'var(--green-text)',
+                padding: '0.35rem 0.9rem',
+                borderRadius: '999px',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap'
               }}>
                 Caja abierta
               </span>
             </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Apertura</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333' }}>
-                  {formatBogotaDateTime(session.opened_at)}
-                </div>
-              </div>
-              
-              <div>
-                {/* FASE 17.9: Mostrar monto inicial y hora de apertura */}
-                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Monto inicial</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333' }}>
-                  {formatPriceCOP(initialCash)}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.25rem' }}>
-                  Abierta a las: {new Date(session.opened_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            </div>
 
-            <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Ventas Teóricas</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F5BB4C' }}>
-                    {formatPriceCOP(totalSales)}
+            {/* Stat tiles estilo widgets iOS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+              {[
+                { label: 'Ventas teóricas', value: totalSales, color: 'var(--brand-deep)' },
+                { label: 'Total cobrado', value: totalCash + totalCard + totalTransfer, color: 'var(--green-text)' },
+                { label: 'Efectivo', value: totalCash, color: 'var(--gray-900)' },
+                { label: 'Transferencias', value: totalTransfer, color: 'var(--gray-900)' },
+                ...(diffCash !== null ? [{
+                  label: 'Diferencia',
+                  value: diffCash,
+                  color: diffCash === 0 ? 'var(--green-text)' : diffCash > 0 ? 'var(--orange-text)' : 'var(--red-text)'
+                }] : []),
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{
+                  background: 'white',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '0.9rem 1rem',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600, marginBottom: '0.2rem' }}>
+                    {label}
+                  </div>
+                  <div className="tnum" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color, lineHeight: 1.15 }}>
+                    {formatPriceCOP(value)}
                   </div>
                 </div>
-                
-                <div>
-                  <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Total Cobrado</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#28a745' }}>
-                    {formatPriceCOP(totalCash + totalCard + totalTransfer)}
-                  </div>
-                </div>
-                
-                {diffCash !== null && (
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Diferencia</div>
-                    <div style={{ 
-                      fontSize: '1.2rem', 
-                      fontWeight: 'bold', 
-                      color: diffCash === 0 ? '#28a745' : diffCash > 0 ? '#ffc107' : '#dc3545'
-                    }}>
-                      {formatPriceCOP(diffCash)}
-                    </div>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </div>
         ) : (

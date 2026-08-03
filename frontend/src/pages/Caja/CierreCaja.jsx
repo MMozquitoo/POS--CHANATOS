@@ -20,10 +20,18 @@ function getDiffLabel(diff) {
 }
 
 function getDiffColor(diff) {
-  if (diff > 0) return "#28a745";
-  if (diff < 0) return "#dc3545";
-  return "#F5BB4C";
+  if (diff > 0) return "var(--green-text)";
+  if (diff < 0) return "var(--red-text)";
+  return "var(--brand-deep)";
 }
+
+function getDiffTint(diff) {
+  if (diff > 0) return "var(--green-tint)";
+  if (diff < 0) return "var(--red-tint)";
+  return "var(--brand-tint)";
+}
+
+const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
 
 export default function CierreCaja() {
   const navigate = useNavigate();
@@ -145,7 +153,7 @@ export default function CierreCaja() {
   if (loading) {
     return (
       <div className="caja-container">
-        <CajaHeader title="CIERRE DE CAJA" backTo="/centro" />
+        <CajaHeader title="Cierre de caja" backTo="/centro" />
         <div className="caja-content" style={{ textAlign: 'center', padding: '2rem' }}>
           <p>Cargando información...</p>
         </div>
@@ -157,7 +165,7 @@ export default function CierreCaja() {
   if (!session) {
     return (
       <div className="caja-container">
-        <CajaHeader title="CIERRE DE CAJA" backTo="/centro" />
+        <CajaHeader title="Cierre de caja" backTo="/centro" />
         
         {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
         {isOnline && isRefreshingOnReconnect && !closedReport && (
@@ -265,7 +273,7 @@ export default function CierreCaja() {
   return (
     <>
     <div className="caja-container">
-      <CajaHeader title="CIERRE DE CAJA" backTo="/centro" />
+      <CajaHeader title="Cierre de caja" backTo="/centro" />
 
       {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
       {isOnline && isRefreshingOnReconnect && !closedReport && (
@@ -283,66 +291,62 @@ export default function CierreCaja() {
       )}
       <div className="caja-content" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
         {/* Información de sesión */}
-        <div style={{ 
-          background: 'white', 
-          padding: '1.5rem', 
-          borderRadius: '12px',
-          border: '2px solid #F5BB4C',
-          marginBottom: '1rem'
+        <div style={{
+          background: 'white',
+          padding: '1.25rem 1.4rem',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-sm)',
+          marginBottom: '0.9rem'
         }}>
-          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>Sesión Activa</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div>
-              <strong>ID Sesión:</strong> {session.id}
+          <h2 style={{ margin: '0 0 0.9rem 0', fontSize: '1.0625rem', fontWeight: 700, letterSpacing: 'var(--tracking-title)' }}>Sesión activa</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.9375rem' }}>
+            <div style={{ color: 'var(--gray-600)' }}>
+              Apertura<br /><strong style={{ color: 'var(--gray-900)' }}>{formatBogotaDateTime(new Date(session.opened_at))}</strong>
             </div>
-            <div>
-              <strong>Apertura:</strong> {formatBogotaDateTime(new Date(session.opened_at))}
-            </div>
-            <div>
-              <strong>Efectivo inicial:</strong> {formatPriceCOP(openingCash)}
-            </div>
-            <div>
-              <strong>Abierta por:</strong> Usuario #{session.opened_by}
+            <div style={{ color: 'var(--gray-600)' }}>
+              Efectivo inicial<br /><strong className="tnum" style={{ color: 'var(--gray-900)' }}>{formatPriceCOP(openingCash)}</strong>
             </div>
           </div>
         </div>
 
         {/* Resumen de ventas */}
         {summary && (
-          <div style={{ 
-            background: 'white', 
-            padding: '1.5rem', 
-            borderRadius: '12px',
-            border: '1px solid #ddd',
-            marginBottom: '1rem'
+          <div style={{
+            background: 'white',
+            padding: '1.25rem 1.4rem',
+            borderRadius: 'var(--radius-xl)',
+            boxShadow: 'var(--shadow-sm)',
+            marginBottom: '0.9rem'
           }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Resumen de Ventas</h3>
+            <h3 style={{ margin: '0 0 0.9rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resumen de ventas</h3>
             {summary.byMethod.length > 0 ? (
               <>
                 {summary.byMethod.map((method, idx) => (
-                  <div key={idx} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    marginBottom: '0.5rem',
-                    padding: '0.75rem',
-                    background: '#f8f9fa',
-                    borderRadius: '6px'
+                  <div key={idx} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.4rem',
+                    padding: '0.7rem 0.85rem',
+                    background: 'var(--gray-50)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.9375rem'
                   }}>
-                    <span><strong>{method.method}:</strong> {method.count} pago(s)</span>
-                    <span style={{ fontWeight: 'bold' }}>{formatPriceCOP(method.total)}</span>
+                    <span><strong>{METHOD_LABELS[method.method] || method.method}</strong> · {method.count} pago(s)</span>
+                    <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP(method.total)}</span>
                   </div>
                 ))}
-                <div style={{ 
-                  display: 'flex', 
+                <div style={{
+                  display: 'flex',
                   justifyContent: 'space-between',
-                  marginTop: '1rem',
-                  paddingTop: '1rem',
-                  borderTop: '2px solid #333',
-                  fontSize: '1.3rem',
-                  fontWeight: 'bold'
+                  alignItems: 'center',
+                  marginTop: '0.9rem',
+                  paddingTop: '0.9rem',
+                  borderTop: '1px solid var(--separator)',
+                  fontSize: '1.0625rem',
+                  fontWeight: 700
                 }}>
-                  <span>TOTAL VENTAS:</span>
-                  <span>{formatPriceCOP(summary.total)}</span>
+                  <span>Total ventas</span>
+                  <span className="tnum" style={{ fontSize: '1.375rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{formatPriceCOP(summary.total)}</span>
                 </div>
               </>
             ) : (
@@ -354,40 +358,40 @@ export default function CierreCaja() {
         )}
 
         {/* Arqueo de efectivo */}
-        <div style={{ 
-          background: 'white', 
-          padding: '1.5rem', 
-          borderRadius: '12px',
-          border: '2px solid #28a745',
-          marginBottom: '1rem'
+        <div style={{
+          background: 'white',
+          padding: '1.25rem 1.4rem',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-sm)',
+          marginBottom: '0.9rem'
         }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem' }}>Arqueo de Efectivo</h3>
-          <div style={{ marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span>Efectivo inicial:</span>
-              <span>{formatPriceCOP(openingCash)}</span>
+          <h3 style={{ margin: '0 0 0.9rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Arqueo de efectivo</h3>
+          <div style={{ marginBottom: '1rem', fontSize: '0.9375rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--gray-600)' }}>
+              <span>Efectivo inicial</span>
+              <span className="tnum">{formatPriceCOP(openingCash)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span>Ventas en efectivo:</span>
-              <span>{formatPriceCOP(totalCash)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--gray-600)' }}>
+              <span>Ventas en efectivo</span>
+              <span className="tnum">{formatPriceCOP(totalCash)}</span>
             </div>
-            <div style={{ 
-              display: 'flex', 
+            <div style={{
+              display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'center',
               marginTop: '0.75rem',
               paddingTop: '0.75rem',
-              borderTop: '2px solid #333',
-              fontSize: '1.2rem',
-              fontWeight: 'bold'
+              borderTop: '1px solid var(--separator)',
+              fontWeight: 700
             }}>
-              <span>Efectivo esperado:</span>
-              <span>{formatPriceCOP(expectedCash)}</span>
+              <span>Efectivo esperado</span>
+              <span className="tnum" style={{ fontSize: '1.25rem', fontWeight: 800 }}>{formatPriceCOP(expectedCash)}</span>
             </div>
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Efectivo contado:
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Efectivo contado
             </label>
             <input
               type="number"
@@ -396,34 +400,39 @@ export default function CierreCaja() {
               placeholder="0"
               min="0"
               step="100"
+              className="tnum"
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                fontSize: '1.2rem',
-                border: '2px solid #28a745',
-                borderRadius: '8px',
+                padding: '0.8rem 1rem',
+                fontSize: '1.5rem',
+                border: '2px solid var(--brand)',
+                borderRadius: 'var(--radius-lg)',
                 textAlign: 'right',
-                fontWeight: 'bold'
+                fontWeight: 700,
+                boxSizing: 'border-box'
               }}
             />
           </div>
 
           {closingCash && !isNaN(parseFloat(closingCash)) && (
             <div style={{
-              padding: '1rem',
-              background: '#f8f9fa',
-              borderRadius: '8px',
-              marginTop: '1rem'
+              padding: '1rem 1.1rem',
+              background: getDiffTint(parseFloat(closingCash) - expectedCash),
+              borderRadius: 'var(--radius-lg)',
+              marginTop: '1rem',
+              textAlign: 'center'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span>Diferencia:</span>
-                <span style={{ 
-                  fontWeight: 'bold',
-                  fontSize: '1.2rem',
-                  color: getDiffColor(parseFloat(closingCash) - expectedCash)
-                }}>
-                  {getDiffLabel(parseFloat(closingCash) - expectedCash)} {formatPriceCOP(Math.abs(parseFloat(closingCash) - expectedCash))}
-                </span>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: getDiffColor(parseFloat(closingCash) - expectedCash), textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+                {getDiffLabel(parseFloat(closingCash) - expectedCash)}
+              </div>
+              <div className="tnum" style={{
+                fontWeight: 800,
+                fontSize: '2.125rem',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
+                color: getDiffColor(parseFloat(closingCash) - expectedCash)
+              }}>
+                {formatPriceCOP(Math.abs(parseFloat(closingCash) - expectedCash))}
               </div>
             </div>
           )}
