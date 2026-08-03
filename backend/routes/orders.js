@@ -608,6 +608,7 @@ router.get("/service/:service", requireAuth, async (req, res) => {
         const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
+          items, // detalle en la tarjeta de Ventanilla/Domicilios (2026-08)
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,
@@ -741,6 +742,7 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
         const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
+          items, // detalle en la tarjeta de Ventanilla/Domicilios (2026-08)
           totalItems: items.length,
           pendingItems: pendingItems.length,
           total,

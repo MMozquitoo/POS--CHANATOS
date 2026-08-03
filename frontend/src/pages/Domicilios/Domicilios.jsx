@@ -266,6 +266,18 @@ export default function Domicilios() {
                         </div>
                       </div>
                     </div>
+                    {/* Detalle de items (mismo arreglo que Ventanilla: la tarjeta
+                        no decía qué llevaba la orden sin abrirla) */}
+                    {(order.items || []).filter(i => !i.voided_at).length > 0 && (
+                      <div style={{ margin: '0.35rem 0 0.15rem', color: '#3a3a3c', fontSize: '0.9rem', lineHeight: 1.55, borderTop: '1px solid #eee', paddingTop: '0.45rem' }}>
+                        {(order.items || []).filter(i => !i.voided_at).map(i => (
+                          <div key={i.id}>
+                            <strong>{i.qty}×</strong> {i.name}
+                            {i.notes ? <span style={{ color: '#B25000' }}> — {i.notes}</span> : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                       <span className="badge" style={{ 
                         background: order.status === 'NUEVO' ? '#ffc107' : 
