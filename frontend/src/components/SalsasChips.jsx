@@ -48,7 +48,12 @@ export default function SalsasChips({ value, onChange }) {
   };
 
   const toggleAll = () => {
-    onChange(allOn ? '' : salsas.join(', '));
+    // Conservar lo que NO es salsa (observaciones escritas a mano, "Sabor: X"):
+    // antes esto reemplazaba las notas COMPLETAS y borraba la observación
+    // del mesero (bug real reportado por el dueño, 2026-08-02).
+    const rest = parts.filter(p => !salsas.some(s => s.toLowerCase() === p.toLowerCase()));
+    const next = allOn ? rest : [...rest, ...salsas];
+    onChange(next.join(', '));
   };
 
   return (
