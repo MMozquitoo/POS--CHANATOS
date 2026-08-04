@@ -218,8 +218,10 @@ export default function CocinaCaja({ hideHeader = false }) {
       const order = allOrders.find(o => o.id === orderId);
       if (order) {
         const items = order.items || [];
-        const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
-        if (pendingItems.length === 0) {
+        // Solo voided_at: una orden PREPAGADA tiene todos los items con paid_at
+        // y aun asi debe poder marcarse LISTA (igual que el backend)
+        const itemsVivos = items.filter(item => !item.voided_at);
+        if (itemsVivos.length === 0) {
           await showAlert('No se puede cambiar estado: la orden no tiene items.');
           return;
         }

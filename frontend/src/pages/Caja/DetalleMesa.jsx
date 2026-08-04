@@ -838,11 +838,14 @@ export default function DetalleMesa() {
       return;
     }
 
-    // Validar que la orden tenga items antes de cambiar a EN_PREP o LISTO
+    // Validar que la orden tenga items antes de cambiar a EN_PREP o LISTO.
+    // OJO: contra activeOrder.items (todos) y solo voided_at — una orden
+    // PREPAGADA tiene todos los items con paid_at y aun así debe poder
+    // marcarse LISTA (ahí se cierra sola); igual que el backend.
     if (newStatus === 'EN_PREP' || newStatus === 'LISTO') {
-      const items = activeOrderItems || [];
-      const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
-      if (pendingItems.length === 0) {
+      const items = activeOrder.items || activeOrderItems || [];
+      const itemsVivos = items.filter(item => !item.voided_at);
+      if (itemsVivos.length === 0) {
         showAlert('No se puede cambiar estado: la orden no tiene items.');
         return;
       }
