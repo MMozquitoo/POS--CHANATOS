@@ -53,6 +53,14 @@
   padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)) !important;
 }
 
+/* Cocina arma su layout con 100dvh + scroller interno: ahí sticky no cumple
+   función (el header ya queda fijo por estructura) y dispara el bug de iOS
+   Safari donde el header desaparece al mostrar/ocultar la barra de direcciones
+   (mismo motivo del position:relative de CajaHeader.jsx). */
+.cocina-header {
+  position: relative;
+}
+
 /* --- Ajustes de móvil --- */
 @media (max-width: 768px) {
   /* OJO: index.css pone body{font-size:14px} en móvil. Cualquier input/

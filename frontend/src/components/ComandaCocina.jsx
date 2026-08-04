@@ -53,7 +53,7 @@ export default function ComandaCocina({ order, onClose, onPrint }) {
               fontWeight: 'bold'
             }}
           >
-            🖨️ Imprimir
+            Imprimir
           </button>
           <button
             onClick={onClose}

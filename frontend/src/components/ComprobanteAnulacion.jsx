@@ -1,5 +1,6 @@
 import { formatBogotaDateTime } from '../utils/timezone.js';
 import { formatPriceCOP } from '../utils/currency.js';
+import { statusLabel } from '../utils/statusLabels';
 
 export default function ComprobanteAnulacion({ 
   type, // 'ORDER' | 'ITEM'
@@ -111,7 +112,7 @@ export default function ComprobanteAnulacion({
             </div>
             {order.status && (
               <div style={{ marginBottom: '0.5rem' }}>
-                <strong>Estado:</strong> {order.status}
+                <strong>Estado:</strong> {statusLabel(order.status)}
               </div>
             )}
             {order.table_number && !order.table && (

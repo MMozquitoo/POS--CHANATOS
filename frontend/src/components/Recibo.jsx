@@ -59,7 +59,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
   };
 
   const handleSavePDF = () => {
-    showAlert('Para guardar como PDF:\n\n1. Haz clic en "🖨️ Imprimir"\n2. En el diálogo de impresión, elige "Guardar como PDF"\n3. Selecciona la ubicación y guarda');
+    showAlert('Para guardar como PDF:\n\n1. Haz clic en "Imprimir"\n2. En el diálogo de impresión, elige "Guardar como PDF"\n3. Selecciona la ubicación y guarda');
   };
 
   const handleThermalPrint = async () => {
@@ -241,7 +241,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
                 fontWeight: 'bold'
               }}
             >
-              🖨️ Imprimir
+              Imprimir
             </button>
             <button
               onClick={handleSavePDF}
@@ -259,7 +259,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
                 fontSize: '0.9rem'
               }}
             >
-              💾 PDF
+              Guardar PDF
             </button>
             <button
               onClick={onClose}
@@ -314,7 +314,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
               <strong>Fecha:</strong> {formatBogotaDateTime(new Date(payment.created_at || new Date()))}
             </div>
             <div style={{ marginBottom: '0.3rem' }}>
-              <strong>Estado:</strong> PAGADA
+              <strong>Estado:</strong> Pagada
             </div>
             <div style={{ borderTop: '1px solid #333', marginTop: '0.5rem' }}></div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Mesero.css';
+import { statusLabel } from '../../utils/statusLabels';
 
 export default function EstadoPedidos() {
   const [orders, setOrders] = useState([]);
@@ -23,15 +24,8 @@ export default function EstadoPedidos() {
     }
   };
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      NUEVO: 'Nuevo',
-      EN_PREP: 'En Preparación',
-      LISTO: 'Listo',
-      CANCELADO: 'Cancelado'
-    };
-    return labels[status] || status;
-  };
+  // Etiquetas centralizadas (la copia local no tenía PAGADA y mostraba el enum crudo)
+  const getStatusLabel = (status) => statusLabel(status);
 
   const getStatusClass = (status) => {
     const classes = {

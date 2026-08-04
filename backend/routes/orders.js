@@ -309,8 +309,8 @@ router.post(
         const createdAt = toBogotaSQLiteTimestamp(new Date());
 
         result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             code,
             finalTableId || null,
@@ -320,6 +320,9 @@ router.post(
             dailyNo,
             initialStatus,
             req.user.id,
+            createdAt,
+            // updated_at explícito también: el DEFAULT de SQLite es UTC y la
+            // orden recién creada reportaba updated_at +5h (auditoría 2026-08-03)
             createdAt,
           ]
         );
@@ -897,9 +900,14 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
 router.get("/:id", requireAuth, async (req, res) => {
   try {
     const db = getDb();
-    const order = await db.get("SELECT * FROM orders WHERE id = ?", [
-      req.params.id,
-    ]);
+    // table_label/table_number: el recibo desde CentroTotal arma sus datos con
+    // esta respuesta y sin el JOIN salía sin la línea "Mesa:" (auditoría 2026-08-03)
+    const order = await db.get(
+      `SELECT o.*, t.number as table_number, t.label as table_label
+       FROM orders o LEFT JOIN tables t ON o.table_id = t.id
+       WHERE o.id = ?`,
+      [req.params.id]
+    );
 
     if (!order) {
       return res.status(404).json({ error: "Pedido no encontrado" });
@@ -1188,6 +1196,15 @@ router.patch(
              updated_at = ?
          WHERE id = ?`,
         [timestamp, req.user.id, reason.trim(), timestamp, timestamp, req.params.id]
+      );
+
+      // Anular los items vivos, igual que POST /:id/cancel — esta ruta (la que
+      // usa casi todo el frontend) los dejaba sin voided_at (auditoría 2026-08-03)
+      await db.run(
+        `UPDATE order_items
+         SET voided_at = ?, voided_by = ?, void_reason = ?
+         WHERE order_id = ? AND paid_at IS NULL AND voided_at IS NULL`,
+        [timestamp, req.user.id, `Cancelación de orden: ${reason.trim()}`, req.params.id]
       );
 
       const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [

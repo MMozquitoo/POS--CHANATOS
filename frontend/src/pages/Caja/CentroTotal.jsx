@@ -735,7 +735,7 @@ export default function CentroTotal() {
 
       // FASE 12.4: Validar que la orden esté en estado LISTO
       if (order.status !== 'LISTO') {
-        showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${order.status}`);
+        showAlert(`Esta orden aún no se puede cobrar (${statusLabel(order.status)}).`);
         await loadOrders();
         await loadReadyToPay();
         return;

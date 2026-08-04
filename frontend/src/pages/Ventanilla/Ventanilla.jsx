@@ -233,7 +233,7 @@ export default function Ventanilla() {
                 marginBottom: '1rem',
                 color: '#856404'
               }}>
-                <strong>Orden cerrada, no editable.</strong> Solo se pueden editar órdenes en estado NUEVO o EN_PREP.
+                <strong>Orden cerrada, no editable.</strong> Solo se pueden editar órdenes nuevas o en preparación.
               </div>
             )}
 

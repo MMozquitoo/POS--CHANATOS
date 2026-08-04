@@ -484,7 +484,7 @@ export default function DetalleMesa() {
     
     // FASE 12.4 (ajustado F1): solo PAGADA/CANCELADO bloquean; LISTO acepta items y vuelve a EN_PREP
     if (['PAGADA', 'CANCELADO'].includes(activeOrder.status)) {
-      showAlert(`Orden bloqueada. No se pueden agregar items cuando la orden está en estado ${activeOrder.status}.`);
+      showAlert(`Orden bloqueada. No se pueden agregar items a una orden ${statusLabel(activeOrder.status).toLowerCase()}.`);
       await loadActiveOrder();
       return;
     }

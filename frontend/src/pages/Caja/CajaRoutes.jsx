@@ -5,7 +5,6 @@ import BottomNav from '../../components/caja/BottomNav';
 import OrdenesDrawer from '../../components/OrdenesDrawer';
 import MenuDrawer from '../../components/caja/MenuDrawer';
 
-const SesionCaja = lazy(() => import('./SesionCaja'));
 const Historial = lazy(() => import('./Historial'));
 const HistorialSesiones = lazy(() => import('./HistorialSesiones'));
 const MesasAbiertas = lazy(() => import('./MesasAbiertas'));

@@ -1170,12 +1170,18 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
     let statusUpdatedTo = null;
     const order = await db.get("SELECT * FROM orders WHERE id = ?", [payment.order_id]);
 
+    // FASE F5: sin pagos válidos, los items vuelven a estar pendientes de cobro.
+    // SIEMPRE que el saldo pagado llegue a cero — no solo si la orden seguía
+    // PAGADA: al anular el segundo de dos pagos la orden ya estaba en LISTO y
+    // los items quedaban con paid_at para siempre (auditoría 2026-08-03).
+    if (totalPagadoNum <= 0) {
+      await db.run("UPDATE order_items SET paid_at = NULL WHERE order_id = ? AND voided_at IS NULL", [payment.order_id]);
+    }
+
     // Archivado automático: recalcular estado y archivar/desarchivar según corresponda
     if (totalPagadoNum <= 0 && order && order.status === 'PAGADA') {
       // Si no hay pagos válidos y la orden estaba PAGADA, cambiar a LISTO y desarchivar
       await db.run("UPDATE orders SET status = 'LISTO', paid_at = NULL, archived_at = NULL WHERE id = ?", [payment.order_id]);
-      // FASE F5: sin pagos válidos, los items vuelven a estar pendientes de cobro
-      await db.run("UPDATE order_items SET paid_at = NULL WHERE order_id = ? AND voided_at IS NULL", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
       console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago anulado)`);
     } else if (totalPagadoNum > 0 && totalPagadoNum >= totalOrden) {
@@ -1192,8 +1198,10 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
       // Si ya estaba PAGADA y archivada, no hacer nada
     } else if (totalPagadoNum > 0 && totalPagadoNum < totalOrden && order && order.status === 'PAGADA') {
-      // Si había pagos suficientes pero ahora no, cambiar a LISTO y desarchivar
-      await db.run("UPDATE orders SET status = 'LISTO', archived_at = NULL WHERE id = ?", [payment.order_id]);
+      // Si había pagos suficientes pero ahora no, cambiar a LISTO y desarchivar.
+      // paid_at también se limpia: con paid_at puesto la orden quedaba invisible
+      // en la bandeja de cobro (ready-to-pay filtra paid_at IS NULL) — auditoría 2026-08-03
+      await db.run("UPDATE orders SET status = 'LISTO', paid_at = NULL, archived_at = NULL WHERE id = ?", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
       console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago parcial anulado: ${totalPagadoNum} < ${totalOrden})`);
     }

@@ -184,8 +184,11 @@ export default function HistorialSesiones() {
 
   return (
     <div className="caja-container historial-sesiones">
-      <header className="caja-header">
-        <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+      {/* position relative explícito: header a mano con className caja-header
+          dentro de contenedor con overflow — el sticky de mobile-polish dispara
+          el bug de iOS Safari (ver CajaHeader.jsx / CLAUDE.md) */}
+      <header className="caja-header" style={{ position: 'relative' }}>
+        <button onClick={() => navigate('/')} className="back-btn">‹ Volver</button>
         <h1>HISTORIAL DE CAJA</h1>
         <button onClick={goToToday} className="today-btn">Hoy</button>
       </header>
@@ -229,7 +232,7 @@ export default function HistorialSesiones() {
         <div className="stats-section">
           {!selectedDate ? (
             <div className="no-selection">
-              <p>👆 Selecciona un día en el calendario para ver las estadísticas</p>
+              <p>Selecciona un día en el calendario para ver las estadísticas</p>
             </div>
           ) : loadingStats ? (
             <div className="loading">Cargando estadísticas...</div>
