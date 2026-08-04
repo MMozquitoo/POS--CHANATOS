@@ -391,37 +391,48 @@
 }
 
 /* Stepper de cantidad estilo iOS: cápsula gris con - / número / + */
+/* Stepper − / cantidad / + como tres píldoras separadas con aire entre sí
+   ("los botones de menos y más no tienen aire", dueño 2026-08-04). Anchos
+   fijos con !important: reglas globales de móvil estiraban el input y los
+   botones quedaban aplastados contra los bordes. */
 .qty-controls {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0;
-  background: var(--gray-50);
-  border-radius: var(--radius-full);
-  padding: 3px;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  background: transparent;
+  padding: 0;
 }
 
 .qty-controls button {
-  width: 44px;
-  height: 40px;
-  background: #fff;
+  flex: 0 0 54px;
+  width: 54px !important;
+  height: 48px;
+  background: var(--gray-50);
   color: var(--gray-900);
+  border: none;
   border-radius: var(--radius-full);
-  font-weight: 600;
-  font-size: 1.2rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-fast);
+  font-weight: 700;
+  font-size: 1.35rem;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast);
 }
 
 .qty-controls button:active {
   transform: scale(0.93);
+  background: var(--gray-100);
 }
 
 .qty-controls input {
-  width: 64px;
-  flex: 0 0 auto;
-  padding: 0.4rem;
+  flex: 0 0 88px;
+  width: 88px !important;
+  height: 48px;
+  padding: 0;
   border: none;
-  background: transparent;
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
   text-align: center;
   font-size: 1.15rem;
   font-weight: 700;

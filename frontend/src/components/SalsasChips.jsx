@@ -13,6 +13,16 @@ export function categoriaLlevaSalsas(category) {
   return !CATEGORIAS_SIN_SALSAS.includes(String(category).toUpperCase().replace(/ /g, '_'));
 }
 
+// Bebidas que viven en otras categorías (Limonada y Michelada están en OTROS):
+// a esas tampoco se les ofrecen salsas, decida lo que decida la categoría.
+const NOMBRE_BEBIDA = /limonada|michelada|gaseosa|jugo|agua|cerveza|refresco|malteada|batido|caf[eé]|soda|avena|t[eé]\b|tea\b/i;
+
+export function productoLlevaSalsas(product, category) {
+  if (!categoriaLlevaSalsas(category ?? product?.category)) return false;
+  const nombre = `${product?.displayName || product?.name || ''}`;
+  return !NOMBRE_BEBIDA.test(nombre);
+}
+
 // Lista de fábrica: se usa mientras carga o si /settings/salsas no responde,
 // para que armar un pedido nunca dependa de que el backend esté disponible.
 export const DEFAULT_SALSAS = ['Tomate', 'Ajo', 'Piña', 'BBQ', 'Mostaza', 'Tártara', 'Salsa de la casa'];

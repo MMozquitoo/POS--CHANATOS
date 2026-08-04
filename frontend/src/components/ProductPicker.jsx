@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import SalsasChips, { categoriaLlevaSalsas } from './SalsasChips';
+import SalsasChips, { productoLlevaSalsas } from './SalsasChips';
 import SaboresChips, { resolveSaborPrice } from './SaboresChips';
 import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import { useAlert } from '../hooks/useModal';
@@ -125,7 +125,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ej: Sin azúcar"
             />
-            {categoriaLlevaSalsas(selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
+            {productoLlevaSalsas(selectedProduct, selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
             <SaboresChips
               flavors={selectedProduct.flavors}
               flavorsActive={selectedProduct.flavors_active}
