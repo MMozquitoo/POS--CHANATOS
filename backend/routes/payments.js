@@ -264,47 +264,53 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       });
     }
 
-    for (const status of orderStatuses) {
-      if (status !== 'LISTO') {
-        // Obtener información de la orden para auditoría
-        const firstOrderId = items.find(it => it.order_status === status)?.order_id;
-        if (firstOrderId) {
-          try {
-            const orderInfo = await db.get(
-              "SELECT o.*, t.number as table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE o.id = ?",
-              [firstOrderId]
-            );
-            
-            // Registrar auditoría de bloqueo (solo si orderInfo existe)
-            if (orderInfo) {
-              await logAudit({
-                action: 'BLOCKED_ACTION',
-                entity_type: 'payment',
-                entity_id: null,
-                table_number: orderInfo.table_number || null,
-                order_id: firstOrderId,
-                user_id: req.user.id,
-                ip: req.ip || req.connection?.remoteAddress || null,
-                summary: `Intento de cobro bloqueado - Orden ${orderInfo.daily_no || orderInfo.code || firstOrderId} en estado ${status}`,
-                meta: {
-                  attempted_action: 'PAY_ORDER',
-                  status: status,
-                  endpoint: 'POST /api/payments/items'
-                }
-              });
+    // PAGO ADELANTADO (2026-08): VENTANILLA/DOMICILIO también se puede cobrar
+    // por items en NUEVO/EN_PREP (el cliente paga al pedir). La orden NO se
+    // cierra acá: sigue en cocina y closeOrderIfPrepaid (orders.js) la cierra
+    // sola al llegar a LISTO. MESA sigue exigiendo LISTO.
+    const prepaidOrderIds = new Set();
+    const idsAfectados = [...new Set(items.map(it => it.order_id))];
+    for (const oid of idsAfectados) {
+      const orderInfo = await db.get(
+        "SELECT o.*, t.number as table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE o.id = ?",
+        [oid]
+      );
+      if (!orderInfo) continue;
+
+      const esPrepagoPermitido =
+        ["VENTANILLA", "DOMICILIO"].includes(orderInfo.service || orderInfo.channel) &&
+        ["NUEVO", "EN_PREP"].includes(orderInfo.status);
+
+      if (orderInfo.status !== 'LISTO' && !esPrepagoPermitido) {
+        try {
+          await logAudit({
+            action: 'BLOCKED_ACTION',
+            entity_type: 'payment',
+            entity_id: null,
+            table_number: orderInfo.table_number || null,
+            order_id: oid,
+            user_id: req.user.id,
+            ip: req.ip || req.connection?.remoteAddress || null,
+            summary: `Intento de cobro bloqueado - Orden ${orderInfo.daily_no || orderInfo.code || oid} en estado ${orderInfo.status}`,
+            meta: {
+              attempted_action: 'PAY_ORDER',
+              status: orderInfo.status,
+              endpoint: 'POST /api/payments/items'
             }
-          } catch (auditError) {
-            // No bloquear por error de auditoría
-            console.error(`[${timestamp}] Error en auditoría de bloqueo:`, auditError);
-          }
+          });
+        } catch (auditError) {
+          // No bloquear por error de auditoría
+          console.error(`[${timestamp}] Error en auditoría de bloqueo:`, auditError);
         }
-        
+
         return res.status(409).json({
           error: "Solo se puede cobrar cuando la orden está LISTO",
-          status: status,
+          status: orderInfo.status,
           errorId
         });
       }
+
+      if (esPrepagoPermitido) prepaidOrderIds.add(oid);
     }
 
     // FASE F8: una orden con descuento se cobra completa (el descuento es sobre
@@ -503,7 +509,10 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       const total = Number(agg.total) || 0;
       const paid = Number(agg.paid) || 0;
 
-      if (total > 0 && total === paid) {
+      // Prepago (ventanilla/domicilio en cocina): aunque quede todo pagado, la
+      // orden NO se cierra acá — desaparecería de cocina sin preparar. Se
+      // cierra sola al llegar a LISTO (closeOrderIfPrepaid).
+      if (total > 0 && total === paid && !prepaidOrderIds.has(oid)) {
         const paidTimestamp = toBogotaSQLiteTimestamp(new Date());
         const updateResult = await db.run(
           "UPDATE orders SET paid_at = ?, status = 'PAGADA', archived_at = ? WHERE id = ?",
@@ -709,8 +718,10 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     // pedir (asegura la venta) mientras cocina sigue preparando — se permite
     // cobrar en NUEVO/EN_PREP solo en esos canales; la orden NO se cierra acá:
     // se cierra sola al pasar a LISTO (ver closeOrderIfPrepaid en orders.js).
+    // service es el marcador canónico (el flujo lineal de Caja creaba órdenes
+    // de ventanilla con channel MESA y el prepago quedaba bloqueado)
     const esPrepagoPermitido =
-      ["VENTANILLA", "DOMICILIO"].includes(order.channel) &&
+      ["VENTANILLA", "DOMICILIO"].includes(order.service || order.channel) &&
       ["NUEVO", "EN_PREP"].includes(order.status);
     if (order.status !== "LISTO" && !esPrepagoPermitido) {
       // Registrar auditoría de bloqueo

@@ -51,9 +51,12 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
     throw e;
   }
 
-  // Mismo contrato que el cobro normal: inventario al quedar PAGADA
+  // Mismo contrato que el cobro normal: inventario al quedar PAGADA.
+  // Solo los items SIN paid_at: los prepagados por items (POST /payments/items)
+  // ya descontaron inventario al cobrarse — descontarlos otra vez duplicaría.
+  const itemsSinDescontar = items.filter((it) => !it.paid_at);
   try {
-    await deductInventoryFromOrderItems(db, items, userId);
+    if (itemsSinDescontar.length) await deductInventoryFromOrderItems(db, itemsSinDescontar, userId);
   } catch (inventoryError) {
     console.error("⚠️  Error descontando inventario (cierre prepago):", inventoryError);
     await logAudit({
@@ -918,14 +921,16 @@ router.patch(
         }
       }
 
-      // Bloquear cambio a EN_PREP o LISTO si la orden no tiene items pendientes
+      // Bloquear cambio a EN_PREP o LISTO si la orden no tiene items vivos.
+      // OJO: NO filtrar por paid_at — con pago adelantado los items ya están
+      // pagados pero la orden sigue en cocina y debe poder pasar a LISTO
+      // (ahí closeOrderIfPrepaid la cierra sola).
       if (status === 'EN_PREP' || status === 'LISTO') {
         const itemsCount = await db.get(
-          `SELECT COUNT(*) as c 
-           FROM order_items 
-           WHERE order_id = ? 
-             AND voided_at IS NULL 
-             AND paid_at IS NULL`,
+          `SELECT COUNT(*) as c
+           FROM order_items
+           WHERE order_id = ?
+             AND voided_at IS NULL`,
           [req.params.id]
         );
         

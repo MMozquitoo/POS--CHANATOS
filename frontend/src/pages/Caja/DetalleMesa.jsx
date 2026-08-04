@@ -877,7 +877,9 @@ export default function DetalleMesa() {
     try {
       const res = await axios.post('/orders', {
         tableId: parseInt(tableId),
-        channel: 'MESA',
+        // Mesa especial 9/10 = VENTANILLA (con channel MESA el backend bloqueaba
+        // el pago adelantado y el cobro del flujo lineal se perdía)
+        channel: service === 'MESA' ? 'MESA' : 'VENTANILLA',
         service,
         items: newOrderItems,
       });
