@@ -132,17 +132,6 @@
     "flavors_active": null
   },
   {
-    "name": "AUDITB Producto Temp",
-    "category": "HAMBURGUESAS",
-    "price": 10000,
-    "variant": null,
-    "display_order": 0,
-    "is_active": false,
-    "flavors": null,
-    "flavor_prices": null,
-    "flavors_active": null
-  },
-  {
     "name": "Baconera",
     "category": "HAMBURGUESAS",
     "price": 18000,
@@ -262,17 +251,6 @@
     "flavors": null,
     "flavor_prices": null,
     "flavors_active": null
-  },
-  {
-    "name": "AUDIT-TEST",
-    "category": "OTROS",
-    "price": 15000,
-    "variant": null,
-    "display_order": 0,
-    "is_active": false,
-    "flavors": "A,B,C",
-    "flavor_prices": "{\"A\":12000,\"B\":13000}",
-    "flavors_active": "[\"A\",\"C\"]"
   },
   {
     "name": "Michelada",
