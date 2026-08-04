@@ -130,7 +130,9 @@ export default function Domicilios() {
       // CAJA cobra al despachar (pago adelantado) — directo al riel de cobro.
       // MESERO: pantalla limpia para el siguiente pedido.
       if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
-        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/domicilios' } });
+        // from: /centro-total → "Volver" cae en el cuadro de mesas, no en el
+        // panel de armar pedido (dueño, 2026-08-04)
+        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/centro-total' } });
         return;
       }
 
