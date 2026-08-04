@@ -127,10 +127,10 @@ export default function Domicilios() {
       setNewOrderItems([]);
       setCustomerNote('');
 
-      // CAJA cobra al despachar (pago adelantado) — directo a COBRAR.
+      // CAJA cobra al despachar (pago adelantado) — directo al riel de cobro.
       // MESERO: pantalla limpia para el siguiente pedido.
-      if (user?.role === 'CAJA' && res.data?.order?.id) {
-        navigate(`/cobrar?orderId=${res.data.order.id}`, { state: { from: '/domicilios' } });
+      if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
+        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/domicilios' } });
         return;
       }
 
@@ -217,9 +217,9 @@ export default function Domicilios() {
                     Unir orden
                   </button>
                 )}
-                {isCaja && (
+                {isCaja && selectedOrder.table_id && (
                   <button
-                    onClick={() => navigate(`/cobrar?orderId=${selectedOrderId}`, { state: { from: '/domicilios' } })}
+                    onClick={() => navigate(`/mesa/${selectedOrder.table_id}?orderId=${selectedOrderId}`, { state: { from: '/domicilios' } })}
                     className="btn-chanatos"
                   >
                     COBRAR

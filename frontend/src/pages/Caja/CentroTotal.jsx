@@ -7,6 +7,7 @@ import { useCentroTotalRefresh } from '../../hooks/useOrdersRefresh.js';
 import axios from 'axios';
 import './Caja.css';
 import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
+import { statusLabel } from '../../utils/statusLabels';
 import { splitTables, getSpecialType } from '../../utils/tables.js';
 import Recibo from '../../components/Recibo.jsx';
 import ComandaCocina from '../../components/ComandaCocina.jsx';
@@ -187,6 +188,9 @@ export default function CentroTotal() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState([]);
   const [readyToPayOrders, setReadyToPayOrders] = useState([]);
+  // Detalle de items CERRADO por defecto en la bandeja de cobro (dueño, 2026-08):
+  // solo el precio real; el detalle se despliega por tarjeta.
+  const [expandedOrderIds, setExpandedOrderIds] = useState(new Set());
   const [tables, setTables] = useState([]);
   const [serviceCounts, setServiceCounts] = useState({ ventanilla: 0, domicilio: 0 });
   
@@ -1151,7 +1155,7 @@ export default function CentroTotal() {
           {mesasView === 'plano' ? (
             /* overflowY:auto → si el plano no cabe (ventana baja / no maximizada), toda la
                sección de mesas baja como una sola página en vez de recortar las mesas 1-8. */
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div className="caja-bottom-nav-spacer" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               {/* FASE 16.4.2.2: V/D como cards tipo mesa usando TableCard */}
               {specialTables.length > 0 && (
                 <div
@@ -1198,7 +1202,7 @@ export default function CentroTotal() {
               </div>
             </div>
           ) : (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="caja-bottom-nav-spacer" style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {/* FASE 16.4.2.2: V/D como cards tipo mesa usando TableCard en modo LISTA */}
               {specialTables.length > 0 && (
                 <section style={{ flexShrink: 0 }}>
@@ -1308,8 +1312,10 @@ export default function CentroTotal() {
               {readyToPayOrders.map(order => {
                 const items = order.items || [];
                 const pendingItems = items.filter(item => !item.paid_at && !item.voided_at);
-                const total = order.pendingTotal || order.total || 0;
+                const total = order.saldo ?? (order.pendingTotal || order.total || 0);
                 const isEmpty = pendingItems.length === 0 && total <= 0;
+                const enCocina = order.status !== 'LISTO';
+                const isExpanded = expandedOrderIds.has(order.id);
                 
                 // Determinar tableId para navegación
                 let tableId = order.table_id;
@@ -1365,21 +1371,40 @@ export default function CentroTotal() {
                         </div>
                         <div style={{ color: '#666', fontSize: '0.8rem' }}>
                           {order.table_label || 'Sin mesa'}
+                          {enCocina && (
+                            <span style={{ marginLeft: '0.4rem', color: '#B25000', fontWeight: 700 }}>
+                              {statusLabel(order.status)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#F5BB4C' }}>
                           {formatPriceCOP(total)}
                         </div>
-                        <div style={{ color: '#666', fontSize: '0.75rem' }}>
-                          {pendingItems.length || 0} item(s)
-                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedOrderIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(order.id)) next.delete(order.id);
+                              else next.add(order.id);
+                              return next;
+                            });
+                          }}
+                          style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem 0', textDecoration: 'underline' }}
+                        >
+                          {pendingItems.length || 0} item(s) {isExpanded ? '▴' : '▾'}
+                        </button>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '0.8rem', color: '#333', lineHeight: 1.3 }}>
-                      {itemsSummary || <span style={{ color: '#999' }}>Sin items</span>}
-                    </div>
+                    {(isExpanded || isEmpty) && (
+                      <div style={{ fontSize: '0.8rem', color: '#333', lineHeight: 1.3 }}>
+                        {itemsSummary || <span style={{ color: '#999' }}>Sin items</span>}
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
                       <div style={{ color: '#666', fontSize: '0.75rem' }}>

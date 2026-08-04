@@ -6,7 +6,6 @@ import OrdenesDrawer from '../../components/OrdenesDrawer';
 import MenuDrawer from '../../components/caja/MenuDrawer';
 
 const SesionCaja = lazy(() => import('./SesionCaja'));
-const CobrarPedidos = lazy(() => import('./CobrarPedidos'));
 const Historial = lazy(() => import('./Historial'));
 const HistorialSesiones = lazy(() => import('./HistorialSesiones'));
 const MesasAbiertas = lazy(() => import('./MesasAbiertas'));
@@ -50,7 +49,10 @@ export default function CajaRoutes() {
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/mesas" element={<MesasAbiertas />} />
         <Route path="/mesa/:tableId" element={<DetalleMesa />} />
-        <Route path="/cobrar" element={<CobrarPedidos />} />
+        {/* La bandeja de cobro única es la pestaña LISTO del Centro (botón COBRAR
+            de la barra). La página vieja generaba dos menús en paralelo (dueño,
+            2026-08-03) — cualquier link viejo cae en la bandeja real. */}
+        <Route path="/cobrar" element={<Navigate to="/centro-total" state={{ tab: 'listo' }} replace />} />
         <Route path="/historial" element={<Historial />} />
         <Route path="/historial-caja" element={<HistorialSesiones />} />
         <Route path="/mas" element={<MasCaja />} />

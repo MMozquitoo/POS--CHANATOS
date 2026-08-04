@@ -121,11 +121,11 @@ export default function Ventanilla() {
 
       setNewOrderItems([]);
 
-      // CAJA: el cliente paga al pedir (pago adelantado) — directo a COBRAR
-      // con la orden nueva abierta. MESERO no cobra: pantalla limpia para el
-      // siguiente cliente (sus órdenes las ve en PEDIDOS).
-      if (user?.role === 'CAJA' && res.data?.order?.id) {
-        navigate(`/cobrar?orderId=${res.data.order.id}`, { state: { from: '/ventanilla' } });
+      // CAJA: el cliente paga al pedir (pago adelantado) — directo al riel de
+      // cobro de esa orden. MESERO no cobra: pantalla limpia para el siguiente
+      // cliente (sus órdenes las ve en PEDIDOS).
+      if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
+        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/ventanilla' } });
         return;
       }
 
@@ -213,9 +213,9 @@ export default function Ventanilla() {
                     Unir orden
                   </button>
                 )}
-                {isCaja && (
+                {isCaja && selectedOrder.table_id && (
                   <button
-                    onClick={() => navigate(`/cobrar?orderId=${selectedOrderId}`, { state: { from: '/ventanilla' } })}
+                    onClick={() => navigate(`/mesa/${selectedOrder.table_id}?orderId=${selectedOrderId}`, { state: { from: '/ventanilla' } })}
                     className="btn-chanatos"
                   >
                     COBRAR
