@@ -7,8 +7,7 @@ import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
 import ProductPicker from '../../components/ProductPicker.jsx';
-import PagoDividido from '../../components/caja/PagoDividido.jsx';
-import DividirPorProducto from '../../components/caja/DividirPorProducto.jsx';
+import DividirCuenta from '../../components/caja/DividirCuenta.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -180,13 +179,11 @@ export default function DetalleMesa() {
   const [loading, setLoading] = useState(true);
   const [disableReason, setDisableReason] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showSplit, setShowSplit] = useState(false);
   // FASE F12: "Dividir por producto" — cobrar un subconjunto de items (o una
   // cantidad parcial de una fila con qty>1) por un método, y repetir para el resto.
   const [showItemSplit, setShowItemSplit] = useState(false);
-  // Un solo botón "Dividir cuenta" que pregunta por monto o por producto,
-  // en vez de dos botones separados en el mismo panel.
-  const [showDivideChoice, setShowDivideChoice] = useState(false);
+  // Panel único de dividir cuenta (2026-08-04): sin preguntar el modo
+  const [showDividir, setShowDividir] = useState(false);
   const itemSplitTipAppliedRef = useRef(false);
   const [tipAmount, setTipAmount] = useState('');
   const [showDiscount, setShowDiscount] = useState(false);
@@ -521,54 +518,6 @@ export default function DetalleMesa() {
     }
   };
 
-  // Cobrar la orden activa
-  // FASE F9: pago dividido desde la vista de mesa (varios métodos en un cobro)
-  const processSplitPayment = async (paymentLines) => {
-    try {
-      const splitTip = Math.max(0, parseMontoCOP(tipAmount) || 0);
-      await axios.post('/payments', { orderId: activeOrder.id, payments: paymentLines, tipAmount: splitTip });
-      setTipAmount('');
-      setShowSplit(false);
-
-      // Recibo con los métodos combinados
-      try {
-        const orderRes = await axios.get(`/orders/${activeOrder.id}`);
-        setReciboData({
-          order: {
-            ...orderRes.data,
-            table_label: tableData?.table?.label ||
-              (tableData?.table?.number ? `Mesa ${tableData.table.number}` : 'Sin mesa'),
-          },
-          payment: {
-            method: paymentLines.map(l => l.method).join(' + '),
-            amount: paymentLines.reduce((s, l) => s + l.amount, 0),
-            created_at: new Date().toISOString(),
-          },
-          items: orderRes.data.items || [],
-        });
-        setChangeAmount(0);
-        setShowRecibo(true);
-      } catch (reciboError) {
-        console.error('Error preparando recibo:', reciboError);
-        showAlert('Pago dividido procesado correctamente');
-      }
-
-      await loadActiveOrder();
-      await loadTableData();
-    } catch (error) {
-      console.error('Error procesando pago dividido:', error);
-      setShowSplit(false);
-      showAlert(error.response?.data?.error || 'Error al procesar el pago dividido');
-    }
-  };
-
-  // FASE F12: abrir "Dividir por producto" (reinicia si la propina ya se aplicó
-  // a un grupo anterior de esta misma sesión de cobro)
-  const openItemSplit = () => {
-    itemSplitTipAppliedRef.current = false;
-    setShowItemSplit(true);
-  };
-
   // FASE F12: cobra UN grupo de items/cantidades (payloadItems: [{id, qty}]) con
   // UN método de pago, vía /payments/items (que soporta partir una fila si qty
   // pedida < qty de la fila). Se puede llamar varias veces seguidas para ir
@@ -592,10 +541,14 @@ export default function DetalleMesa() {
     const orderRes = await axios.get(`/orders/${orderId}`);
     const orderStatus = orderRes.data?.status;
 
-    if (orderStatus === 'PAGADA') {
+    // Prepago (ventanilla/domicilio en cocina): la orden queda cubierta pero
+    // sigue EN_PREP — saldo 0 también cuenta como "quedó pagada" para el modal.
+    const saldoRestante = orderRes.data?.saldo;
+    if (orderStatus === 'PAGADA' || (saldoRestante != null && saldoRestante <= 0)) {
       // Quedó completamente pagada: cerrar el modal y mostrar el recibo final
       // (mismo patrón de pendingRefreshRef que el resto de flujos de cobro).
       setShowItemSplit(false);
+      setShowDividir(false);
       setTipAmount('');
       setReciboData({
         order: {
@@ -632,6 +585,76 @@ export default function DetalleMesa() {
     await loadActiveOrder();
     await loadTableData();
     return { fullyPaid: false };
+  };
+
+  // Panel ÚNICO "Dividir cuenta" (dueño, 2026-08-04): una parte puede ser
+  // productos marcados (va por /payments/items, reutiliza handleItemSplitGroup)
+  // o un monto libre (pago parcial de la orden por /payments).
+  const handleDividirParte = async ({ method, amount, itemIds }) => {
+    if (!activeOrder || !activeOrder.id) {
+      showAlert('No hay orden activa para cobrar');
+      return { fullyPaid: false };
+    }
+    try {
+      if (itemIds && itemIds.length > 0) {
+        const grupo = itemIds.map((id) => {
+          const it = pendingActiveOrderItems.find((i) => i.id === id);
+          return { id, qty: it?.qty || 1 };
+        });
+        return await handleItemSplitGroup(grupo, method);
+      }
+
+      // Monto libre: pago parcial de la orden (la propina solo en la primera parte)
+      const tip = itemSplitTipAppliedRef.current ? 0 : Math.max(0, parseMontoCOP(tipAmount) || 0);
+      await axios.post('/payments', { orderId: activeOrder.id, method, amount, tipAmount: tip });
+      itemSplitTipAppliedRef.current = true;
+
+      const orderId = activeOrder.id;
+      const orderRes = await axios.get(`/orders/${orderId}`);
+      const orderStatus = orderRes.data?.status;
+      const saldoRestante = orderRes.data?.saldo;
+
+      if (orderStatus === 'PAGADA' || (saldoRestante != null && saldoRestante <= 0)) {
+        setShowDividir(false);
+        setTipAmount('');
+        setReciboData({
+          order: {
+            ...orderRes.data,
+            table_label: tableData?.table?.label ||
+              (tableData?.table?.number === 9 ? 'VENTANILLA' :
+               tableData?.table?.number === 10 ? 'DOMICILIOS' :
+               tableData?.table?.number ? `Mesa ${tableData.table.number}` : 'Sin mesa'),
+          },
+          payment: {
+            method: 'Cuenta dividida',
+            amount: (orderRes.data.items || []).reduce((s, i) => s + (i.qty * i.price), 0),
+            created_at: new Date().toISOString(),
+          },
+          items: orderRes.data.items || [],
+        });
+        setChangeAmount(0);
+        setShowRecibo(true);
+
+        pendingRefreshRef.current = async () => {
+          setActiveOrder(null);
+          setActiveOrderItems([]);
+          setCreatingNewOrder(false);
+          setSelectedOrderId(null);
+          setNewOrderItems([]);
+          await refreshAfterPayment(orderId, orderStatus);
+        };
+        return { fullyPaid: true };
+      }
+
+      await loadActiveOrder();
+      await loadTableData();
+      return { fullyPaid: false };
+    } catch (error) {
+      console.error('Error cobrando parte de la cuenta:', error);
+      showAlert(error.response?.data?.error || 'Error al cobrar esta parte');
+      await loadActiveOrder();
+      return { fullyPaid: false };
+    }
   };
 
   // FASE F10: aplicar/quitar descuento desde la vista de mesa
@@ -2278,7 +2301,7 @@ export default function DetalleMesa() {
                   </button>
 
                   <button
-                    onClick={() => setShowDivideChoice(true)}
+                    onClick={() => { itemSplitTipAppliedRef.current = false; setShowDividir(true); }}
                     disabled={loadingPay || !isOnline}
                     style={{
                       display: 'flex',
@@ -2512,47 +2535,15 @@ export default function DetalleMesa() {
         </Modal>
       )}
 
-      {/* Un solo botón "Dividir cuenta" que pregunta el modo antes de abrir el
-          panel correspondiente, en vez de dos botones sueltos en el mismo panel */}
-      <Modal open={showDivideChoice} onClose={() => setShowDivideChoice(false)} title="Dividir cuenta"
-        actions={<button className="btn-secondary" onClick={() => setShowDivideChoice(false)}>Cancelar</button>}>
-        <p>¿Cómo quieres dividir esta cuenta?</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>
-          <button
-            className="btn-chanatos"
-            onClick={() => { setShowDivideChoice(false); setShowSplit(true); }}
-            style={{ width: '100%', padding: '0.9rem', textAlign: 'left' }}
-          >
-            Por monto — repartir el total entre varios métodos de pago
-          </button>
-          <button
-            className="btn-chanatos"
-            onClick={() => { setShowDivideChoice(false); openItemSplit(); }}
-            disabled={orderDiscount > 0}
-            title={orderDiscount > 0 ? 'Quita el descuento para dividir por producto' : ''}
-            style={{ width: '100%', padding: '0.9rem', textAlign: 'left', opacity: orderDiscount > 0 ? 0.5 : 1, cursor: orderDiscount > 0 ? 'not-allowed' : 'pointer' }}
-          >
-            Por producto — elegir qué paga cada persona
-          </button>
-        </div>
-      </Modal>
-
-      {/* Pago dividido (varios métodos en un cobro) */}
-      {showSplit && activeOrder && (
-        <PagoDividido
-          total={Math.max(0, activeOrderTotal - orderDiscount)}
-          onCancel={() => setShowSplit(false)}
-          onConfirm={processSplitPayment}
-        />
-      )}
-
-      {/* FASE F12: Dividir por producto y cantidad (grupos de items, uno por
-          método, hasta completar la cuenta) */}
-      {showItemSplit && activeOrder && (
-        <DividirPorProducto
+      {/* Panel único "Dividir cuenta" (2026-08-04): marcar productos y/o monto
+          libre, método y cobrar por partes hasta completar — sin elegir modo */}
+      {showDividir && activeOrder && (
+        <DividirCuenta
           items={pendingActiveOrderItems}
-          onClose={() => setShowItemSplit(false)}
-          onConfirmGroup={handleItemSplitGroup}
+          saldo={saldoActual}
+          soloMonto={orderDiscount > 0}
+          onCobrarParte={handleDividirParte}
+          onCancel={() => setShowDividir(false)}
         />
       )}
 
