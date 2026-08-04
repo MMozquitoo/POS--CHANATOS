@@ -154,6 +154,18 @@ export default function DetalleMesa() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const orderIdFromUrl = searchParams.get('orderId');
+
+  // Flujo 2026-08: sin ?orderId, Ventanilla/Domicilios ya no muestran el panel
+  // viejo (NUEVA ORDEN + lista) — van directo a armar el pedido. Con ?orderId
+  // (COBRAR desde Cocina, etc.) el riel de cobro de acá sigue funcionando.
+  useEffect(() => {
+    if (orderIdFromUrl) return;
+    const n = Number(tableId);
+    if (n === 9) navigate('/ventanilla', { replace: true });
+    else if (n === 10) navigate('/domicilios', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableId, orderIdFromUrl]);
+
   const { isOnline } = useConnection();
   const { user } = useAuth();
   const backTo = getBackRoute(location, user);

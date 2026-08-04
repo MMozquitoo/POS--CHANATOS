@@ -44,6 +44,11 @@ export default function OrdenesDrawer({ open, onClose }) {
 
   const goToTable = (table) => {
     onClose?.();
+    // Ventanilla/Domicilios van DIRECTO a armar la orden nueva (flujo 2026-08:
+    // "+" siempre crea un pedido; las órdenes vivas se ven en COBRAR/PEDIDOS)
+    const type = getSpecialType(table);
+    if (type === 'VENTANILLA') return navigate('/ventanilla');
+    if (type === 'DOMICILIOS') return navigate('/domicilios');
     navigate(`/mesa/${table.id}`);
   };
 

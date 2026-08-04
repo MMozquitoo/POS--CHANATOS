@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { statusLabel } from '../../utils/statusLabels';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -36,7 +37,11 @@ export default function CobrarPedidos() {
   const [discountReason, setDiscountReason] = useState('');
   const [cashSessionActive, setCashSessionActive] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  // Detalle de la orden CERRADO por defecto (dueño, 2026-08): solo el precio
+  // real a pagar; los items se ven al tocar "VER DETALLE".
+  const [showDetail, setShowDetail] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { socket } = useAuth();
   
   // FASE 19.5: Refs para evitar loops
@@ -65,8 +70,20 @@ export default function CobrarPedidos() {
     
     loadingOrdersRef.current = true;
     try {
-      const res = await axios.get('/orders?status=LISTO');
-      setOrders(res.data.filter(o => !o.paid_at));
+      // Listos para cobrar + PAGO ADELANTADO: órdenes de Ventanilla/Domicilios
+      // aún en cocina con saldo pendiente también se cobran desde acá
+      const [listoRes, ventRes, domRes] = await Promise.all([
+        axios.get('/orders?status=LISTO'),
+        axios.get('/orders/service/VENTANILLA?only_open=1'),
+        axios.get('/orders/service/DOMICILIO?only_open=1'),
+      ]);
+      const listos = (listoRes.data || []).filter(o => !o.paid_at);
+      const enCocina = [...(ventRes.data || []), ...(domRes.data || [])].filter(o =>
+        ['NUEVO', 'EN_PREP'].includes(o.status) && (o.saldo ?? o.pendingTotal ?? 0) > 0
+      );
+      const byId = new Map();
+      [...listos, ...enCocina].forEach(o => { if (!byId.has(o.id)) byId.set(o.id, o); });
+      setOrders([...byId.values()]);
     } catch (error) {
       console.error('Error cargando pedidos:', error);
     } finally {
@@ -126,6 +143,28 @@ export default function CobrarPedidos() {
   // FASE F8: total a cobrar con el descuento de la orden aplicado
   const discountOf = (order) => order?.discount_amount || 0;
   const totalConDescuento = (order) => Math.max(0, calculateTotal(order) - discountOf(order));
+  // Saldo real (resta pagos previos); las órdenes LISTO de /orders no traen saldo
+  const saldoDe = (order) => order?.saldo ?? totalConDescuento(order);
+
+  // PAGO ADELANTADO: LISTO siempre; VENTANILLA/DOMICILIO también en cocina
+  const puedeCobrarse = (order) =>
+    order?.status === 'LISTO' ||
+    (['VENTANILLA', 'DOMICILIO'].includes(order?.service || order?.channel) &&
+      ['NUEVO', 'EN_PREP'].includes(order?.status));
+
+  // Llegada directa con ?orderId= (crear en Ventanilla/Domicilios → cobrar)
+  const preselectRef = useRef(false);
+  useEffect(() => {
+    const oid = Number(searchParams.get('orderId'));
+    if (!oid || preselectRef.current || orders.length === 0) return;
+    const found = orders.find(o => o.id === oid);
+    if (found) {
+      preselectRef.current = true;
+      setSelectedOrder(found);
+      setSelectedItemIds(new Set());
+      setShowDetail(false);
+    }
+  }, [orders, searchParams]);
 
   // FASE F8: aplicar/quitar descuento
   const applyDiscount = async (amount, reason) => {
@@ -152,7 +191,7 @@ export default function CobrarPedidos() {
       return;
     }
 
-    const total = totalConDescuento(selectedOrder);
+    const total = saldoDe(selectedOrder);
 
     // Validar total > 0 (FASE 9.5)
     if (total <= 0) {
@@ -160,9 +199,9 @@ export default function CobrarPedidos() {
       return;
     }
 
-    // FASE 12.4: Validar que la orden esté en estado LISTO
-    if (selectedOrder.status !== 'LISTO') {
-      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+    // FASE 12.4 + pago adelantado (2026-08)
+    if (!puedeCobrarse(selectedOrder)) {
+      await showAlert(`Esta orden no se puede cobrar (${statusLabel(selectedOrder.status)}).`);
       loadOrders();
       return;
     }
@@ -204,9 +243,9 @@ export default function CobrarPedidos() {
   const processSplitPayment = async (paymentLines) => {
     if (!selectedOrder) return;
 
-    if (selectedOrder.status !== 'LISTO') {
+    if (!puedeCobrarse(selectedOrder)) {
       setShowSplit(false);
-      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+      await showAlert(`Esta orden no se puede cobrar (${statusLabel(selectedOrder.status)}).`);
       loadOrders();
       return;
     }
@@ -220,7 +259,7 @@ export default function CobrarPedidos() {
       });
 
       setShowSplit(false);
-      const total = totalConDescuento(selectedOrder);
+      const total = saldoDe(selectedOrder);
       setReciboData({
         order: selectedOrder,
         payment: {
@@ -281,9 +320,9 @@ export default function CobrarPedidos() {
       return;
     }
 
-    // FASE 12.4: Validar que la orden esté en estado LISTO
-    if (selectedOrder.status !== 'LISTO') {
-      await showAlert(`Solo se puede cobrar cuando la orden está LISTO. Estado actual: ${selectedOrder.status}`);
+    // FASE 12.4 + pago adelantado (2026-08)
+    if (!puedeCobrarse(selectedOrder)) {
+      await showAlert(`Esta orden no se puede cobrar (${statusLabel(selectedOrder.status)}).`);
       loadOrders();
       return;
     }
@@ -449,7 +488,7 @@ export default function CobrarPedidos() {
           </div>
         )}
         <div className="orders-list-cobrar">
-          <h2>Pedidos Listos ({orders.length})</h2>
+          <h2>Pedidos por cobrar ({orders.length})</h2>
           {orders.length === 0 && !loading ? (
             <EmptyState
               title="No hay pedidos para cobrar"
@@ -464,14 +503,20 @@ export default function CobrarPedidos() {
                   onClick={() => {
                     setSelectedOrder(order);
                     setSelectedItemIds(new Set());
+                    setShowDetail(false);
                   }}
                 >
                   <div className="order-code-cobrar">{order.daily_no ? `ORDEN ${order.daily_no}` : order.code}</div>
                   {order.table_label && (
                     <div className="order-table-cobrar">Mesa: {order.table_label}</div>
                   )}
+                  {order.status !== 'LISTO' && (
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#B25000' }}>
+                      {statusLabel(order.status)}
+                    </div>
+                  )}
                   <div className="order-total-cobrar">
-                    {formatPriceCOP(totalConDescuento(order))}
+                    {formatPriceCOP(saldoDe(order))}
                     {discountOf(order) > 0 && (
                       <span style={{ fontSize: '0.75rem', color: '#B8860B', display: 'block' }}>desc. -{formatPriceCOP(discountOf(order))}</span>
                     )}
@@ -490,21 +535,32 @@ export default function CobrarPedidos() {
               {selectedOrder.table_label && (
                 <div className="order-table-payment">Mesa: {selectedOrder.table_label}</div>
               )}
-              <div className="order-items-payment">
-                {selectedOrder.items?.map((item, idx) => (
-                  <label key={idx} className="payment-item" style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
-                    <input
-                      type="checkbox"
-                      checked={selectedItemIds.has(item.id)}
-                      onChange={() => toggleItem(item.id)}
-                    />
-                    <span>
-                      {item.qty}x {item.name} ({formatPriceCOP(item.qty * (item.price ?? 0))})
-                      {item.notes && <span style={{ display: 'block', color: '#B25000', fontSize: '0.85rem' }}>{item.notes}</span>}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              {/* Detalle CERRADO por defecto (dueño, 2026-08): solo el precio real;
+                  los items (y el cobro por partes) aparecen al tocar VER DETALLE */}
+              <button
+                type="button"
+                onClick={() => setShowDetail(!showDetail)}
+                style={{ width: '100%', padding: '0.55rem', margin: '0.5rem 0', background: 'transparent', border: '1.5px dashed #ccc', borderRadius: '8px', color: '#666', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                {showDetail ? 'OCULTAR DETALLE' : `VER DETALLE (${(selectedOrder.items || []).length} items)`}
+              </button>
+              {showDetail && (
+                <div className="order-items-payment">
+                  {selectedOrder.items?.map((item, idx) => (
+                    <label key={idx} className="payment-item" style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.has(item.id)}
+                        onChange={() => toggleItem(item.id)}
+                      />
+                      <span>
+                        {item.qty}x {item.name} ({formatPriceCOP(item.qty * (item.price ?? 0))})
+                        {item.notes && <span style={{ display: 'block', color: '#B25000', fontSize: '0.85rem' }}>{item.notes}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
               {discountOf(selectedOrder) > 0 && (
                 <>
                   <div className="payment-total" style={{ fontSize: '0.9rem', color: '#666' }}>
@@ -519,7 +575,7 @@ export default function CobrarPedidos() {
               )}
               <div className="payment-total">
                 <span>Total:</span>
-                <span className="total-amount">{formatPriceCOP(totalConDescuento(selectedOrder))}</span>
+                <span className="total-amount">{formatPriceCOP(saldoDe(selectedOrder))}</span>
               </div>
             </div>
 
@@ -600,19 +656,21 @@ export default function CobrarPedidos() {
                 >
                   CALCULADORA
                 </button>
-                <button
-                  onClick={processPaymentPartial}
-                  disabled={!cashSessionActive || !isOnline || discountOf(selectedOrder) > 0}
-                  title={discountOf(selectedOrder) > 0 ? 'Orden con descuento: cóbrala completa o con pago dividido' : undefined}
-                  className="process-payment-btn"
-                  style={{
-                    background: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? '#F5BB4C' : '#6c757d',
-                    opacity: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? 1 : 0.6,
-                    cursor: cashSessionActive && discountOf(selectedOrder) === 0 ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
-                </button>
+                {showDetail && (
+                  <button
+                    onClick={processPaymentPartial}
+                    disabled={!cashSessionActive || !isOnline || discountOf(selectedOrder) > 0}
+                    title={discountOf(selectedOrder) > 0 ? 'Orden con descuento: cóbrala completa o con pago dividido' : undefined}
+                    className="process-payment-btn"
+                    style={{
+                      background: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? '#F5BB4C' : '#6c757d',
+                      opacity: cashSessionActive && isOnline && discountOf(selectedOrder) === 0 ? 1 : 0.6,
+                      cursor: cashSessionActive && discountOf(selectedOrder) === 0 ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    COBRAR POR PARTES ({formatPriceCOP(selectedTotal())})
+                  </button>
+                )}
                 <button
                   onClick={() => setShowSplit(true)}
                   disabled={!cashSessionActive || !isOnline}
@@ -636,7 +694,7 @@ export default function CobrarPedidos() {
             )}
             {showSplit && (
               <PagoDividido
-                total={totalConDescuento(selectedOrder)}
+                total={saldoDe(selectedOrder)}
                 onCancel={() => setShowSplit(false)}
                 onConfirm={processSplitPayment}
               />

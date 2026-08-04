@@ -603,11 +603,25 @@ router.get("/service/:service", requireAuth, async (req, res) => {
         itemsByOrder[item.order_id].push(item);
       });
 
+      // Pagos válidos por orden: pendingTotal solo mira paid_at de items, pero
+      // un pago adelantado de orden completa (POST /payments) no marca items —
+      // sin esto, COBRAR seguiría mostrando como "debiendo" una orden ya pagada.
+      const paymentsRows = await db.all(
+        `SELECT order_id, COALESCE(SUM(amount), 0) as paid
+         FROM payments WHERE order_id IN (${placeholders}) AND voided_at IS NULL
+         GROUP BY order_id`,
+        orderIds
+      );
+      const paidByOrder = {};
+      paymentsRows.forEach(p => { paidByOrder[p.order_id] = p.paid; });
+
       ordersWithTotals = orders.map(order => {
         const items = itemsByOrder[order.id] || [];
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+        const paidAmount = paidByOrder[order.id] || 0;
+        const saldo = Math.max(0, total - (order.discount_amount || 0) - paidAmount);
         const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
@@ -616,6 +630,8 @@ router.get("/service/:service", requireAuth, async (req, res) => {
           pendingItems: pendingItems.length,
           total,
           pendingTotal,
+          paidAmount,
+          saldo,
           hasPendingItems: pendingItems.length > 0,
           firstItemNote
         };
@@ -737,11 +753,25 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
         itemsByOrder[item.order_id].push(item);
       });
 
+      // Pagos válidos por orden: pendingTotal solo mira paid_at de items, pero
+      // un pago adelantado de orden completa (POST /payments) no marca items —
+      // sin esto, COBRAR seguiría mostrando como "debiendo" una orden ya pagada.
+      const paymentsRows = await db.all(
+        `SELECT order_id, COALESCE(SUM(amount), 0) as paid
+         FROM payments WHERE order_id IN (${placeholders}) AND voided_at IS NULL
+         GROUP BY order_id`,
+        orderIds
+      );
+      const paidByOrder = {};
+      paymentsRows.forEach(p => { paidByOrder[p.order_id] = p.paid; });
+
       ordersWithTotals = orders.map(order => {
         const items = itemsByOrder[order.id] || [];
         const pendingItems = items.filter(item => !item.paid_at);
         const total = items.reduce((sum, item) => sum + item.qty * item.price, 0);
         const pendingTotal = pendingItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+        const paidAmount = paidByOrder[order.id] || 0;
+        const saldo = Math.max(0, total - (order.discount_amount || 0) - paidAmount);
         const firstItemNote = items.find(item => item.notes)?.notes || null;
         return {
           ...order,
@@ -750,6 +780,8 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
           pendingItems: pendingItems.length,
           total,
           pendingTotal,
+          paidAmount,
+          saldo,
           hasPendingItems: pendingItems.length > 0,
           firstItemNote
         };
