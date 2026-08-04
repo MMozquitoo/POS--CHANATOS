@@ -912,7 +912,17 @@ router.get("/:id", requireAuth, async (req, res) => {
       order.id,
     ]);
 
-    res.json({ ...order, items });
+    // Pagos válidos y saldo real: el riel de cobro necesita saber si la orden
+    // ya quedó pagada por adelantado (para no ofrecer cobrarla otra vez)
+    const paidRow = await db.get(
+      "SELECT COALESCE(SUM(amount), 0) as paid FROM payments WHERE order_id = ? AND voided_at IS NULL",
+      [order.id]
+    );
+    const totalItems = items.reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0);
+    const paidAmount = paidRow?.paid || 0;
+    const saldo = Math.max(0, totalItems - (order.discount_amount || 0) - paidAmount);
+
+    res.json({ ...order, items, paidAmount, saldo });
   } catch (error) {
     console.error("Error obteniendo pedido:", error);
     res.status(500).json({ error: "Error interno del servidor" });

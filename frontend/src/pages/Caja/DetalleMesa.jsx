@@ -209,6 +209,8 @@ export default function DetalleMesa() {
   // Estados para orden activa
   const [activeOrder, setActiveOrder] = useState(null);
   const [activeOrderItems, setActiveOrderItems] = useState([]);
+  // Modo cobro: "Agregar items" plegado hasta que se pida (dueño, 2026-08-03)
+  const [showAddItems, setShowAddItems] = useState(false);
   
   // Estados para sidebar de mesas
   const [allTables, setAllTables] = useState([]);
@@ -357,7 +359,11 @@ export default function DetalleMesa() {
     }
   }
 
-  async function loadOpenOrdersByService(table, preferredOrderId) {
+  // preferredOrderId por defecto = el ?orderId= de la URL (modo cobro): TODOS
+  // los refresh (incluido el de después de pagar) deben seguir mostrando ESA
+  // orden — sin esto, la vista saltaba a la orden abierta de OTRO cliente con
+  // COBRAR activo (bug reproducido por agente de prueba, 2026-08-03).
+  async function loadOpenOrdersByService(table, preferredOrderId = orderIdFromUrl) {
     const n = table?.number != null ? Number(table.number) : NaN;
     const service = n === 9 ? 'VENTANILLA' : n === 10 ? 'DOMICILIO' : null;
     if (!service) return;
@@ -367,6 +373,16 @@ export default function DetalleMesa() {
       setOpenOrdersList(list);
       const ids = list.map((o) => o.id);
       const preferred = preferredOrderId != null ? Number(preferredOrderId) : null;
+
+      // La orden pedida ya no está en only_open (quedó prepagada: sus items
+      // tienen paid_at, o quedó PAGADA/archivada): cargarla igual por id para
+      // mostrar su estado "Pagado" en vez de caer en la primera orden ajena.
+      if (preferred != null && !ids.includes(preferred)) {
+        setSelectedOrderId(preferred);
+        await loadOrderDetail(preferred);
+        return;
+      }
+
       const usePreferred = preferred != null && ids.includes(preferred);
       const keep = !usePreferred && selectedOrderId && ids.includes(selectedOrderId);
       const nextId = usePreferred ? preferred : keep ? selectedOrderId : list[0]?.id ?? null;
@@ -1372,7 +1388,18 @@ export default function DetalleMesa() {
   const pendingActiveOrderItems = safeActiveOrderItems.filter(
     (item) => item && !item.paid_at && !item.voided_at
   );
-  
+
+  // Modo cobro (2026-08): llegando con ?orderId= (bandeja COBRAR, crear→cobrar,
+  // Cocina) la pantalla es SOLO para cobrar esa orden — sin chips de órdenes,
+  // sin NUEVA ORDEN y con "Agregar items" plegado.
+  const modoCobro = !!orderIdFromUrl;
+  const paidAmount = activeOrder?.paidAmount || 0;
+  const saldoActual = activeOrder?.saldo ?? Math.max(0, activeOrderTotal - orderDiscount);
+  // Prepago cubierto: pagada pero aún en cocina (se cierra sola al quedar LISTO)
+  const pagadaAdelantado = !!activeOrder &&
+    ['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) &&
+    paidAmount > 0 && saldoActual <= 0;
+
   return (
     <div className="detalle-mesa-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header className="detalle-mesa-header" style={{ flexShrink: 0 }}>
@@ -1402,8 +1429,9 @@ export default function DetalleMesa() {
           flexDirection: 'column',
           gap: '1rem'
         }}>
-          {/* FASE M8.9: ÓRDENES ABIERTAS + NUEVA ORDEN (solo Ventanilla/Domicilios) */}
-          {isSpecialTable(tableData?.table?.number) && (
+          {/* FASE M8.9: ÓRDENES ABIERTAS + NUEVA ORDEN (solo Ventanilla/Domicilios).
+              En modo cobro NO: la pantalla es solo para cobrar la orden elegida. */}
+          {isSpecialTable(tableData?.table?.number) && !modoCobro && (
             <div style={{ marginBottom: '1.5rem', flexShrink: 0 }}>
               {openOrdersList.length > 1 && (
                 <>
@@ -1563,8 +1591,8 @@ export default function DetalleMesa() {
                 </div>
               </div>
 
-              {/* FASE 12.4: Banner de bloqueo según estado */}
-              {activeOrder.status === 'LISTO' && (
+              {/* FASE 12.4: Banner de bloqueo según estado (en modo cobro sobra) */}
+              {activeOrder.status === 'LISTO' && !modoCobro && (
                 <div style={{ 
                   padding: '1rem', 
                   background: '#d1ecf1',
@@ -1600,11 +1628,14 @@ export default function DetalleMesa() {
                 </div>
               )}
               
-              {/* Items de la orden activa */}
+              {/* Items de la orden activa (si quedó prepagada, los items ya
+                  tienen paid_at y el detalle se ve en el panel de la derecha) */}
               {safeActiveOrderItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#666', marginBottom: '1rem' }}>
-                  No hay items pendientes en esta orden
-                </div>
+                pagadaAdelantado ? null : (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#666', marginBottom: '1rem' }}>
+                    No hay items pendientes en esta orden
+                  </div>
+                )
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   {safeActiveOrderItems.map(item => {
@@ -1631,7 +1662,8 @@ export default function DetalleMesa() {
                           {item.notes && <span> • {item.notes}</span>}
                         </div>
                       </div>
-                      {['NUEVO', 'EN_PREP'].includes(activeOrder.status) && (
+                      {/* Orden prepagada: los items ya no se editan (el pago cubrió el total) */}
+                      {['NUEVO', 'EN_PREP'].includes(activeOrder.status) && !pagadaAdelantado && (
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <button
                             onClick={() => {
@@ -1798,8 +1830,29 @@ export default function DetalleMesa() {
                 </div>
               )}
 
-              {/* Formulario para agregar items (NUEVO, EN_PREP o LISTO; LISTO vuelve a cocina) */}
-              {['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) && (
+              {/* Formulario para agregar items (NUEVO, EN_PREP o LISTO; LISTO vuelve a cocina).
+                  En modo cobro va PLEGADO: un botón discreto lo abre — el panel completo
+                  enterraba el cobro al fondo de la página (dueño, 2026-08-03). */}
+              {['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) && modoCobro && !showAddItems && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddItems(true)}
+                  style={{
+                    padding: '0.7rem 1rem',
+                    background: 'transparent',
+                    border: '1.5px dashed #F5BB4C',
+                    borderRadius: '10px',
+                    color: '#B8860B',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    minHeight: '46px'
+                  }}
+                >
+                  + AGREGAR ITEMS A LA ORDEN
+                </button>
+              )}
+              {['NUEVO', 'EN_PREP', 'LISTO'].includes(activeOrder.status) && (!modoCobro || showAddItems) && (
                 <div className="detalle-mesa-add-items-box" style={{
                   background: 'white',
                   padding: '1.5rem',
@@ -1989,14 +2042,32 @@ export default function DetalleMesa() {
                 {/* El TOTAL es lo primero que ve el ojo */}
                 <div style={{ textAlign: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--separator)' }}>
                   <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
-                    Total a cobrar
+                    {pagadaAdelantado ? 'Pagado' : 'Total a cobrar'}
                   </div>
-                  <div className="tnum" style={{ fontSize: '2.125rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--gray-900)', lineHeight: 1.1 }}>
-                    {formatPriceCOP(Math.max(0, activeOrderTotal - orderDiscount))}
+                  <div className="tnum" style={{ fontSize: '2.125rem', fontWeight: 800, letterSpacing: '-0.02em', color: pagadaAdelantado ? 'var(--green-text)' : 'var(--gray-900)', lineHeight: 1.1 }}>
+                    {formatPriceCOP(pagadaAdelantado ? paidAmount : saldoActual)}
                   </div>
                 </div>
 
-                <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {/* Qué se está cobrando, siempre visible (dueño, 2026-08-03:
+                    "en el cobro no se ve nada"). Usa TODOS los items de la orden
+                    (no solo los pendientes): en una orden prepagada por items ya
+                    todos tienen paid_at y aun así deben verse. */}
+                {(activeOrder.items || []).filter(i => !i.voided_at).length > 0 && (
+                  <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--separator)' }}>
+                    {(activeOrder.items || []).filter(i => !i.voided_at).map(it => (
+                      <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', fontSize: '0.875rem', color: 'var(--gray-700)' }}>
+                        <span style={{ minWidth: 0 }}>
+                          {it.qty}× {it.name}
+                          {it.notes && <span style={{ color: '#B25000' }}> — {it.notes}</span>}
+                        </span>
+                        <span className="tnum" style={{ flexShrink: 0 }}>{formatPriceCOP(it.qty * it.price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {orderDiscount > 0 && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)' }}>
@@ -2009,10 +2080,12 @@ export default function DetalleMesa() {
                       </div>
                     </>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', alignItems: 'center' }}>
-                    <span>Items</span>
-                    <span className="tnum" style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{safeActiveOrderItems.length}</span>
-                  </div>
+                  {paidAmount > 0 && !pagadaAdelantado && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--green-text)' }}>
+                      <span>Ya pagado</span>
+                      <span className="tnum">-{formatPriceCOP(paidAmount)}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', alignItems: 'center' }}>
                     <span>Estado</span>
                     <StatusPill status={activeOrder.status} />
@@ -2020,13 +2093,27 @@ export default function DetalleMesa() {
                 </div>
               </div>
 
+              {/* Prepago cubierto: NO volver a ofrecer el cobro (dueño, 2026-08-03) */}
+              {pagadaAdelantado && (
+                <div style={{
+                  background: 'var(--green-tint)',
+                  color: 'var(--green-text)',
+                  padding: '0.9rem 1.1rem',
+                  borderRadius: 'var(--radius-xl)',
+                  fontWeight: 600,
+                  fontSize: '0.9375rem'
+                }}>
+                  Pago recibido. La orden sigue en cocina y se cierra sola al quedar lista.
+                </div>
+              )}
+
               {/* Métodos de pago: con orden LISTO siempre; en Ventanilla/
                   Domicilios TAMBIÉN en NUEVO/EN_PREP (el cliente paga al pedir
                   y asegura la venta; la orden sigue en cocina y se cierra sola
                   al quedar lista — "pago adelantado", 2026-08). */}
               {(activeOrder.status === 'LISTO' ||
                 (isSpecialTable(tableData?.table?.number) && ['NUEVO', 'EN_PREP'].includes(activeOrder.status)))
-                && activeOrderItems.length > 0 && cashSessionActive === true ? (
+                && activeOrderItems.length > 0 && cashSessionActive === true && saldoActual > 0 ? (
                 <div style={{
                   background: 'white',
                   padding: '1.1rem',
@@ -2227,11 +2314,11 @@ export default function DetalleMesa() {
                     Abre la caja arriba para poder procesar el pago
                   </p>
                 </div>
-              ) : (
+              ) : pagadaAdelantado ? null : (
                 /* Mensaje informativo cuando no está LISTO */
-                <div style={{ 
-                  background: 'white', 
-                  padding: '1.5rem', 
+                <div style={{
+                  background: 'white',
+                  padding: '1.5rem',
                   borderRadius: '12px',
                   border: '2px solid #ffc107',
                   textAlign: 'center'
