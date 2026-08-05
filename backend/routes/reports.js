@@ -116,7 +116,9 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
       [from, to]
     );
 
-    // Top productos por venta (items pagados, no anulados)
+    // Productos vendidos (items pagados, no anulados). SIN LIMIT: con LIMIT 10
+    // los productos baratos (ej. gaseosa 250 ml a $2.000) quedaban por fuera y
+    // parecía que no se estaban contando (reporte del dueño 2026-08-04).
     const topProducts = await db.all(
       `SELECT name,
               SUM(qty) as qty,
@@ -126,8 +128,7 @@ router.get("/summary", requireAuth, requireRole("CAJA"), async (req, res) => {
          AND paid_at IS NOT NULL
          AND substr(paid_at, 1, 10) BETWEEN ? AND ?
        GROUP BY name
-       ORDER BY total DESC
-       LIMIT 10`,
+       ORDER BY total DESC`,
       [from, to]
     );
 

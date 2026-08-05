@@ -144,9 +144,9 @@ export default function Reportes() {
               )}
             </div>
 
-            {/* Top productos */}
+            {/* Productos vendidos (el backend ya no corta en 10 — se muestran todos) */}
             <section className="rep-section">
-              <h3>Top productos</h3>
+              <h3>Productos vendidos</h3>
               {data.topProducts.length === 0 ? (
                 <p className="rep-empty">Sin ventas en este periodo</p>
               ) : (
