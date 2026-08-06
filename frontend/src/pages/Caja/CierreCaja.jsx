@@ -4,7 +4,7 @@ import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import axios from 'axios';
 import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
-import { formatBogotaDateTime } from '../../utils/timezone.js';
+import { formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
 import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
@@ -44,6 +44,11 @@ export default function CierreCaja() {
   const [closingCash, setClosingCash] = useState('');
   const [closing, setClosing] = useState(false);
   const [closedReport, setClosedReport] = useState(null);
+
+  // Registrar gasto/ingreso de caja sin salir del cierre
+  const [showGastoForm, setShowGastoForm] = useState(false);
+  const [gasto, setGasto] = useState({ type: 'EGRESO', amount: '', description: '' });
+  const [savingGasto, setSavingGasto] = useState(false);
   
   // PASO 14.4: Recuperación automática al reconectar
   // Solo refrescar si NO estamos viendo un reporte cerrado
@@ -89,6 +94,30 @@ export default function CierreCaja() {
       setSummary(res.data);
     } catch (error) {
       console.error('Error cargando resumen:', error);
+    }
+  };
+
+  const guardarGasto = async () => {
+    const monto = parseMontoCOP(gasto.amount);
+    if (!gasto.description.trim() || !monto || monto <= 0) {
+      await showAlert('Escribe la descripción y un monto válido');
+      return;
+    }
+    setSavingGasto(true);
+    try {
+      await axios.post('/cash/manual-transactions', {
+        transaction_date: getBogotaDateString(),
+        type: gasto.type,
+        description: gasto.description.trim(),
+        amount: monto
+      });
+      setGasto({ type: 'EGRESO', amount: '', description: '' });
+      setShowGastoForm(false);
+      await loadSummary(session.id);
+    } catch (e) {
+      await showAlert(e.response?.data?.error || 'No se pudo guardar el movimiento');
+    } finally {
+      setSavingGasto(false);
     }
   };
 
@@ -437,6 +466,77 @@ export default function CierreCaja() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Registrar gasto/ingreso sin salir del cierre */}
+            {!showGastoForm ? (
+              <button
+                onClick={() => setShowGastoForm(true)}
+                className="btn-secondary"
+                style={{ width: '100%', padding: '0.6rem', fontSize: '0.9375rem', marginBottom: '0.5rem' }}
+              >
+                + REGISTRAR GASTO DE CAJA
+              </button>
+            ) : (
+              <div style={{
+                margin: '0.25rem 0 0.75rem',
+                padding: '0.85rem',
+                background: 'var(--gray-50)',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Tipo</label>
+                    <select
+                      value={gasto.type}
+                      onChange={(e) => setGasto({ ...gasto, type: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', background: 'white', boxSizing: 'border-box' }}
+                    >
+                      <option value="EGRESO">Gasto (salió plata)</option>
+                      <option value="INGRESO">Ingreso (entró plata)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Monto</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={gasto.amount}
+                      onChange={(e) => setGasto({ ...gasto, amount: e.target.value })}
+                      placeholder="Ej: 12.000"
+                      className="tnum"
+                      style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginBottom: '0.6rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Descripción</label>
+                  <input
+                    type="text"
+                    value={gasto.description}
+                    onChange={(e) => setGasto({ ...gasto, description: e.target.value })}
+                    placeholder="Ej: Compra de pan"
+                    style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => { setShowGastoForm(false); setGasto({ type: 'EGRESO', amount: '', description: '' }); }}
+                    className="btn-secondary"
+                    style={{ flex: 1, padding: '0.6rem' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={guardarGasto}
+                    disabled={savingGasto || !isOnline}
+                    className="btn-chanatos"
+                    style={{ flex: 1, padding: '0.6rem' }}
+                  >
+                    {savingGasto ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
               </div>
             )}
             <div style={{
