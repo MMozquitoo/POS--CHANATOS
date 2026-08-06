@@ -337,37 +337,15 @@ export default function HistorialSesiones() {
                       </div>
                       <div className="form-group-small">
                         <label>Monto</label>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <input
-                            type="number"
-                            value={newTransaction.amount}
-                            onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            className="form-input"
-                            style={{ flex: 1 }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const current = parseMontoCOP(newTransaction.amount) || 0;
-                              setNewTransaction({ ...newTransaction, amount: (current + 500).toString() });
-                            }}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              background: '#28a745',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '0.9rem',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            +500
-                          </button>
-                        </div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={newTransaction.amount}
+                          onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                          placeholder="Ej: 12.000"
+                          className="form-input tnum"
+                          style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', fontSize: '16px' }}
+                        />
                       </div>
                     </div>
                     <div className="form-group">

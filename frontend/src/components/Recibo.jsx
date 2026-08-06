@@ -4,6 +4,11 @@ import { formatBogotaDateTime } from '../utils/timezone.js';
 import ModalHost from './ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../hooks/useModal';
 
+// Impresión/PDF ocultos por ahora (no hay impresora en el local y el dueño no
+// los usa): el recibo queda guardado en la BD y se puede reabrir desde
+// Historial de pagos. Cuando llegue la impresora térmica, poner en true.
+const SHOW_PRINT_CONTROLS = false;
+
 export default function Recibo({ order, payment, items, onClose, onPrint, changeAmount }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
@@ -160,12 +165,45 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
         overflowY: 'auto',
         boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
       }}>
-        {/* Controles (no se imprimen) */}
-        <div className="recibo-controls" style={{ 
+        {/* Cerrar con X (siempre visible arriba a la derecha) */}
+        <div className="recibo-controls" style={{
+          position: 'sticky',
+          top: 0,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: '0.5rem',
+          zIndex: 1
+        }}>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '50%',
+              border: 'none',
+              background: '#e9ecef',
+              color: '#333',
+              fontSize: '1.35rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Controles de impresión (no se imprimen; ocultos por ahora) */}
+        {SHOW_PRINT_CONTROLS && (
+        <div className="recibo-controls" style={{
           marginBottom: '1rem'
         }}>
           {/* Selector de formato */}
-          <div style={{ 
+          <div style={{
             marginBottom: '1rem',
             padding: '0.75rem',
             background: '#f8f9fa',
@@ -280,6 +318,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             </button>
           </div>
         </div>
+        )}
 
         {/* Contenido del recibo (imprimible) */}
         <div 
