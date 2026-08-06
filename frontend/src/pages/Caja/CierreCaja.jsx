@@ -104,10 +104,14 @@ export default function CierreCaja() {
       return;
     }
 
-    // Calcular efectivo esperado
+    // Calcular efectivo esperado (mismo cálculo que el backend: propinas en
+    // efectivo entran al cajón; ingresos/gastos manuales suman/restan)
     const openingCash = session.initial_cash || 0;
     const totalCash = summary.byMethod.find(m => m.method === 'EFECTIVO')?.total || 0;
-    const expectedCash = openingCash + totalCash;
+    const tipsCash = summary.tipsCash || 0;
+    const manualIn = summary.manual?.income || 0;
+    const manualOut = summary.manual?.expense || 0;
+    const expectedCash = openingCash + totalCash + tipsCash + manualIn - manualOut;
 
     // Alerta de sanidad: un descuadre gigante casi siempre es un monto mal digitado
     const diff = cash - expectedCash;
@@ -126,6 +130,9 @@ export default function CierreCaja() {
     const confirmMsg = `¿Cerrar caja?\n\n` +
       `Efectivo inicial: ${formatPriceCOP(openingCash)}\n` +
       `Ventas en efectivo: ${formatPriceCOP(totalCash)}\n` +
+      (tipsCash > 0 ? `Propinas en efectivo: ${formatPriceCOP(tipsCash)}\n` : '') +
+      (manualIn > 0 ? `Ingresos de caja: ${formatPriceCOP(manualIn)}\n` : '') +
+      (manualOut > 0 ? `Gastos de caja: -${formatPriceCOP(manualOut)}\n` : '') +
       `Efectivo esperado: ${formatPriceCOP(expectedCash)}\n` +
       `Efectivo contado: ${formatPriceCOP(cash)}`;
 
@@ -174,8 +181,11 @@ export default function CierreCaja() {
     );
   }
 
-  // FASE 15.1: Si no hay sesión activa, mostrar CTA a apertura
-  if (!session) {
+  // FASE 15.1: Si no hay sesión activa, mostrar CTA a apertura.
+  // OJO: el chequeo de closedReport va PRIMERO — al cerrar caja, loadSession()
+  // deja session en null y este bloque se tragaba el reporte de cierre
+  // (mostraba "No hay una caja abierta" en vez del reporte).
+  if (!session && !closedReport) {
     return (
       <div className="caja-container">
         <CajaHeader title="Cierre de caja" backTo="/centro" />
@@ -278,10 +288,14 @@ export default function CierreCaja() {
     );
   }
 
-  // Calcular efectivo esperado
+  // Calcular efectivo esperado (mismo cálculo que el backend)
   const openingCash = session.initial_cash || 0;
   const totalCash = summary?.byMethod.find(m => m.method === 'EFECTIVO')?.total || 0;
-  const expectedCash = openingCash + totalCash;
+  const tipsCash = summary?.tipsCash || 0;
+  const manualIn = summary?.manual?.income || 0;
+  const manualOut = summary?.manual?.expense || 0;
+  const manualList = summary?.manual?.transactions || [];
+  const expectedCash = openingCash + totalCash + tipsCash + manualIn - manualOut;
 
   return (
     <>
@@ -388,6 +402,43 @@ export default function CierreCaja() {
               <span>Ventas en efectivo</span>
               <span className="tnum">{formatPriceCOP(totalCash)}</span>
             </div>
+            {tipsCash > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--gray-600)' }}>
+                <span>Propinas en efectivo</span>
+                <span className="tnum">{formatPriceCOP(tipsCash)}</span>
+              </div>
+            )}
+            {manualIn > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--gray-600)' }}>
+                <span>Ingresos de caja</span>
+                <span className="tnum">{formatPriceCOP(manualIn)}</span>
+              </div>
+            )}
+            {manualOut > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--red-text)' }}>
+                <span>Gastos de caja</span>
+                <span className="tnum">-{formatPriceCOP(manualOut)}</span>
+              </div>
+            )}
+            {manualList.length > 0 && (
+              <div style={{
+                margin: '0.25rem 0 0.5rem',
+                padding: '0.5rem 0.85rem',
+                background: 'var(--gray-50)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                color: 'var(--gray-500)'
+              }}>
+                {manualList.map(t => (
+                  <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</span>
+                    <span className="tnum" style={{ flexShrink: 0 }}>
+                      {t.type === 'INGRESO' ? '+' : '-'}{formatPriceCOP(t.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',

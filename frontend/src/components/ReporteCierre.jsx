@@ -239,9 +239,27 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
             <span>Ventas en efectivo:</span>
             <span>{formatPriceCOP(snapshot.totals.total_cash || 0)}</span>
           </div>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
+          {(snapshot.totals.tips_cash || 0) > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>Propinas en efectivo:</span>
+              <span>{formatPriceCOP(snapshot.totals.tips_cash)}</span>
+            </div>
+          )}
+          {(snapshot.totals.manual_income || 0) > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>Ingresos de caja:</span>
+              <span>{formatPriceCOP(snapshot.totals.manual_income)}</span>
+            </div>
+          )}
+          {(snapshot.totals.manual_expense || 0) > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>Gastos de caja:</span>
+              <span>-{formatPriceCOP(snapshot.totals.manual_expense)}</span>
+            </div>
+          )}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
             marginTop: '0.75rem',
             paddingTop: '0.75rem',
             borderTop: '1px solid #333',

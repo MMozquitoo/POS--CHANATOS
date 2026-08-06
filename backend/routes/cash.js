@@ -313,8 +313,22 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
 
     const totalSales = totalCash + totalCard + totalTransfer;
 
-    // 4. Calcular expected_cash (las propinas en efectivo también entran al cajón)
-    const expectedCash = (session.initial_cash || 0) + totalCash + tipsCash;
+    // 3b. Gastos/ingresos manuales registrados durante esta sesión (por
+    // created_at, igual que en /session/:id/summary): entran/salen del cajón
+    const manualRows = await db.all(
+      `SELECT type, COALESCE(SUM(amount), 0) as total
+       FROM manual_transactions
+       WHERE created_at >= ?
+       GROUP BY type`,
+      [session.opened_at]
+    );
+    const manualIncome = manualRows.find((r) => r.type === "INGRESO")?.total || 0;
+    const manualExpense = manualRows.find((r) => r.type === "EGRESO")?.total || 0;
+
+    // 4. Calcular expected_cash (las propinas en efectivo también entran al
+    // cajón; los ingresos/gastos manuales suman/restan)
+    const expectedCash =
+      (session.initial_cash || 0) + totalCash + tipsCash + manualIncome - manualExpense;
 
     // 5. Calcular diff_cash
     const diffCash = closingCash - expectedCash;
@@ -336,6 +350,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_sales: totalSales,
         total_tips: totalTips,
         tips_cash: tipsCash,
+        manual_income: manualIncome,
+        manual_expense: manualExpense,
         payment_count: paymentCount
       },
       closed_by: req.user.id
@@ -421,6 +437,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_sales: totalSales,
         total_tips: totalTips,
         tips_cash: tipsCash,
+        manual_income: manualIncome,
+        manual_expense: manualExpense,
         payment_count: paymentCount
       },
       snapshot: closedSession.close_snapshot ? JSON.parse(closedSession.close_snapshot) : null
@@ -548,14 +566,17 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       return res.status(404).json({ error: "Sesión no encontrada" });
     }
 
-    // Obtener pagos por método
+    // Obtener pagos por método (excluye anulados y suma propinas,
+    // igual que el cálculo final de /session/close — antes el resumen previo
+    // al cierre incluía pagos anulados y el reporte final no: no cuadraban)
     const paymentsByMethod = await db.all(
-      `SELECT 
+      `SELECT
          method,
          COUNT(*) as count,
-         COALESCE(SUM(amount), 0) as total
+         COALESCE(SUM(amount), 0) as total,
+         COALESCE(SUM(tip_amount), 0) as tips
        FROM payments
-       WHERE cash_session_id = ?
+       WHERE cash_session_id = ? AND voided_at IS NULL
        GROUP BY method`,
       [sessionId]
     );
@@ -566,9 +587,33 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
          COUNT(*) as payment_count,
          COALESCE(SUM(amount), 0) as total_amount
        FROM payments
-       WHERE cash_session_id = ?`,
+       WHERE cash_session_id = ? AND voided_at IS NULL`,
       [sessionId]
     );
+
+    // Gastos/ingresos manuales registrados mientras esta caja estuvo abierta.
+    // Se filtra por created_at dentro de la ventana de la sesión (no por
+    // transaction_date): si la plata salió del cajón antes de abrir, ya se
+    // reflejó al contar la base y no debe restarse dos veces.
+    const manualParams = [session.opened_at];
+    let manualWindow = "created_at >= ?";
+    if (session.closed_at) {
+      manualWindow += " AND created_at <= ?";
+      manualParams.push(session.closed_at);
+    }
+    const manualTransactions = await db.all(
+      `SELECT id, type, description, amount, created_at
+       FROM manual_transactions
+       WHERE ${manualWindow}
+       ORDER BY created_at`,
+      manualParams
+    );
+    let manualIncome = 0;
+    let manualExpense = 0;
+    manualTransactions.forEach((t) => {
+      if (t.type === "INGRESO") manualIncome += t.amount;
+      else manualExpense += t.amount;
+    });
 
     // Ventas teóricas: valor de los items (no anulados, ya pagados) de cualquier
     // orden que haya recibido al menos un pago en esta sesión. Usa cash_session_id
@@ -588,7 +633,13 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       total: totalResult?.total_amount || 0,
       theoreticalSales: theoreticalSalesResult?.total || 0,
       paymentCount: totalResult?.payment_count || 0,
-      byMethod: paymentsByMethod || []
+      byMethod: paymentsByMethod || [],
+      tipsCash: paymentsByMethod.find((m) => m.method === "EFECTIVO")?.tips || 0,
+      manual: {
+        income: manualIncome,
+        expense: manualExpense,
+        transactions: manualTransactions
+      }
     });
   } catch (error) {
     console.error("Error obteniendo resumen de sesión:", error);
@@ -1447,11 +1498,12 @@ router.post(
         return res.status(400).json({ error: "Monto debe ser mayor a 0" });
       }
 
-      // Crear transacción
+      // Crear transacción (created_at explícito en hora Bogotá — el DEFAULT
+      // de SQLite es UTC y descuadra la ventana de sesión del arqueo)
       const result = await db.run(
-        `INSERT INTO manual_transactions (transaction_date, type, description, amount, created_by)
-         VALUES (?, ?, ?, ?, ?)`,
-        [transaction_date, type, description.trim(), amount, req.user.id]
+        `INSERT INTO manual_transactions (transaction_date, type, description, amount, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [transaction_date, type, description.trim(), amount, req.user.id, toBogotaSQLiteTimestamp(new Date())]
       );
 
       const transaction = await db.get(

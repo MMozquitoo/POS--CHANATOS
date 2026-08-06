@@ -40,7 +40,10 @@ backend/
                          #   su caja ya cerró, repone inventario y devuelve items a pendiente
     cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash}
                          #   (OJO: /cash/session/open NO existe). Arqueo excluye pagos anulados e
-                         #   incluye propinas en efectivo en el esperado.
+                         #   incluye propinas en efectivo en el esperado; los gastos/ingresos
+                         #   manuales (/cash/manual-transactions, pantalla GASTOS DE CAJA) también
+                         #   entran al esperado, filtrados por created_at DENTRO de la sesión (si la
+                         #   plata salió antes de abrir, ya se reflejó al contar la base).
     reports.js           # /reports/summary?from&to: ventas/propinas/descuentos/canceladas, ticket
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
