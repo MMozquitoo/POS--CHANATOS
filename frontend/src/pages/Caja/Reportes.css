@@ -39,6 +39,38 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Fechas personalizadas (periodo Rango) */
+.rep-range {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rep-range-field {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rep-range-field span {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.rep-range-field input {
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background: white;
+  font-size: 16px; /* <16px hace zoom en iOS Safari al tocar el campo */
+  font-family: inherit;
+  color: var(--gray-900);
+  width: 100%;
+}
+
 .rep-low-stock {
   background: var(--orange-tint);
   border: none;

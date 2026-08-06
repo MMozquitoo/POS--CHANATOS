@@ -17,6 +17,7 @@ const PERIODS = [
   { key: 'ayer', label: 'Ayer', range: () => [bogotaDate(1), bogotaDate(1)] },
   { key: '7d', label: '7 días', range: () => [bogotaDate(6), bogotaDate(0)] },
   { key: '30d', label: '30 días', range: () => [bogotaDate(29), bogotaDate(0)] },
+  { key: 'rango', label: 'Rango' },
 ];
 
 const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
@@ -42,14 +43,22 @@ function BarRow({ label, value, max, extra, money = true }) {
 
 export default function Reportes() {
   const [period, setPeriod] = useState('hoy');
+  const [customFrom, setCustomFrom] = useState(bogotaDate(0));
+  const [customTo, setCustomTo] = useState(bogotaDate(0));
   const [data, setData] = useState(null);
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    let from, to;
+    if (period === 'rango') {
+      if (!customFrom || !customTo) return; // fecha a medio digitar
+      [from, to] = customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
+    } else {
+      [from, to] = PERIODS.find(p => p.key === period).range();
+    }
     setLoading(true);
     try {
-      const [from, to] = PERIODS.find(p => p.key === period).range();
       const [repRes, stockRes] = await Promise.all([
         axios.get(`/reports/summary?from=${from}&to=${to}`),
         axios.get('/inventory/low-stock'),
@@ -61,7 +70,7 @@ export default function Reportes() {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, customFrom, customTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -90,6 +99,30 @@ export default function Reportes() {
             </button>
           ))}
         </div>
+
+        {/* Fechas personalizadas (solo con Rango) */}
+        {period === 'rango' && (
+          <div className="rep-range">
+            <label className="rep-range-field">
+              <span>Desde</span>
+              <input
+                type="date"
+                value={customFrom}
+                max={bogotaDate(0)}
+                onChange={e => setCustomFrom(e.target.value)}
+              />
+            </label>
+            <label className="rep-range-field">
+              <span>Hasta</span>
+              <input
+                type="date"
+                value={customTo}
+                max={bogotaDate(0)}
+                onChange={e => setCustomTo(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
 
         {/* Alerta de stock bajo (estado, con icono y texto — nunca solo color) */}
         {lowStock.length > 0 && (
