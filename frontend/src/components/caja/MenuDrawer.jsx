@@ -43,6 +43,7 @@ export default function MenuDrawer({ open, onClose, onOpenOrdenes }) {
           <Row label="Menú y precios" onClick={() => go('/menu')} />
           <Row label="Historial de pagos" onClick={() => go('/historial')} />
           <Row label="Historial de cierres" onClick={() => go('/historial-cierres')} />
+          <Row label="Gastos de caja" onClick={() => go('/historial-caja')} />
           <Row label="Auditoría" onClick={() => go('/auditoria')} />
           <Row label="Más opciones" onClick={() => go('/mas')} />
         </div>

@@ -179,6 +179,12 @@ export default function MasCaja() {
               </button>
               <button
                 className="caja-menu-option"
+                onClick={() => navigate('/historial-caja')}
+              >
+                GASTOS DE CAJA
+              </button>
+              <button
+                className="caja-menu-option"
                 onClick={() => navigate('/auditoria')}
               >
                 AUDITORÍA
@@ -273,7 +279,7 @@ export default function MasCaja() {
           {isElectron && (
             <button
               className="caja-menu-option"
-              onClick={() => navigate('/config-impresora')}
+              onClick={() => navigate('/impresora')}
             >
               IMPRESORA
             </button>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
-import { formatBogotaTime, formatBogotaDate, getBogotaDateString } from '../../utils/timezone.js';
+import { formatBogotaTime, getBogotaDateString } from '../../utils/timezone.js';
 import { formatPriceCOP, formatPriceSimplified, parseMontoCOP } from '../../utils/currency.js';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
@@ -166,8 +166,10 @@ export default function HistorialSesiones() {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    // Usar zona horaria America/Bogota
-    return formatBogotaDate(dateStr, {
+    // dateStr es YYYY-MM-DD sin hora: new Date(str) lo toma como medianoche UTC
+    // y en Bogotá se corre al día ANTERIOR. Parsear las partes como fecha local.
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-CO', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -429,8 +431,7 @@ export default function HistorialSesiones() {
                         <div key={transaction.id} className={`transaction-item ${transaction.type.toLowerCase()}`}>
                           <div className="transaction-main">
                             <div className="transaction-type-badge">
-                              {transaction.type === 'INGRESO' ? '📥' : '📤'}
-                              <span>{transaction.type}</span>
+                              <span>{transaction.type === 'INGRESO' ? 'Ingreso' : 'Egreso'}</span>
                             </div>
                             <div className="transaction-details">
                               <div className="transaction-description">{transaction.description}</div>
@@ -450,7 +451,7 @@ export default function HistorialSesiones() {
                               className="delete-transaction-btn"
                               title="Borrar"
                             >
-                              🗑️
+                              ✕
                             </button>
                           </div>
                         </div>
@@ -462,7 +463,7 @@ export default function HistorialSesiones() {
 
               {/* Pagos */}
               <div className="stats-card payments-summary">
-                <h3>💳 Pagos del Día</h3>
+                <h3>Pagos del Día</h3>
                 <div className="payment-total">
                   <span className="big-number">{formatCurrency(dayStats.payments.total)}</span>
                   <span className="count">{dayStats.payments.count} transacciones</span>
@@ -470,10 +471,9 @@ export default function HistorialSesiones() {
                 <div className="payment-methods">
                   {dayStats.payments.byMethod.map(pm => (
                     <div key={pm.method} className="method-item">
-                      <span className="method-icon">
-                        {pm.method === 'EFECTIVO' ? '💵' : pm.method === 'TARJETA' ? '💳' : '📱'}
+                      <span className="method-name">
+                        {pm.method === 'EFECTIVO' ? 'Efectivo' : pm.method === 'TARJETA' ? 'Tarjeta' : 'Transferencia'}
                       </span>
-                      <span className="method-name">{pm.method}</span>
                       <span className="method-count">{pm.count}</span>
                       <span className="method-total">{formatCurrency(pm.total)}</span>
                     </div>
@@ -486,7 +486,7 @@ export default function HistorialSesiones() {
 
               {/* Órdenes */}
               <div className="stats-card orders-summary">
-                <h3>📋 Órdenes del Día</h3>
+                <h3>Órdenes del Día</h3>
                 <div className="orders-grid">
                   <div className="order-stat">
                     <span className="stat-number">{dayStats.orders.total_orders || 0}</span>
@@ -506,7 +506,7 @@ export default function HistorialSesiones() {
               {/* Top Items */}
               {dayStats.topItems && dayStats.topItems.length > 0 && (
                 <div className="stats-card top-items">
-                  <h3>🏆 Más Vendidos</h3>
+                  <h3>Más Vendidos</h3>
                   <div className="items-list">
                     {dayStats.topItems.map((item, idx) => (
                       <div key={idx} className="top-item">
