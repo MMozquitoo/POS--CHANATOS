@@ -28,6 +28,9 @@ export default function Historial() {
   const [searchCode, setSearchCode] = useState('');
   const debouncedSearch = useDebounce(searchCode, 300);
 
+  // Desglose de items desplegado por tarjeta (mismo patrón de Listo para cobrar)
+  const [expandedIds, setExpandedIds] = useState(new Set());
+
   // Estados de detalle
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
@@ -405,8 +408,8 @@ export default function Historial() {
                       }}>
                         {formatPriceCOP(payment.amount)}
                       </div>
-                      <div style={{ 
-                        fontSize: '0.85rem', 
+                      <div style={{
+                        fontSize: '0.85rem',
                         color: '#666',
                         padding: '0.25rem 0.5rem',
                         background: '#f8f9fa',
@@ -415,11 +418,57 @@ export default function Historial() {
                       }}>
                         {getMethodLabel(payment.method)}
                       </div>
+                      {(payment.items || []).length > 0 && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(payment.id)) next.delete(payment.id);
+                              else next.add(payment.id);
+                              return next;
+                            });
+                          }}
+                          style={{
+                            marginTop: '0.35rem',
+                            fontSize: '0.75rem',
+                            color: '#666',
+                            textDecoration: 'underline',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {payment.items.length} item(s) {expandedIds.has(payment.id) ? '▴' : '▾'}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                  {expandedIds.has(payment.id) && (payment.items || []).length > 0 && (
+                    <div style={{
+                      margin: '0.25rem 0 0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      background: '#f8f9fa',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      color: '#333'
+                    }}>
+                      {payment.items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: idx < payment.items.length - 1 ? '0.3rem' : 0 }}>
+                          <span style={{ minWidth: 0 }}>
+                            {item.qty}x {item.name}
+                            {item.notes && (
+                              <span style={{ color: '#888', fontStyle: 'italic' }}> — {item.notes}</span>
+                            )}
+                          </span>
+                          <span className="tnum" style={{ flexShrink: 0, fontWeight: 600 }}>
+                            {formatPriceCOP(item.qty * item.price)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     paddingTop: '0.5rem',
                     borderTop: '1px solid #eee'

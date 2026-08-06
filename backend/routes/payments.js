@@ -1075,6 +1075,27 @@ router.get("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
     }
 
+    // Adjuntar el detalle de items de cada orden (desglose en las tarjetas
+    // del historial, igual que en "Listo para cobrar")
+    const orderIds = [...new Set(payments.map((p) => p.order_id))];
+    let itemsByOrder = {};
+    if (orderIds.length > 0) {
+      const placeholders = orderIds.map(() => "?").join(",");
+      const allItems = await db.all(
+        `SELECT order_id, name, qty, price, notes
+         FROM order_items
+         WHERE order_id IN (${placeholders}) AND voided_at IS NULL
+         ORDER BY id`,
+        orderIds
+      );
+      allItems.forEach((it) => {
+        (itemsByOrder[it.order_id] = itemsByOrder[it.order_id] || []).push(it);
+      });
+    }
+    payments.forEach((p) => {
+      p.items = itemsByOrder[p.order_id] || [];
+    });
+
     res.json({ payments, count: payments.length });
   } catch (error) {
     console.error("Error obteniendo pagos:", error);
