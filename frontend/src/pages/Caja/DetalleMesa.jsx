@@ -1440,17 +1440,18 @@ export default function DetalleMesa() {
       <div className="detalle-mesa-content detalle-mesa-grid caja-bottom-nav-spacer" style={{
         flex: 1,
         display: 'grid',
-        gridTemplateColumns: '1fr 350px',
+        gridTemplateColumns: 'minmax(0, 1fr) 350px',
         alignItems: 'start',
         gap: '1rem',
         padding: '1rem'
       }}>
         {/* COLUMNA CENTRO: Orden Activa */}
-        <div className="order-center-panel" style={{ 
-          background: '#f8f9fa', 
-          borderRadius: '12px', 
+        <div className="order-center-panel" style={{
+          background: '#f8f9fa',
+          borderRadius: '12px',
           padding: '1.5rem',
           overflowY: 'auto',
+          overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem'

@@ -273,21 +273,17 @@
   background: var(--red-tint);
 }
 
-/* Categorías: chips en fila con scroll horizontal (estilo iOS) */
+/* Categorías: chips que envuelven en varias filas (todas visibles, sin
+   deslizar — el scroll horizontal con scrollbar oculta dejaba categorías
+   como SANDWICH inalcanzables en desktop con mouse/trackpad, sin gesto
+   táctil para revelarlas). Ver filosofía UX en mobile-polish.css. */
 .category-tabs {
   display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1rem;
   padding-bottom: 0.25rem;
   border-bottom: none;
-}
-
-.category-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .category-tab {

@@ -2411,37 +2411,11 @@
   border-left: 4px solid #1971c2;
 }
 
-/* Estilos de categorías para productos (compartidos con Mesero.css) */
-.category-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #eee;
-}
-
-.category-tab {
-  padding: 0.5rem 1rem;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.category-tab:hover {
-  background: #e9ecef;
-}
-
-.category-tab.active {
-  background: #f5bb4c;
-  color: white;
-  border-color: #f5bb4c;
-}
+/* .category-tabs/.category-tab: retirados de acá (2026-08-06) — eran una
+   copia vieja pre-rediseño que competía con la de Mesero.css (misma
+   especificidad, ganaba según el orden de import del bundle, que difiere
+   por pantalla). Mesero.css es la única fuente ahora — ProductPicker.jsx
+   la importa siempre, así que su estilo es consistente en toda la app. */
 
 .product-name-btn {
   font-weight: bold;
