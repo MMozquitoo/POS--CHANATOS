@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
+import './Reportes.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { formatBogotaTime, formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
 import Recibo from '../../components/Recibo.jsx';
@@ -10,7 +11,9 @@ import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useDebounce } from '../../hooks/useDebounce';
 
-export default function Historial() {
+// embedded=true: se usa dentro de HistorialGeneral.jsx (pestaña "Pagos"), sin
+// su propio CajaHeader/container.
+export default function Historial({ embedded = false }) {
   const navigate = useNavigate();
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
@@ -109,11 +112,11 @@ export default function Historial() {
 
   const getMethodColor = (method) => {
     const colors = {
-      EFECTIVO: '#28a745',
-      TARJETA: '#F5BB4C',
-      TRANSFERENCIA: '#6c757d'
+      EFECTIVO: 'var(--green-text)',
+      TARJETA: 'var(--brand-deep)',
+      TRANSFERENCIA: 'var(--blue-text)'
     };
-    return colors[method] || '#666';
+    return colors[method] || 'var(--gray-600)';
   };
 
   const getTableLabel = (payment) => {
@@ -172,42 +175,32 @@ export default function Historial() {
 
   const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-  return (
-    <>
-    <div className="caja-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+  const content = (
+    <div className={embedded ? undefined : "caja-container"} style={{ height: embedded ? '100%' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header unificado (FASE 13.3) */}
-      <CajaHeader title="HISTORIAL DE PAGOS" backTo="/mas" />
+      {!embedded && <CajaHeader title="HISTORIAL DE PAGOS" backTo="/mas" />}
 
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Filtros */}
-        <div style={{ 
-          padding: '1rem', 
-          background: '#f8f9fa', 
-          borderBottom: '2px solid #ddd',
+        <div style={{
+          padding: '1rem',
+          background: 'var(--gray-50)',
+          borderBottom: '1px solid var(--separator)',
           flexShrink: 0,
           overflowY: 'auto'
         }}>
         <div style={{ maxWidth: '720px', margin: '0 auto' }}>
           {/* Rango rápido */}
           <div style={{ marginBottom: '1rem' }}>
-            <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+            <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.5rem', fontWeight: 700 }}>
               Rango de Fecha
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div className="segmented">
               {['HOY', 'AYER', '7_DIAS', 'RANGO'].map(range => (
                 <button
                   key={range}
                   onClick={() => setDateRange(range)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: dateRange === range ? '#F5BB4C' : 'white',
-                    color: dateRange === range ? 'white' : '#333',
-                    border: '2px solid #F5BB4C',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
-                  }}
+                  className={`segmented__btn${dateRange === range ? ' is-active' : ''}`}
                 >
                   {range === '7_DIAS' ? '7 DÍAS' : range}
                 </button>
@@ -219,7 +212,7 @@ export default function Historial() {
           {dateRange === 'RANGO' && (
             <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>
+                <label style={{ display: 'block', fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.25rem' }}>
                   Desde
                 </label>
                 <input
@@ -229,14 +222,14 @@ export default function Historial() {
                   style={{
                     width: '100%',
                     padding: '0.5rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '0.9rem'
+                    border: '1px solid var(--gray-200)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-15)'
                   }}
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>
+                <label style={{ display: 'block', fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.25rem' }}>
                   Hasta
                 </label>
                 <input
@@ -246,9 +239,9 @@ export default function Historial() {
                   style={{
                     width: '100%',
                     padding: '0.5rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '0.9rem'
+                    border: '1px solid var(--gray-200)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-15)'
                   }}
                 />
               </div>
@@ -258,7 +251,7 @@ export default function Historial() {
           {/* Método y Mesa */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+              <label style={{ display: 'block', fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.25rem', fontWeight: 700 }}>
                 Método
               </label>
               <select
@@ -267,9 +260,9 @@ export default function Historial() {
                 style={{
                   width: '100%',
                   padding: '0.5rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '0.9rem'
+                  border: '1px solid var(--gray-200)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-15)'
                 }}
               >
                 <option value="TODOS">TODOS</option>
@@ -279,7 +272,7 @@ export default function Historial() {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+              <label style={{ display: 'block', fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.25rem', fontWeight: 700 }}>
                 Mesa
               </label>
               <select
@@ -288,9 +281,9 @@ export default function Historial() {
                 style={{
                   width: '100%',
                   padding: '0.5rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '0.9rem'
+                  border: '1px solid var(--gray-200)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-15)'
                 }}
               >
                 <option value="TODAS">TODAS</option>
@@ -305,7 +298,7 @@ export default function Historial() {
 
           {/* Búsqueda por código */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+            <label style={{ display: 'block', fontSize: 'var(--text-13)', color: 'var(--gray-500)', marginBottom: '0.25rem', fontWeight: 700 }}>
               Buscar Orden
             </label>
             <input
@@ -316,9 +309,9 @@ export default function Historial() {
               style={{
                 width: '100%',
                 padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '0.9rem'
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-15)'
               }}
             />
           </div>
@@ -326,25 +319,20 @@ export default function Historial() {
         </div>
 
         {/* Resumen */}
-        <div style={{ 
-          padding: '1rem', 
-          background: 'white', 
-          borderBottom: '1px solid #ddd',
-          flexShrink: 0,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+        <div style={{
+          padding: '1rem',
+          background: '#fff',
+          borderBottom: '1px solid var(--separator)',
+          flexShrink: 0
         }}>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>Total Pagos</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F5BB4C' }}>
-              {formatPriceCOP(total)}
+          <div className="rep-kpis" style={{ maxWidth: '720px', margin: '0 auto', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+            <div className="rep-kpi">
+              <div className="rep-kpi-value" style={{ color: 'var(--brand-deep)' }}>{formatPriceCOP(total)}</div>
+              <div className="rep-kpi-label">Total Pagos</div>
             </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>Cantidad</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>
-              {payments.length}
+            <div className="rep-kpi">
+              <div className="rep-kpi-value">{payments.length}</div>
+              <div className="rep-kpi-label">Cantidad</div>
             </div>
           </div>
         </div>
@@ -352,15 +340,15 @@ export default function Historial() {
         {/* Lista de pagos */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--gray-500)' }}>
               Cargando pagos...
             </div>
           ) : payments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
+              <div style={{ fontSize: 'var(--text-20)', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--gray-900)' }}>
                 No hay pagos registrados
               </div>
-              <div style={{ fontSize: '0.9rem' }}>
+              <div style={{ fontSize: 'var(--text-15)' }}>
                 Ajusta los filtros para ver más resultados
               </div>
             </div>
@@ -370,50 +358,33 @@ export default function Historial() {
                 <button
                   key={payment.id}
                   onClick={() => handleViewDetail(payment)}
-                  style={{
-                    padding: '1rem',
-                    background: 'white',
-                    border: '2px solid #ddd',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={(e) => {
-                    e.target.style.borderColor = '#F5BB4C';
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.target.style.borderColor = '#ddd';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = 'none';
-                  }}
+                  className="card card--tap"
+                  style={{ width: '100%', textAlign: 'left', border: 'none' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                     <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333', marginBottom: '0.25rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: 'var(--text-17)', color: 'var(--gray-900)', marginBottom: '0.25rem' }}>
                         {getOrderCode(payment)}
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                      <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)' }}>
                         {getTableLabel(payment)}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ 
-                        fontWeight: 'bold', 
-                        fontSize: '1.3rem', 
+                      <div className="tnum" style={{
+                        fontWeight: 700,
+                        fontSize: 'var(--text-20)',
                         color: getMethodColor(payment.method),
                         marginBottom: '0.25rem'
                       }}>
                         {formatPriceCOP(payment.amount)}
                       </div>
                       <div style={{
-                        fontSize: '0.85rem',
-                        color: '#666',
+                        fontSize: 'var(--text-13)',
+                        color: 'var(--gray-600)',
                         padding: '0.25rem 0.5rem',
-                        background: '#f8f9fa',
-                        borderRadius: '4px',
+                        background: 'var(--gray-50)',
+                        borderRadius: 'var(--radius-xs)',
                         display: 'inline-block'
                       }}>
                         {getMethodLabel(payment.method)}
@@ -431,8 +402,8 @@ export default function Historial() {
                           }}
                           style={{
                             marginTop: '0.35rem',
-                            fontSize: '0.75rem',
-                            color: '#666',
+                            fontSize: 'var(--text-13)',
+                            color: 'var(--gray-500)',
                             textDecoration: 'underline',
                             cursor: 'pointer'
                           }}
@@ -446,17 +417,17 @@ export default function Historial() {
                     <div style={{
                       margin: '0.25rem 0 0.5rem',
                       padding: '0.6rem 0.75rem',
-                      background: '#f8f9fa',
-                      borderRadius: '8px',
-                      fontSize: '0.85rem',
-                      color: '#333'
+                      background: 'var(--gray-50)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--text-13)',
+                      color: 'var(--gray-900)'
                     }}>
                       {payment.items.map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: idx < payment.items.length - 1 ? '0.3rem' : 0 }}>
                           <span style={{ minWidth: 0 }}>
                             {item.qty}x {item.name}
                             {item.notes && (
-                              <span style={{ color: '#888', fontStyle: 'italic' }}> — {item.notes}</span>
+                              <span style={{ color: 'var(--gray-500)', fontStyle: 'italic' }}> — {item.notes}</span>
                             )}
                           </span>
                           <span className="tnum" style={{ flexShrink: 0, fontWeight: 600 }}>
@@ -471,25 +442,16 @@ export default function Historial() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     paddingTop: '0.5rem',
-                    borderTop: '1px solid #eee'
+                    borderTop: '1px solid var(--separator)'
                   }}>
-                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                    <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)' }}>
                       {formatBogotaTime(payment.created_at)}
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                    <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)' }}>
                       Por: {payment.created_by_name || 'Usuario'}
                     </div>
                     {payment.voided_at && (
-                      <div style={{ 
-                        fontSize: '0.75rem', 
-                        color: '#dc3545',
-                        padding: '0.25rem 0.5rem',
-                        background: '#f8d7da',
-                        borderRadius: '4px',
-                        fontWeight: 'bold'
-                      }}>
-                        ANULADO
-                      </div>
+                      <span className="pill pill--cancelado">ANULADO</span>
                     )}
                   </div>
                 </button>
@@ -500,31 +462,19 @@ export default function Historial() {
       </div>
 
       {/* Modal de detalle */}
-      {selectedPayment && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '1.5rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Detalle de Pago</h2>
+      <Modal
+        open={!!selectedPayment}
+        onClose={() => {
+          setSelectedPayment(null);
+          setReceiptData(null);
+          setShowReceipt(false);
+          setShowVoidModal(false);
+          setVoidReason('');
+        }}
+        title="Detalle de Pago"
+        actions={
+          selectedPayment && !loadingReceipt && receiptData ? (
+            <>
               <button
                 onClick={() => {
                   setSelectedPayment(null);
@@ -537,20 +487,41 @@ export default function Historial() {
               >
                 Cerrar
               </button>
-            </div>
-
+              <button onClick={handlePrintReceipt} className="btn-chanatos">
+                REIMPRIMIR RECIBO
+              </button>
+              {!selectedPayment.voided_at && (
+                <button onClick={() => setShowVoidModal(true)} className="btn-danger">
+                  ANULAR PAGO
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedPayment(null);
+                setReceiptData(null);
+              }}
+              className="btn-secondary"
+            >
+              Cerrar
+            </button>
+          )
+        }
+      >
+        {selectedPayment && (
+          <>
             {/* FASE 12.5: Badge de anulado */}
             {selectedPayment.voided_at && (
-              <div style={{ 
-                padding: '1rem', 
-                background: '#f8d7da', 
-                border: '1px solid #dc3545', 
-                borderRadius: '8px', 
+              <div style={{
+                padding: '1rem',
+                background: 'var(--red-tint)',
+                borderRadius: 'var(--radius-md)',
                 marginBottom: '1rem',
-                color: '#721c24'
+                color: 'var(--red-text)'
               }}>
                 <strong>PAGO ANULADO</strong>
-                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                <div style={{ marginTop: '0.5rem', fontSize: 'var(--text-15)' }}>
                   <div><strong>Anulado por:</strong> {selectedPayment.voided_by_name || 'Usuario'}</div>
                   <div><strong>Fecha:</strong> {formatBogotaDateTime(new Date(selectedPayment.voided_at))}</div>
                   {selectedPayment.void_reason && (
@@ -568,48 +539,42 @@ export default function Historial() {
               </div>
             ) : receiptData ? (
               <div>
-                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong>Orden:</strong> {getOrderCode(selectedPayment)}
+                <div className="list-group list-group--inset" style={{ marginBottom: '1rem' }}>
+                  <div className="list-row" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray-500)' }}>Orden</span>
+                    <strong>{getOrderCode(selectedPayment)}</strong>
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong>Mesa:</strong> {getTableLabel(selectedPayment)}
+                  <div className="list-row" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray-500)' }}>Mesa</span>
+                    <strong>{getTableLabel(selectedPayment)}</strong>
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong>Fecha/Hora:</strong> {formatBogotaDateTime(new Date(selectedPayment.created_at))}
+                  <div className="list-row" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray-500)' }}>Fecha/Hora</span>
+                    <strong>{formatBogotaDateTime(new Date(selectedPayment.created_at))}</strong>
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <strong>Método:</strong> {getMethodLabel(selectedPayment.method)}
+                  <div className="list-row" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray-500)' }}>Método</span>
+                    <strong>{getMethodLabel(selectedPayment.method)}</strong>
                   </div>
-                  <div>
-                    <strong>Total:</strong> {formatPriceCOP(selectedPayment.amount)}
+                  <div className="list-row" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray-500)' }}>Total</span>
+                    <strong className="tnum">{formatPriceCOP(selectedPayment.amount)}</strong>
                   </div>
                 </div>
 
                 {receiptData.items && receiptData.items.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Items</h3>
-                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                    <div className="list-header" style={{ padding: '0 0 8px' }}>Items</div>
+                    <div className="list-group list-group--inset">
                       {receiptData.items.map((item, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            padding: '0.75rem',
-                            background: 'white',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}
-                        >
+                        <div key={idx} className="list-row" style={{ justifyContent: 'space-between' }}>
                           <div>
-                            <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                            <div style={{ fontWeight: 700 }}>{item.name}</div>
+                            <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-500)' }}>
                               {item.qty}x {formatPriceCOP(item.price)}
                             </div>
                           </div>
-                          <div style={{ fontWeight: 'bold' }}>
+                          <div className="tnum" style={{ fontWeight: 700 }}>
                             {formatPriceCOP(item.qty * item.price)}
                           </div>
                         </div>
@@ -617,34 +582,15 @@ export default function Historial() {
                     </div>
                   </div>
                 )}
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
-                  <button
-                    onClick={handlePrintReceipt}
-                    className="btn-chanatos"
-                  >
-                    REIMPRIMIR RECIBO
-                  </button>
-
-                  {/* FASE 12.5: Botón anular pago (solo si no está anulado) */}
-                  {!selectedPayment.voided_at && (
-                    <button
-                      onClick={() => setShowVoidModal(true)}
-                      className="btn-danger"
-                    >
-                      ANULAR PAGO
-                    </button>
-                  )}
-                </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--gray-500)' }}>
                 Error al cargar detalle
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* Recibo para reimpresión */}
       {showReceipt && receiptData && (
@@ -663,39 +609,77 @@ export default function Historial() {
       )}
 
       {/* FASE 12.5: Modal de anulación */}
-      {showVoidModal && selectedPayment && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            maxWidth: '500px',
-            width: '100%',
-            padding: '1.5rem'
-          }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.3rem', color: '#dc3545' }}>
-              Anular Pago
-            </h3>
+      <Modal
+        open={showVoidModal && !!selectedPayment}
+        onClose={() => {
+          setShowVoidModal(false);
+          setVoidReason('');
+        }}
+        title="Anular Pago"
+        actions={
+          <>
+            <button
+              onClick={() => {
+                setShowVoidModal(false);
+                setVoidReason('');
+              }}
+              disabled={voidingPayment}
+              className="btn-secondary"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                if (!voidReason.trim() || voidReason.trim().length < 5) {
+                  await showAlert('El motivo debe tener al menos 5 caracteres');
+                  return;
+                }
+
+                if (!(await showConfirm(`¿Confirma anular este pago?\n\nMotivo: ${voidReason.trim()}`))) {
+                  return;
+                }
+
+                setVoidingPayment(true);
+                try {
+                  await axios.post(`/payments/${selectedPayment.id}/void`, {
+                    reason: voidReason.trim()
+                  });
+
+                  await showAlert('Pago anulado correctamente');
+                  await loadPayments();
+                  // Recargar el detalle del pago actualizado
+                  const updatedPayment = payments.find(p => p.id === selectedPayment.id);
+                  if (updatedPayment) {
+                    setSelectedPayment(updatedPayment);
+                  }
+                  setShowVoidModal(false);
+                  setVoidReason('');
+                } catch (error) {
+                  console.error('Error anulando pago:', error);
+                  await showAlert(error.response?.data?.error || 'Error al anular pago');
+                } finally {
+                  setVoidingPayment(false);
+                }
+              }}
+              disabled={voidingPayment || !voidReason.trim() || voidReason.trim().length < 5}
+              className="btn-danger"
+            >
+              {voidingPayment ? 'Anulando...' : 'Confirmar Anulación'}
+            </button>
+          </>
+        }
+      >
+        {selectedPayment && (
+          <>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+              <div style={{ marginBottom: '0.5rem', fontSize: 'var(--text-15)', color: 'var(--gray-500)' }}>
                 Pago: {formatPriceCOP(selectedPayment.amount)} - {getMethodLabel(selectedPayment.method)}
               </div>
-              <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+              <div style={{ fontSize: 'var(--text-15)', color: 'var(--gray-500)' }}>
                 Orden: {getOrderCode(selectedPayment)}
               </div>
             </div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>
               Motivo de anulación (mínimo 5 caracteres) *
             </label>
             <textarea
@@ -706,76 +690,22 @@ export default function Historial() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-15)',
                 resize: 'vertical',
-                marginBottom: '1rem'
+                boxSizing: 'border-box'
               }}
             />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-              <button
-                onClick={() => {
-                  setShowVoidModal(false);
-                  setVoidReason('');
-                }}
-                disabled={voidingPayment}
-                className="btn-secondary"
-                style={{
-                  cursor: voidingPayment ? 'not-allowed' : 'pointer',
-                  opacity: voidingPayment ? 0.6 : 1
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  if (!voidReason.trim() || voidReason.trim().length < 5) {
-                    await showAlert('El motivo debe tener al menos 5 caracteres');
-                    return;
-                  }
-
-                  if (!(await showConfirm(`¿Confirma anular este pago?\n\nMotivo: ${voidReason.trim()}`))) {
-                    return;
-                  }
-
-                  setVoidingPayment(true);
-                  try {
-                    await axios.post(`/payments/${selectedPayment.id}/void`, {
-                      reason: voidReason.trim()
-                    });
-
-                    await showAlert('Pago anulado correctamente');
-                    await loadPayments();
-                    // Recargar el detalle del pago actualizado
-                    const updatedPayment = payments.find(p => p.id === selectedPayment.id);
-                    if (updatedPayment) {
-                      setSelectedPayment(updatedPayment);
-                    }
-                    setShowVoidModal(false);
-                    setVoidReason('');
-                  } catch (error) {
-                    console.error('Error anulando pago:', error);
-                    await showAlert(error.response?.data?.error || 'Error al anular pago');
-                  } finally {
-                    setVoidingPayment(false);
-                  }
-                }}
-                disabled={voidingPayment || !voidReason.trim() || voidReason.trim().length < 5}
-                className="btn-danger"
-                style={{
-                  cursor: (voidingPayment || !voidReason.trim() || voidReason.trim().length < 5) ? 'not-allowed' : 'pointer',
-                  flex: 1,
-                  opacity: (voidingPayment || !voidReason.trim() || voidReason.trim().length < 5) ? 0.6 : 1
-                }}
-              >
-                {voidingPayment ? 'Anulando...' : 'Confirmar Anulación'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
+  );
+
+  return (
+    <>
+    {content}
     <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
       actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
       <p>{alertState.message}</p>

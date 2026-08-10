@@ -5,8 +5,6 @@ import BottomNav from '../../components/caja/BottomNav';
 import OrdenesDrawer from '../../components/OrdenesDrawer';
 import MenuDrawer from '../../components/caja/MenuDrawer';
 
-const Historial = lazy(() => import('./Historial'));
-const HistorialSesiones = lazy(() => import('./HistorialSesiones'));
 const MesasAbiertas = lazy(() => import('./MesasAbiertas'));
 const DetalleMesa = lazy(() => import('./DetalleMesa'));
 const MasCaja = lazy(() => import('./MasCaja'));
@@ -24,6 +22,10 @@ const Auditoria = lazy(() => import('./Auditoria'));
 const ConfigServidor = lazy(() => import('./ConfigServidor'));
 const Diagnostico = lazy(() => import('./Diagnostico'));
 const AperturaCaja = lazy(() => import('./AperturaCaja'));
+const Compras = lazy(() => import('./Compras'));
+const HistorialGeneral = lazy(() => import('./HistorialGeneral'));
+const Conexion = lazy(() => import('./Conexion'));
+const Aplicacion = lazy(() => import('./Aplicacion'));
 
 /**
  * FIX 2: Redirección si el usuario cae a / siendo CAJA
@@ -52,8 +54,9 @@ export default function CajaRoutes() {
             de la barra). La página vieja generaba dos menús en paralelo (dueño,
             2026-08-03) — cualquier link viejo cae en la bandeja real. */}
         <Route path="/cobrar" element={<Navigate to="/centro-total" state={{ tab: 'listo' }} replace />} />
-        <Route path="/historial" element={<Historial />} />
-        <Route path="/historial-caja" element={<HistorialSesiones />} />
+        {/* /historial ahora es la vista combinada (pestañas Pagos/Cierres) —
+            junta lo que antes eran dos entradas de menú separadas. */}
+        <Route path="/historial" element={<HistorialGeneral />} />
         <Route path="/mas" element={<MasCaja />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/ventanilla" element={<VentanillaCaja />} />
@@ -69,6 +72,14 @@ export default function CajaRoutes() {
         <Route path="/config-servidor" element={<ConfigServidor />} />
         <Route path="/diagnostico" element={<Diagnostico />} />
         <Route path="/apertura-caja" element={<AperturaCaja />} />
+        {/* Compras junta lo que antes eran tres entradas de menú separadas
+            (Registrar compra / Ingredientes / Gastos generales) en una sola
+            pantalla con pestañas — igual que Historial y Conexión. */}
+        <Route path="/compras" element={<Compras />} />
+        {/* Conexión y Aplicación juntan pantallas que antes eran entradas
+            sueltas en OPCIONES (SERVIDOR+DIAGNÓSTICO; ACTUALIZAR+BACKUPS) */}
+        <Route path="/conexion" element={<Conexion />} />
+        <Route path="/aplicacion" element={<Aplicacion />} />
         {/* FASE F11: URL de otro rol tras cambiar de sesión → al home (evita pantalla en blanco) */}
         <Route path="*" element={<Navigate to="/centro" replace />} />
       </Routes>

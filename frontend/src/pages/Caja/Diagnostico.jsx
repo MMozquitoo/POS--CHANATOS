@@ -12,8 +12,11 @@ import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 /**
  * PASO 14.5: Pantalla de diagnóstico rápido
  * Permite verificar conectividad, latencia y estado del sistema
+ *
+ * embedded=true: se usa dentro de Conexion.jsx (pestaña "Estado"), sin su
+ * propio CajaHeader/container.
  */
-export default function Diagnostico() {
+export default function Diagnostico({ embedded = false, onGoToServer }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
@@ -101,39 +104,35 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
 
   const baseUrl = getApiBaseUrl();
 
-  return (
-    <div className="caja-container">
-      <CajaHeader 
-        title="DIAGNÓSTICO"
-        backTo="/mas"
-      />
-      
+  const content = (
+    <>
       <div className="caja-content" style={{ padding: '1.5rem' }}>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
           gap: '1.5rem',
           maxWidth: '800px',
           margin: '0 auto'
         }}>
           {/* Servidor actual */}
           <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              color: '#333'
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 700,
+              fontSize: 'var(--text-15)',
+              color: 'var(--gray-900)'
             }}>
               SERVIDOR ACTUAL
             </label>
             <div style={{
               padding: '0.75rem',
-              background: '#f8f9fa',
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              color: '#333',
+              background: 'var(--gray-50)',
+              border: '1px solid var(--separator)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 'var(--text-15)',
+              color: 'var(--gray-900)',
               wordBreak: 'break-all'
             }}>
               {baseUrl}
@@ -144,90 +143,77 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
           <button
             onClick={handleTest}
             disabled={status === 'loading'}
-            style={{
-              padding: '0.75rem 1.5rem',
-              background: status === 'loading' ? '#6c757d' : '#F5BB4C',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: status === 'loading' ? 'not-allowed' : 'pointer',
-              opacity: status === 'loading' ? 0.6 : 1
-            }}
+            className="btn btn--primary btn--lg"
           >
             {status === 'loading' ? 'PROBANDO...' : 'PROBAR AHORA'}
           </button>
 
           {/* Resultado */}
           {result && (
-            <div style={{
-              background: status === 'ok' ? '#d4edda' : '#f8d7da',
-              border: `2px solid ${status === 'ok' ? '#28a745' : '#dc3545'}`,
-              borderRadius: '12px',
-              padding: '1.5rem'
+            <div className="card" style={{
+              background: status === 'ok' ? 'var(--green-tint)' : 'var(--red-tint)',
             }}>
-              <h3 style={{ 
-                margin: '0 0 1rem 0', 
-                fontSize: '1.2rem',
-                color: status === 'ok' ? '#155724' : '#721c24'
+              <h3 style={{
+                margin: '0 0 1rem 0',
+                fontSize: 'var(--text-20)',
+                color: status === 'ok' ? 'var(--green-text)' : 'var(--red-text)'
               }}>
                 RESULTADO
               </h3>
-              
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
                 gap: '0.75rem',
-                fontSize: '0.95rem'
+                fontSize: 'var(--text-15)'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <strong>HTTP Health:</strong>
-                  <span style={{ 
-                    color: result.httpHealth === 'OK' ? '#28a745' : '#dc3545',
+                  <span style={{
+                    color: result.httpHealth === 'OK' ? 'var(--green-text)' : 'var(--red-text)',
                     fontWeight: 'bold'
                   }}>
                     {result.httpHealth} {result.statusCode && `(${result.statusCode})`}
                   </span>
                 </div>
-                
+
                 {result.latency !== null && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <strong>Latencia:</strong>
                     <span>{result.latency}ms</span>
                   </div>
                 )}
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <strong>Socket:</strong>
-                  <span style={{ 
-                    color: result.socketStatus === 'Conectado' ? '#28a745' : '#dc3545'
+                  <span style={{
+                    color: result.socketStatus === 'Conectado' ? 'var(--green-text)' : 'var(--red-text)'
                   }}>
                     {result.socketStatus}
                   </span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <strong>isOnline:</strong>
-                  <span style={{ 
-                    color: isOnline ? '#28a745' : '#dc3545'
+                  <span style={{
+                    color: isOnline ? 'var(--green-text)' : 'var(--red-text)'
                   }}>
                     {isOnline ? 'true' : 'false'}
                   </span>
                 </div>
-                
+
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <strong>Hora última prueba:</strong>
                   <span>{result.testedAt}</span>
                 </div>
-                
+
                 {result.error && (
-                  <div style={{ 
+                  <div style={{
                     marginTop: '0.5rem',
                     padding: '0.75rem',
-                    background: 'rgba(220, 53, 69, 0.1)',
-                    borderRadius: '6px',
-                    border: '1px solid #dc3545'
+                    background: 'rgba(255, 59, 48, 0.08)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--red)'
                   }}>
                     <strong>Error:</strong> {result.error}
                   </div>
@@ -245,24 +231,14 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
             <button
               onClick={handleCopyReport}
               disabled={!result}
-              style={{
-                padding: '0.75rem 1.25rem',
-                background: !result ? '#6c757d' : '#17a2b8',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                fontWeight: 'bold',
-                cursor: !result ? 'not-allowed' : 'pointer',
-                opacity: !result ? 0.6 : 1
-              }}
+              className="btn btn--secondary"
             >
               COPIAR REPORTE
             </button>
 
             <button
-              onClick={() => navigate('/config-servidor')}
-              className="btn-secondary"
+              onClick={() => (onGoToServer ? onGoToServer() : navigate('/config-servidor'))}
+              className="btn btn--secondary"
             >
               IR A SERVIDOR
             </button>
@@ -270,6 +246,15 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
         </div>
       </div>
       <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="caja-container">
+      <CajaHeader title="DIAGNÓSTICO" backTo="/mas" />
+      {content}
     </div>
   );
 }

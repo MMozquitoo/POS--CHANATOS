@@ -40,10 +40,14 @@ export default function MenuDrawer({ open, onClose, onOpenOrdenes }) {
         <div className="list-group list-group--inset" style={{ marginBottom: '0.9rem' }}>
           <Row label="Mesas y órdenes abiertas" strong onClick={() => { onClose?.(); onOpenOrdenes?.(); }} />
           <Row label="Reportes de ventas" strong onClick={() => go('/reportes')} />
+          {/* Compras junta Registrar compra + Ingredientes + Gastos generales
+              (pestañas adentro) — antes eran 3 entradas separadas, obligaba a
+              pensar a cuál ir. Ver Compras.jsx. */}
+          <Row label="Compras" strong onClick={() => go('/compras')} />
           <Row label="Menú y precios" onClick={() => go('/menu')} />
-          <Row label="Historial de pagos" onClick={() => go('/historial')} />
-          <Row label="Historial de cierres" onClick={() => go('/historial-cierres')} />
-          <Row label="Gastos de caja" onClick={() => go('/historial-caja')} />
+          {/* Junta lo que antes eran "Historial de pagos" e "Historial de
+              cierres" en una sola pantalla con pestañas */}
+          <Row label="Historial" onClick={() => go('/historial')} />
           <Row label="Auditoría" onClick={() => go('/auditoria')} />
           <Row label="Más opciones" onClick={() => go('/mas')} />
         </div>

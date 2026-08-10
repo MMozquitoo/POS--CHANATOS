@@ -5,6 +5,7 @@ import './Reportes.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { serviceLabel } from '../../utils/statusLabels.js';
+import { expenseCategoryLabel } from '../../utils/expenseCategories.js';
 
 // Fecha YYYY-MM-DD en zona Bogotá
 function bogotaDate(daysAgo = 0) {
@@ -47,6 +48,7 @@ export default function Reportes() {
   const [customTo, setCustomTo] = useState(bogotaDate(0));
   const [data, setData] = useState(null);
   const [lowStock, setLowStock] = useState([]);
+  const [pnl, setPnl] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -59,12 +61,14 @@ export default function Reportes() {
     }
     setLoading(true);
     try {
-      const [repRes, stockRes] = await Promise.all([
+      const [repRes, stockRes, pnlRes] = await Promise.all([
         axios.get(`/reports/summary?from=${from}&to=${to}`),
         axios.get('/inventory/low-stock'),
+        axios.get(`/reports/pnl?from=${from}&to=${to}`),
       ]);
       setData(repRes.data);
       setLowStock(stockRes.data || []);
+      setPnl(pnlRes.data);
     } catch (error) {
       console.error('Error cargando reporte:', error);
     } finally {
@@ -246,6 +250,67 @@ export default function Reportes() {
                 ))
               )}
             </section>
+
+            {/* Contaduría: ventas menos compras de insumos controlados (carne,
+                pan, cash-basis: el día que se pagaron) menos gastos generales
+                por categoría (verduras, servicios, etc.), más ingresos manuales */}
+            {pnl && (
+              <section className="rep-section">
+                <h3>Contaduría</h3>
+                <div className="rep-kpis">
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(pnl.sales)}</div>
+                    <div className="rep-kpi-label">Ventas</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(pnl.controlledPurchases)}</div>
+                    <div className="rep-kpi-label">Compras insumos controlados</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(pnl.generalExpenses)}</div>
+                    <div className="rep-kpi-label">Gastos generales</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(pnl.manualIncome)}</div>
+                    <div className="rep-kpi-label">Ingresos generales</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value" style={{ color: pnl.netProfit >= 0 ? 'var(--green-text, #28a745)' : 'var(--red-text, #dc3545)' }}>
+                      {formatPriceCOP(pnl.netProfit)}
+                    </div>
+                    <div className="rep-kpi-label">Utilidad neta</div>
+                  </div>
+                </div>
+                {pnl.controlledPurchasesByIngredient?.length > 0 && (
+                  <>
+                    <h3 style={{ marginTop: '1rem' }}>Compras de insumos por producto</h3>
+                    {pnl.controlledPurchasesByIngredient.map(row => (
+                      <BarRow
+                        key={row.ingredient_id}
+                        label={row.ingredient_name}
+                        value={row.total}
+                        max={Math.max(0, ...pnl.controlledPurchasesByIngredient.map(r => r.total))}
+                        extra={`${row.count} compra${row.count === 1 ? '' : 's'}`}
+                      />
+                    ))}
+                  </>
+                )}
+                {pnl.expensesByCategory.length > 0 && (
+                  <>
+                    <h3 style={{ marginTop: '1rem' }}>Gastos generales por categoría</h3>
+                    {pnl.expensesByCategory.map(row => (
+                      <BarRow
+                        key={row.category}
+                        label={expenseCategoryLabel(row.category)}
+                        value={row.total}
+                        max={Math.max(0, ...pnl.expensesByCategory.map(r => r.total))}
+                        extra={`${row.count} mov.`}
+                      />
+                    ))}
+                  </>
+                )}
+              </section>
+            )}
           </>
         )}
       </div>

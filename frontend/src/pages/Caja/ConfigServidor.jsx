@@ -10,8 +10,12 @@ import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 /**
  * FASE 14.2: Configuración de servidor
  * Permite cambiar la URL del backend y probar la conexión
+ *
+ * embedded=true: se usa dentro de Conexion.jsx (pestaña "Configurar"), sin su
+ * propio CajaHeader/container. Sigue existiendo standalone en /config-servidor
+ * porque esa ruta también es PÚBLICA (login no encuentra el servidor).
  */
-export default function ConfigServidor() {
+export default function ConfigServidor({ embedded = false }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
@@ -190,13 +194,8 @@ export default function ConfigServidor() {
     }
   };
 
-  return (
-    <div className="caja-container">
-      <CajaHeader 
-        title="SERVIDOR"
-        backTo="/mas"
-      />
-      
+  const content = (
+    <>
       <div className="caja-content" style={{ padding: '1.5rem' }}>
         <div style={{ 
           display: 'flex', 
@@ -206,19 +205,13 @@ export default function ConfigServidor() {
           margin: '0 auto'
         }}>
           {/* URL del POS (para abrir en navegador) */}
-          <div style={{
-            padding: '1rem',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #ddd',
-            marginBottom: '1rem'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: 'bold',
-              fontSize: '0.9rem',
-              color: '#333'
+          <div className="card" style={{ background: 'var(--gray-50)', boxShadow: 'none', marginBottom: '1rem' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 700,
+              fontSize: 'var(--text-13)',
+              color: 'var(--gray-900)'
             }}>
               URL DEL POS (para abrir en el navegador):
             </label>
@@ -231,57 +224,32 @@ export default function ConfigServidor() {
               <code style={{
                 flex: 1,
                 padding: '0.5rem',
-                background: 'white',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '0.9rem',
+                background: '#fff',
+                border: '1px solid var(--separator)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-15)',
                 fontFamily: 'monospace',
-                color: '#F5BB4C'
+                color: 'var(--brand-deep)'
               }}>
                 {window.location.origin}
               </code>
-              <button
-                onClick={handleCopyPosUrl}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#17a2b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.85rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
+              <button onClick={handleCopyPosUrl} className="btn btn--secondary btn--sm">
                 COPIAR
               </button>
             </div>
-            <button
-              onClick={handleOpenPos}
-              style={{
-                padding: '0.65rem 1.25rem',
-                background: '#F5BB4C',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
+            <button onClick={handleOpenPos} className="btn-chanatos-outline">
               ABRIR POS
             </button>
           </div>
 
           {/* Campo URL del Backend */}
           <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              color: '#333'
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 700,
+              fontSize: 'var(--text-17)',
+              color: 'var(--gray-900)'
             }}>
               URL DEL BACKEND (API)
             </label>
@@ -298,24 +266,24 @@ export default function ConfigServidor() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                fontSize: '1rem',
-                border: '2px solid #ddd',
-                borderRadius: '8px',
+                fontSize: 'var(--text-17)',
+                border: '2px solid var(--gray-200)',
+                borderRadius: 'var(--radius-md)',
                 boxSizing: 'border-box'
               }}
             />
-            <div style={{ 
-              fontSize: '0.85rem', 
-              color: '#666', 
+            <div style={{
+              fontSize: 'var(--text-13)',
+              color: 'var(--gray-500)',
               marginTop: '0.25rem',
               fontStyle: 'italic'
             }}>
               Esta URL NO es para abrirla en el navegador. Es solo para conectar el POS.
             </div>
-            <div style={{ 
-              fontSize: '0.85rem', 
-              color: '#666', 
-              marginTop: '0.25rem' 
+            <div style={{
+              fontSize: 'var(--text-13)',
+              color: 'var(--gray-500)',
+              marginTop: '0.25rem'
             }}>
               Ejemplo: http://192.168.1.56:3000
             </div>
@@ -325,18 +293,17 @@ export default function ConfigServidor() {
           {status !== 'idle' && (
             <div style={{
               padding: '1rem',
-              borderRadius: '8px',
-              background: status === 'ok' ? '#d4edda' : status === 'error' ? '#f8d7da' : '#d1ecf1',
-              border: `2px solid ${status === 'ok' ? '#28a745' : status === 'error' ? '#dc3545' : '#17a2b8'}`,
-              color: status === 'ok' ? '#155724' : status === 'error' ? '#721c24' : '#0c5460'
+              borderRadius: 'var(--radius-md)',
+              background: status === 'ok' ? 'var(--green-tint)' : status === 'error' ? 'var(--red-tint)' : 'var(--blue-tint)',
+              color: status === 'ok' ? 'var(--green-text)' : status === 'error' ? 'var(--red-text)' : 'var(--blue-text)'
             }}>
               <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
                 {status === 'loading' && 'Probando...'}
                 {status === 'ok' && 'Conectado'}
-                {status === 'error' && '❌ Error de conexión'}
+                {status === 'error' && 'Error de conexión'}
               </div>
               {statusMessage && (
-                <div style={{ fontSize: '0.9rem' }}>
+                <div style={{ fontSize: 'var(--text-15)' }}>
                   {statusMessage}
                 </div>
               )}
@@ -347,10 +314,9 @@ export default function ConfigServidor() {
           {saved && (
             <div style={{
               padding: '1rem',
-              borderRadius: '8px',
-              background: '#d4edda',
-              border: '2px solid #28a745',
-              color: '#155724'
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--green-tint)',
+              color: 'var(--green-text)'
             }}>
               Guardado. Se recomienda recargar la página.
             </div>
@@ -363,20 +329,7 @@ export default function ConfigServidor() {
             flexDirection: 'column',
             gap: '0.75rem'
           }}>
-            <button
-              onClick={handleSave}
-              style={{
-                width: '100%',
-                padding: '0.9rem 1.5rem',
-                background: '#F5BB4C',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1.05rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
+            <button onClick={handleSave} className="btn btn--primary btn--lg">
               GUARDAR
             </button>
 
@@ -384,18 +337,8 @@ export default function ConfigServidor() {
               <button
                 onClick={handleTestConnection}
                 disabled={status === 'loading'}
-                style={{
-                  flex: '1 1 auto',
-                  padding: '0.7rem 1.1rem',
-                  background: status === 'loading' ? '#6c757d' : '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  cursor: status === 'loading' ? 'not-allowed' : 'pointer',
-                  opacity: status === 'loading' ? 0.6 : 1
-                }}
+                className="btn btn--secondary"
+                style={{ flex: '1 1 auto' }}
               >
                 {status === 'loading' ? 'PROBANDO...' : 'PROBAR CONEXIÓN'}
               </button>
@@ -403,17 +346,8 @@ export default function ConfigServidor() {
               {saved && (
                 <button
                   onClick={handleReload}
-                  style={{
-                    flex: '1 1 auto',
-                    padding: '0.7rem 1.1rem',
-                    background: '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}
+                  className="btn btn--secondary"
+                  style={{ flex: '1 1 auto' }}
                 >
                   RECARGAR PÁGINA
                 </button>
@@ -421,17 +355,8 @@ export default function ConfigServidor() {
 
               <button
                 onClick={handleReset}
-                style={{
-                  flex: '1 1 auto',
-                  padding: '0.7rem 1.1rem',
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
+                className="btn btn--destructive-ghost"
+                style={{ flex: '1 1 auto' }}
               >
                 RESTAURAR POR DEFECTO
               </button>
@@ -440,6 +365,15 @@ export default function ConfigServidor() {
         </div>
       </div>
       <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="caja-container">
+      <CajaHeader title="SERVIDOR" backTo="/mas" />
+      {content}
     </div>
   );
 }

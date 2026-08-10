@@ -287,6 +287,70 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
           </div>
         </div>
 
+        {/* Arqueo electrónico (transferencia siempre; tarjeta solo si se declaró —
+            el local todavía no cobra con datáfono, ver CLAUDE.md "Pendientes conocidos") */}
+        {(snapshot.declared_transfer !== undefined && snapshot.declared_transfer !== null) && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: printFormat === 'A4' ? '1.5rem' : '1rem',
+            background: '#f8f9fa',
+            borderRadius: '6px',
+            border: '2px solid #333',
+            fontSize: printFormat === 'A4' ? '0.95rem' : '0.8rem'
+          }}>
+            <h3 style={{
+              margin: '0 0 0.75rem 0',
+              fontSize: printFormat === 'A4' ? '1.2rem' : '1rem',
+              fontWeight: 'bold',
+              borderBottom: '1px solid #333',
+              paddingBottom: '0.5rem'
+            }}>
+              Arqueo Electrónico
+            </h3>
+            {(snapshot.declared_card !== undefined && snapshot.declared_card !== null) && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Tarjeta sistema:</span>
+                  <span>{formatPriceCOP(snapshot.totals.total_card || 0)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Tarjeta declarada:</span>
+                  <span>{formatPriceCOP(snapshot.declared_card || 0)}</span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.75rem',
+                  paddingBottom: '0.75rem',
+                  borderBottom: '1px solid #ddd',
+                  fontWeight: 'bold',
+                  color: getDiffColor(snapshot.diff_card)
+                }}>
+                  <span>Diferencia tarjeta ({getDiffLabel(snapshot.diff_card)}):</span>
+                  <span>{formatPriceCOP(Math.abs(snapshot.diff_card || 0))}</span>
+                </div>
+              </>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>Transferencia sistema:</span>
+              <span>{formatPriceCOP(snapshot.totals.total_transfer || 0)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>Transferencia declarada:</span>
+              <span>{formatPriceCOP(snapshot.declared_transfer || 0)}</span>
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontWeight: 'bold',
+              color: getDiffColor(snapshot.diff_transfer)
+            }}>
+              <span>Diferencia transferencia ({getDiffLabel(snapshot.diff_transfer)}):</span>
+              <span>{formatPriceCOP(Math.abs(snapshot.diff_transfer || 0))}</span>
+            </div>
+          </div>
+        )}
+
         {/* Resumen */}
         <div style={{ 
           textAlign: 'center', 

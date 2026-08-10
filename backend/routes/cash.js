@@ -231,7 +231,7 @@ router.get("/session/active", requireAuth, requireRole("CAJA"), async (req, res)
 // POST /api/cash/session/close - Cerrar sesión de caja con arqueo (FASE 9.3)
 router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { closing_cash } = req.body;
+    const { closing_cash, declared_card, declared_transfer } = req.body;
     const db = getDb();
 
     // Validar closing_cash
@@ -241,6 +241,26 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     const closingCash = parseFloat(closing_cash);
     if (isNaN(closingCash) || closingCash < 0) {
       return res.status(400).json({ error: "closing_cash debe ser un número >= 0" });
+    }
+
+    // Arqueo de tarjeta: OPCIONAL (2026-08, local aún no cobra con datáfono —
+    // ver CLAUDE.md "Pendientes conocidos"). Si no viene, queda null y el
+    // reporte/historial simplemente no muestran esa sección.
+    let declaredCard = null;
+    if (declared_card !== undefined && declared_card !== null) {
+      declaredCard = parseFloat(declared_card);
+      if (isNaN(declaredCard) || declaredCard < 0) {
+        return res.status(400).json({ error: "declared_card debe ser un número >= 0" });
+      }
+    }
+
+    // Validar arqueo de transferencia (mismo criterio que closing_cash)
+    if (declared_transfer === undefined || declared_transfer === null) {
+      return res.status(400).json({ error: "declared_transfer es requerido" });
+    }
+    const declaredTransfer = parseFloat(declared_transfer);
+    if (isNaN(declaredTransfer) || declaredTransfer < 0) {
+      return res.status(400).json({ error: "declared_transfer debe ser un número >= 0" });
     }
 
     // 1. Buscar sesión activa
@@ -330,8 +350,10 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     const expectedCash =
       (session.initial_cash || 0) + totalCash + tipsCash + manualIncome - manualExpense;
 
-    // 5. Calcular diff_cash
+    // 5. Calcular diferencias (efectivo y arqueo electrónico declarado por el cajero)
     const diffCash = closingCash - expectedCash;
+    const diffCard = declaredCard === null ? null : declaredCard - totalCard;
+    const diffTransfer = declaredTransfer - totalTransfer;
 
     // 6. Construir snapshot del cierre (FASE 12.2)
     const closeTimestamp = toBogotaSQLiteTimestamp(new Date());
@@ -343,6 +365,10 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
       closing_cash: closingCash,
       expected_cash: expectedCash,
       diff_cash: diffCash,
+      declared_card: declaredCard,
+      diff_card: diffCard,
+      declared_transfer: declaredTransfer,
+      diff_transfer: diffTransfer,
       totals: {
         total_cash: totalCash,
         total_card: totalCard,
@@ -359,11 +385,15 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
 
     // 7. Update de cash_sessions (solo si sigue activa) - incluyendo snapshot
     const updateResult = await db.run(
-      `UPDATE cash_sessions 
+      `UPDATE cash_sessions
        SET closed_at = ?,
            closing_cash = ?,
            expected_cash = ?,
            diff_cash = ?,
+           declared_card = ?,
+           diff_card = ?,
+           declared_transfer = ?,
+           diff_transfer = ?,
            total_cash = ?,
            total_card = ?,
            total_transfer = ?,
@@ -378,6 +408,10 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         closingCash,
         expectedCash,
         diffCash,
+        declaredCard,
+        diffCard,
+        declaredTransfer,
+        diffTransfer,
         totalCash,
         totalCard,
         totalTransfer,
@@ -407,11 +441,16 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
       entity_id: closedSession.id,
       user_id: req.user.id,
       ip: req.ip || req.connection?.remoteAddress || null,
-      summary: `Caja cerrada - Efectivo contado: ${closingCash}, Diferencia: ${diffCash}`,
+      summary: `Caja cerrada - Efectivo contado: ${closingCash} (dif ${diffCash}), Transferencia declarada: ${declaredTransfer} (dif ${diffTransfer})` +
+        (declaredCard !== null ? `, Tarjeta declarada: ${declaredCard} (dif ${diffCard})` : ''),
       meta: {
         closing_cash: closingCash,
         expected_cash: expectedCash,
         diff_cash: diffCash,
+        declared_card: declaredCard,
+        diff_card: diffCard,
+        declared_transfer: declaredTransfer,
+        diff_transfer: diffTransfer,
         total_sales: totalSales,
         payment_count: paymentCount
       }
@@ -430,6 +469,10 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
       closing_cash: closingCash,
       expected_cash: expectedCash,
       diff_cash: diffCash,
+      declared_card: declaredCard,
+      diff_card: diffCard,
+      declared_transfer: declaredTransfer,
+      diff_transfer: diffTransfer,
       totals: {
         total_cash: totalCash,
         total_card: totalCard,
@@ -737,6 +780,10 @@ router.get("/sessions", requireAuth, requireRole("CAJA"), async (req, res) => {
          expected_cash,
          closing_cash,
          diff_cash,
+         declared_card,
+         diff_card,
+         declared_transfer,
+         diff_transfer,
          payment_count,
          closed_by
        FROM cash_sessions
@@ -1467,6 +1514,54 @@ router.get(
   }
 );
 
+// GET /api/cash/manual-transactions?from=&to=&type=&category= - Rango de fechas
+// (para Contaduría: a diferencia de /manual-transactions/:date, que es un solo
+// día, esta permite ver una semana/mes completo con filtros opcionales)
+router.get(
+  "/manual-transactions",
+  requireAuth,
+  requireRole("CAJA"),
+  async (req, res) => {
+    try {
+      const { from, to, type, category } = req.query;
+      const db = getDb();
+      const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+      if (!DATE_RE.test(from || "") || !DATE_RE.test(to || "")) {
+        return res.status(400).json({ error: "Parámetros from y to requeridos (YYYY-MM-DD)" });
+      }
+      if (type && !["INGRESO", "EGRESO"].includes(type)) {
+        return res.status(400).json({ error: "type debe ser INGRESO o EGRESO" });
+      }
+
+      let query = `
+        SELECT mt.*, u.name as created_by_name
+        FROM manual_transactions mt
+        JOIN users u ON mt.created_by = u.id
+        WHERE mt.transaction_date BETWEEN ? AND ?
+      `;
+      const params = [from, to];
+
+      if (type) {
+        query += " AND mt.type = ?";
+        params.push(type);
+      }
+      if (category) {
+        query += " AND mt.category = ?";
+        params.push(category);
+      }
+
+      query += " ORDER BY mt.transaction_date DESC, mt.created_at DESC";
+
+      const transactions = await db.all(query, params);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error obteniendo transacciones manuales por rango:", error);
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  }
+);
+
 // POST /api/cash/manual-transactions - Crear transacción manual (ingreso/egreso)
 router.post(
   "/manual-transactions",
@@ -1474,7 +1569,7 @@ router.post(
   requireRole("CAJA"),
   async (req, res) => {
     try {
-      const { transaction_date, type, description, amount } = req.body;
+      const { transaction_date, type, description, amount, category } = req.body;
       const db = getDb();
 
       // Validaciones
@@ -1498,12 +1593,16 @@ router.post(
         return res.status(400).json({ error: "Monto debe ser mayor a 0" });
       }
 
+      // category es opcional (Contaduría/gastos generales la manda; el gasto
+      // de caja rápido dentro del cierre puede seguir sin ella)
+      const categoryValue = category && String(category).trim() ? String(category).trim() : null;
+
       // Crear transacción (created_at explícito en hora Bogotá — el DEFAULT
       // de SQLite es UTC y descuadra la ventana de sesión del arqueo)
       const result = await db.run(
-        `INSERT INTO manual_transactions (transaction_date, type, description, amount, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [transaction_date, type, description.trim(), amount, req.user.id, toBogotaSQLiteTimestamp(new Date())]
+        `INSERT INTO manual_transactions (transaction_date, type, description, amount, category, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [transaction_date, type, description.trim(), amount, categoryValue, req.user.id, toBogotaSQLiteTimestamp(new Date())]
       );
 
       const transaction = await db.get(

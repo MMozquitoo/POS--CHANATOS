@@ -26,6 +26,13 @@ export default function Menu() {
   const [showModal, setShowModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Receta (insumos controlados: carne, pan, etc. — ver /ingredientes)
+  const [recetaProduct, setRecetaProduct] = useState(null);
+  const [recetaLoading, setRecetaLoading] = useState(false);
+  const [recetaSaving, setRecetaSaving] = useState(false);
+  const [ingredientsList, setIngredientsList] = useState([]);
+  const [recetaSelection, setRecetaSelection] = useState({}); // {ingredient_id: qty_used_string}
   
   // Estado del formulario - SIEMPRE se inicializa desde cero
   const [formData, setFormData] = useState({
@@ -220,6 +227,67 @@ export default function Menu() {
     }
   };
 
+  // Abrir editor de receta (insumos controlados por producto)
+  const handleOpenReceta = async (product) => {
+    setRecetaProduct(product);
+    setRecetaLoading(true);
+    setRecetaSelection({});
+    try {
+      const [ingredientsRes, recipeRes] = await Promise.all([
+        axios.get("/ingredients"),
+        axios.get(`/recipes/product/${product.id}`),
+      ]);
+      setIngredientsList(Array.isArray(ingredientsRes.data) ? ingredientsRes.data : []);
+      const selection = {};
+      (recipeRes.data?.items || []).forEach((item) => {
+        selection[item.ingredient_id] = item.qty_used.toString();
+      });
+      setRecetaSelection(selection);
+    } catch (error) {
+      console.error("Error cargando receta:", error);
+      await showAlert("Error al cargar la receta");
+      setRecetaProduct(null);
+    } finally {
+      setRecetaLoading(false);
+    }
+  };
+
+  const handleCloseReceta = () => {
+    setRecetaProduct(null);
+    setRecetaSelection({});
+    setRecetaSaving(false);
+  };
+
+  const handleToggleRecetaIngredient = (ingredientId, checked) => {
+    setRecetaSelection((prev) => {
+      const next = { ...prev };
+      if (checked) {
+        next[ingredientId] = next[ingredientId] || "1";
+      } else {
+        delete next[ingredientId];
+      }
+      return next;
+    });
+  };
+
+  const handleSaveReceta = async () => {
+    const items = Object.entries(recetaSelection)
+      .filter(([, qty]) => parseInt(qty) >= 1)
+      .map(([ingredientId, qty]) => ({ ingredient_id: parseInt(ingredientId), qty_used: parseInt(qty) }));
+
+    setRecetaSaving(true);
+    try {
+      await axios.put(`/recipes/product/${recetaProduct.id}`, { items });
+      await showAlert("Receta guardada correctamente");
+      handleCloseReceta();
+    } catch (error) {
+      console.error("Error guardando receta:", error);
+      await showAlert(error.response?.data?.error || "Error al guardar la receta");
+    } finally {
+      setRecetaSaving(false);
+    }
+  };
+
   // Filtrar productos por categoría
   const getFilteredProducts = () => {
     let filtered = products;
@@ -317,19 +385,19 @@ export default function Menu() {
                 key={product.id}
                 className={`menu-product-card ${product.is_active === 0 ? "inactive" : ""}`}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "0.2rem" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "var(--text-17)", fontWeight: 700, marginBottom: "0.2rem" }}>
                     {product.name}
                     {product.variant && ` - ${product.variant}`}
                   </div>
-                  <div style={{ color: "#666", fontSize: "0.85rem", marginBottom: "0.2rem" }}>
+                  <div style={{ color: "var(--gray-500)", fontSize: "var(--text-13)", marginBottom: "0.2rem" }}>
                     {product.category}
                   </div>
-                  <div style={{ fontSize: "1.05rem", fontWeight: "bold", color: "#28a745" }}>
+                  <div className="tnum" style={{ fontSize: "var(--text-17)", fontWeight: 700, color: "var(--green-text)" }}>
                     {formatPriceCOP(product.price)}
                   </div>
                   {product.flavors && (
-                    <div style={{ color: "#B8860B", fontSize: "0.8rem", marginTop: "0.2rem" }}>
+                    <div style={{ color: "var(--brand-deep)", fontSize: "var(--text-13)", marginTop: "0.2rem" }}>
                       Sabores: {product.flavors}
                       {Object.keys(parseFlavorPrices(product.flavor_prices)).length > 0 && (
                         <span> (precio distinto por sabor)</span>
@@ -337,36 +405,34 @@ export default function Menu() {
                     </div>
                   )}
                   {product.is_active === 0 && (
-                    <div style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.2rem" }}>
+                    <div style={{ color: "var(--red-text)", fontSize: "var(--text-13)", marginTop: "0.2rem", fontWeight: 700 }}>
                       INACTIVO
                     </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => handleOpenReceta(product)}
+                    title="Recetas de insumos controlados (carne, pan, etc.)"
+                    className="btn btn--sm"
+                    style={{ flex: 1, background: "var(--brand-tint)", color: "var(--brand-deep)" }}
+                  >
+                    Receta
+                  </button>
                   <button
                     onClick={() => handleOpenModal(product)}
-                    style={{
-                      padding: "0.45rem 0.8rem",
-                      background: "#F5BB4C",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                    }}
+                    className="btn btn--secondary btn--sm"
+                    style={{ flex: 1 }}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => handleToggle(product)}
+                    className="btn btn--sm"
                     style={{
-                      padding: "0.45rem 0.8rem",
-                      background: product.is_active === 1 ? "#ffc107" : "#28a745",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
+                      flex: 1,
+                      background: product.is_active === 1 ? "var(--red-tint)" : "var(--green-tint)",
+                      color: product.is_active === 1 ? "var(--red-text)" : "var(--green-text)",
                     }}
                   >
                     {product.is_active === 1 ? "Desactivar" : "Activar"}
@@ -752,6 +818,97 @@ export default function Menu() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de receta: insumos controlados (carne, pan, etc.) del producto.
+          Solo tiene sentido para productos que usan ingredientes de /ingredientes;
+          el resto simplemente se deja sin receta. */}
+      {recetaProduct && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center",
+            justifyContent: "center", zIndex: 1000,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget && !recetaSaving) handleCloseReceta(); }}
+        >
+          <div
+            className="modal-content"
+            style={{ background: "white", padding: "2rem", borderRadius: "12px", maxWidth: "480px", width: "90%", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: "0.25rem" }}>Receta</h2>
+            <div style={{ color: "#666", marginBottom: "1.5rem" }}>{recetaProduct.name}</div>
+
+            {recetaLoading ? (
+              <p>Cargando...</p>
+            ) : ingredientsList.length === 0 ? (
+              <p style={{ color: "#666" }}>
+                No hay ingredientes cargados todavía. Creá primero los insumos controlados en
+                "Ingredientes" (ej: Carne, Pan).
+              </p>
+            ) : (
+              <>
+                {ingredientsList.map((ingredient) => {
+                  const checked = recetaSelection[ingredient.id] !== undefined;
+                  return (
+                    <div
+                      key={ingredient.id}
+                      style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.6rem" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => handleToggleRecetaIngredient(ingredient.id, e.target.checked)}
+                        style={{ width: "18px", height: "18px", cursor: "pointer", flexShrink: 0 }}
+                      />
+                      <span style={{ flex: 1, fontSize: "0.9rem" }}>{ingredient.name}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        disabled={!checked}
+                        value={recetaSelection[ingredient.id] ?? ""}
+                        onChange={(e) =>
+                          setRecetaSelection((prev) => ({ ...prev, [ingredient.id]: e.target.value }))
+                        }
+                        placeholder={`Cant. (${ingredient.unit})`}
+                        style={{
+                          width: "110px", padding: "0.5rem", border: "1px solid #ddd",
+                          borderRadius: "4px", opacity: checked ? 1 : 0.5,
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+                <div style={{ fontSize: "0.75rem", color: "#666", margin: "0.5rem 0 1.5rem" }}>
+                  Cantidad = cuánto de ese ingrediente gasta UNA unidad de este producto (en la unidad
+                  del ingrediente). Se descuenta solo del stock cada vez que se vende.
+                </div>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={handleCloseReceta}
+                disabled={recetaSaving}
+                style={{ padding: "0.75rem 1.5rem", background: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: recetaSaving ? "not-allowed" : "pointer", fontSize: "1rem", opacity: recetaSaving ? 0.6 : 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveReceta}
+                disabled={recetaSaving || recetaLoading}
+                style={{ padding: "0.75rem 1.5rem", background: recetaSaving ? "#6c757d" : "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: recetaSaving ? "not-allowed" : "pointer", fontSize: "1rem" }}
+              >
+                {recetaSaving ? "Guardando..." : "Guardar receta"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -205,6 +205,44 @@ router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   }
 });
 
+// DELETE /api/ingredients/:id - Borrar ingrediente sin uso (sin recetas ni
+// movimientos de inventario). Si ya tiene compras o recetas ligadas, la FK
+// de SQLite rechaza el borrado — ahí se pide usar "Desactivar" en su lugar
+// para no perder el historial de costos/consumo.
+router.delete("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const ingredientId = parseInt(req.params.id);
+
+    const ingredient = await db.get("SELECT * FROM ingredients WHERE id = ?", [ingredientId]);
+    if (!ingredient) {
+      return res.status(404).json({ error: "Ingrediente no encontrado" });
+    }
+
+    await db.run("BEGIN TRANSACTION");
+    try {
+      // El registro de stock (inventory) no es historial, es estado derivado:
+      // se borra junto con el ingrediente.
+      await db.run("DELETE FROM inventory WHERE ingredient_id = ?", [ingredientId]);
+      await db.run("DELETE FROM ingredients WHERE id = ?", [ingredientId]);
+      await db.run("COMMIT");
+    } catch (txError) {
+      await db.run("ROLLBACK");
+      throw txError;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    if (error.message && error.message.includes("FOREIGN KEY constraint failed")) {
+      return res.status(400).json({
+        error: "No se puede eliminar: ya tiene compras o recetas registradas. Usá \"Desactivar\" en su lugar para conservar el historial.",
+      });
+    }
+    console.error("Error eliminando ingrediente:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 // PATCH /api/ingredients/:id/toggle - Activar/desactivar ingrediente
 router.patch("/:id/toggle", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {

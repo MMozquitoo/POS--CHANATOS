@@ -789,6 +789,36 @@ export const initDatabase = async () => {
     console.error("⚠️  Error creando tabla push_tokens:", pushTokensError);
   }
 
+  // Cierre de caja: declarado por el cajero para tarjeta y transferencia
+  // (arqueo electrónico, igual que closing_cash para efectivo) — chequeo
+  // incondicional.
+  try {
+    const cashSessionsCols = await database.all("PRAGMA table_info(cash_sessions)");
+    if (!cashSessionsCols.some((c) => c.name === "declared_card")) {
+      console.log("  ➕ Agregando declared_card/declared_transfer/diff_card/diff_transfer a cash_sessions...");
+      await database.run("ALTER TABLE cash_sessions ADD COLUMN declared_card REAL");
+      await database.run("ALTER TABLE cash_sessions ADD COLUMN declared_transfer REAL");
+      await database.run("ALTER TABLE cash_sessions ADD COLUMN diff_card REAL");
+      await database.run("ALTER TABLE cash_sessions ADD COLUMN diff_transfer REAL");
+      console.log("  ✅ Campos de arqueo electrónico agregados a cash_sessions");
+    }
+  } catch (declaredElectronicError) {
+    console.error("⚠️  Error agregando arqueo electrónico:", declaredElectronicError);
+  }
+
+  // Contaduría: categoría en manual_transactions (gastos/ingresos generales
+  // fuera de los insumos controlados) — chequeo incondicional.
+  try {
+    const manualTransactionsCols = await database.all("PRAGMA table_info(manual_transactions)");
+    if (!manualTransactionsCols.some((c) => c.name === "category")) {
+      console.log("  ➕ Agregando category a manual_transactions...");
+      await database.run("ALTER TABLE manual_transactions ADD COLUMN category TEXT");
+      console.log("  ✅ Campo category agregado a manual_transactions");
+    }
+  } catch (categoryError) {
+    console.error("⚠️  Error agregando category a manual_transactions:", categoryError);
+  }
+
   console.log("✅ Base de datos inicializada correctamente");
 };
 

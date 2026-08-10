@@ -17,12 +17,14 @@ function getDiffLabel(diff) {
 }
 
 function getDiffColor(diff) {
-  if (diff > 0) return "#28a745";
-  if (diff < 0) return "#dc3545";
-  return "#F5BB4C";
+  if (diff > 0) return "var(--green-text)";
+  if (diff < 0) return "var(--red-text)";
+  return "var(--brand-deep)";
 }
 
-export default function HistorialCierres() {
+// embedded=true: se usa dentro de Historial.jsx (pestaña "Cierres"), sin su
+// propio CajaHeader/container.
+export default function HistorialCierres({ embedded = false }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
@@ -70,12 +72,16 @@ export default function HistorialCierres() {
   };
 
   if (loading) {
+    const loadingContent = (
+      <div className="caja-content" style={{ textAlign: 'center', padding: '2rem' }}>
+        <p>Cargando...</p>
+      </div>
+    );
+    if (embedded) return loadingContent;
     return (
       <div className="caja-container">
         <CajaHeader title="HISTORIAL DE CIERRES" backTo="/mas" />
-        <div className="caja-content" style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>Cargando...</p>
-        </div>
+        {loadingContent}
       </div>
     );
   }
@@ -95,6 +101,10 @@ export default function HistorialCierres() {
         closing_cash: report.cash?.closing_cash ?? report.session.closing_cash ?? 0,
         expected_cash: report.cash?.expected_cash ?? report.session.expected_cash ?? 0,
         diff_cash: report.cash?.diff_cash ?? report.session.diff_cash ?? null,
+        declared_card: report.session.declared_card ?? null,
+        diff_card: report.session.diff_card ?? null,
+        declared_transfer: report.session.declared_transfer ?? null,
+        diff_transfer: report.session.diff_transfer ?? null,
         totals: {
           total_cash: report.totals?.total_cash ?? report.session.total_cash ?? 0,
           total_card: report.totals?.total_card ?? report.session.total_card ?? 0,
@@ -116,7 +126,7 @@ export default function HistorialCierres() {
           {snapshot ? (
             <ReporteCierre snapshot={snapshot} showControls={true} />
           ) : (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--gray-500)' }}>
               Error: No se pudo cargar el reporte de cierre
             </div>
           )}
@@ -133,19 +143,12 @@ export default function HistorialCierres() {
     );
   }
 
-  return (
-    <div className="caja-container">
-      <CajaHeader title="HISTORIAL DE CIERRES" backTo="/mas" />
+  const listContent = (
+    <>
       <div className="caja-content" style={{ padding: '1rem' }}>
         {sessions.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '3rem', 
-            background: 'white', 
-            borderRadius: '12px',
-            color: '#666'
-          }}>
-            <p style={{ fontSize: '1.2rem' }}>No hay cierres registrados</p>
+          <div className="card" style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
+            <p style={{ fontSize: 'var(--text-20)' }}>No hay cierres registrados</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '720px', margin: '0 auto' }}>
@@ -153,32 +156,18 @@ export default function HistorialCierres() {
               const diff = session.diff_cash;
               const diffLabel = getDiffLabel(diff);
               const diffColor = getDiffColor(diff);
-              
+              const hasCardDiff = session.diff_card !== null && session.diff_card !== undefined;
+              const hasTransferDiff = session.diff_transfer !== null && session.diff_transfer !== undefined;
+
               return (
                 <div
                   key={session.id}
                   onClick={() => handleViewReport(session.id)}
-                  style={{
-                    background: 'white',
-                    borderRadius: '12px',
-                    padding: '1rem',
-                    border: '1px solid #e0e0e0',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
+                  className="card card--tap"
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <div>
-                      <strong style={{ fontSize: '1.1rem' }}>
+                      <strong style={{ fontSize: 'var(--text-17)' }}>
                         {formatBogotaDateTime(new Date(session.closed_at))}
                       </strong>
                     </div>
@@ -187,22 +176,13 @@ export default function HistorialCierres() {
                         e.stopPropagation();
                         handleViewReport(session.id);
                       }}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        background: '#F5BB4C',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.9rem'
-                      }}
+                      className="btn btn--primary btn--sm"
                     >
                       Ver
                     </button>
                   </div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: 'var(--text-15)', color: 'var(--gray-500)' }}>
                     <div>
                       <strong>Total ventas:</strong> {formatPriceCOP(session.total_sales || 0)}
                     </div>
@@ -210,7 +190,7 @@ export default function HistorialCierres() {
                       <strong># Pagos:</strong> {session.payment_count || 0}
                     </div>
                     <div>
-                      <strong>Diferencia:</strong>{' '}
+                      <strong>Diferencia efectivo:</strong>{' '}
                       <span style={{ color: diffColor, fontWeight: 'bold' }}>
                         {diffLabel} {formatPriceCOP(Math.abs(diff || 0))}
                       </span>
@@ -218,6 +198,22 @@ export default function HistorialCierres() {
                     <div style={{ textAlign: 'right' }}>
                       <strong>Cerrado por:</strong> Usuario #{session.closed_by}
                     </div>
+                    {hasCardDiff && (
+                      <div>
+                        <strong>Diferencia tarjeta:</strong>{' '}
+                        <span style={{ color: getDiffColor(session.diff_card), fontWeight: 'bold' }}>
+                          {getDiffLabel(session.diff_card)} {formatPriceCOP(Math.abs(session.diff_card || 0))}
+                        </span>
+                      </div>
+                    )}
+                    {hasTransferDiff && (
+                      <div style={{ textAlign: hasCardDiff ? 'right' : 'left' }}>
+                        <strong>Diferencia transf.:</strong>{' '}
+                        <span style={{ color: getDiffColor(session.diff_transfer), fontWeight: 'bold' }}>
+                          {getDiffLabel(session.diff_transfer)} {formatPriceCOP(Math.abs(session.diff_transfer || 0))}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -226,6 +222,15 @@ export default function HistorialCierres() {
         )}
       </div>
       <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
+    </>
+  );
+
+  if (embedded) return listContent;
+
+  return (
+    <div className="caja-container">
+      <CajaHeader title="HISTORIAL DE CIERRES" backTo="/mas" />
+      {listContent}
     </div>
   );
 }

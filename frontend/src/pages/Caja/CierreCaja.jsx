@@ -5,6 +5,7 @@ import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
 import axios from 'axios';
 import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import { formatBogotaDateTime, getBogotaDateString } from '../../utils/timezone.js';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, expenseCategoryLabel } from '../../utils/expenseCategories.js';
 import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
@@ -42,12 +43,13 @@ export default function CierreCaja() {
   const [session, setSession] = useState(null);
   const [summary, setSummary] = useState(null);
   const [closingCash, setClosingCash] = useState('');
+  const [declaredTransfer, setDeclaredTransfer] = useState('');
   const [closing, setClosing] = useState(false);
   const [closedReport, setClosedReport] = useState(null);
 
   // Registrar gasto/ingreso de caja sin salir del cierre
   const [showGastoForm, setShowGastoForm] = useState(false);
-  const [gasto, setGasto] = useState({ type: 'EGRESO', amount: '', description: '' });
+  const [gasto, setGasto] = useState({ type: 'EGRESO', category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
   const [savingGasto, setSavingGasto] = useState(false);
   
   // PASO 14.4: Recuperación automática al reconectar
@@ -108,10 +110,11 @@ export default function CierreCaja() {
       await axios.post('/cash/manual-transactions', {
         transaction_date: getBogotaDateString(),
         type: gasto.type,
+        category: gasto.category,
         description: gasto.description.trim(),
         amount: monto
       });
-      setGasto({ type: 'EGRESO', amount: '', description: '' });
+      setGasto({ type: 'EGRESO', category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
       setShowGastoForm(false);
       await loadSummary(session.id);
     } catch (e) {
@@ -124,7 +127,12 @@ export default function CierreCaja() {
   const handleClose = async () => {
     const cash = parseMontoCOP(closingCash);
     if (isNaN(cash) || cash < 0) {
-      await showAlert('Ingresa un monto válido (>= 0)');
+      await showAlert('Ingresa un monto de efectivo válido (>= 0)');
+      return;
+    }
+    const transfer = parseMontoCOP(declaredTransfer);
+    if (isNaN(transfer) || transfer < 0) {
+      await showAlert('Ingresa un monto de transferencia válido (>= 0)');
       return;
     }
 
@@ -137,6 +145,7 @@ export default function CierreCaja() {
     // efectivo entran al cajón; ingresos/gastos manuales suman/restan)
     const openingCash = session.initial_cash || 0;
     const totalCash = summary.byMethod.find(m => m.method === 'EFECTIVO')?.total || 0;
+    const totalTransfer = summary.byMethod.find(m => m.method === 'TRANSFERENCIA')?.total || 0;
     const tipsCash = summary.tipsCash || 0;
     const manualIn = summary.manual?.income || 0;
     const manualOut = summary.manual?.expense || 0;
@@ -144,11 +153,22 @@ export default function CierreCaja() {
 
     // Alerta de sanidad: un descuadre gigante casi siempre es un monto mal digitado
     const diff = cash - expectedCash;
+    const diffTransfer = transfer - totalTransfer;
     if (expectedCash > 0 && Math.abs(diff) > expectedCash * 0.5) {
-      const sanityMsg = `OJO: estás declarando ${formatPriceCOP(cash)} y se esperaban ` +
+      const sanityMsg = `OJO: estás declarando ${formatPriceCOP(cash)} de efectivo y se esperaban ` +
         `${formatPriceCOP(expectedCash)}.\n\n` +
         `Eso deja una diferencia de ${formatPriceCOP(Math.abs(diff))} ` +
         `(${diff < 0 ? 'FALTANTE' : 'SOBRANTE'}).\n\n` +
+        `¿Seguro que escribiste el monto completo?`;
+      if (!(await showConfirm(sanityMsg))) {
+        return;
+      }
+    }
+    if (totalTransfer > 0 && Math.abs(diffTransfer) > totalTransfer * 0.5) {
+      const sanityMsg = `OJO: estás declarando ${formatPriceCOP(transfer)} de transferencia y el sistema ` +
+        `registró ${formatPriceCOP(totalTransfer)}.\n\n` +
+        `Eso deja una diferencia de ${formatPriceCOP(Math.abs(diffTransfer))} ` +
+        `(${diffTransfer < 0 ? 'FALTANTE' : 'SOBRANTE'}).\n\n` +
         `¿Seguro que escribiste el monto completo?`;
       if (!(await showConfirm(sanityMsg))) {
         return;
@@ -163,7 +183,9 @@ export default function CierreCaja() {
       (manualIn > 0 ? `Ingresos de caja: ${formatPriceCOP(manualIn)}\n` : '') +
       (manualOut > 0 ? `Gastos de caja: -${formatPriceCOP(manualOut)}\n` : '') +
       `Efectivo esperado: ${formatPriceCOP(expectedCash)}\n` +
-      `Efectivo contado: ${formatPriceCOP(cash)}`;
+      `Efectivo contado: ${formatPriceCOP(cash)}\n\n` +
+      `Transferencia sistema: ${formatPriceCOP(totalTransfer)}\n` +
+      `Transferencia declarada: ${formatPriceCOP(transfer)}`;
 
     if (!(await showConfirm(confirmMsg))) {
       return;
@@ -171,7 +193,10 @@ export default function CierreCaja() {
 
     setClosing(true);
     try {
-      const res = await axios.post('/cash/session/close', { closing_cash: cash });
+      const res = await axios.post('/cash/session/close', {
+        closing_cash: cash,
+        declared_transfer: transfer
+      });
       // FASE 12.2: Usar snapshot del cierre si está disponible
       if (res.data.snapshot) {
         setClosedReport({ snapshot: res.data.snapshot });
@@ -260,6 +285,10 @@ export default function CierreCaja() {
         closing_cash: closedReport.cash?.closing_cash ?? closedReport.session.closing_cash ?? 0,
         expected_cash: closedReport.cash?.expected_cash ?? closedReport.session.expected_cash ?? 0,
         diff_cash: closedReport.cash?.diff_cash ?? closedReport.session.diff_cash ?? null,
+        declared_card: closedReport.session.declared_card ?? null,
+        diff_card: closedReport.session.diff_card ?? null,
+        declared_transfer: closedReport.session.declared_transfer ?? null,
+        diff_transfer: closedReport.session.diff_transfer ?? null,
         totals: {
           total_cash: closedReport.totals?.total_cash ?? closedReport.session.total_cash ?? 0,
           total_card: closedReport.totals?.total_card ?? closedReport.session.total_card ?? 0,
@@ -320,6 +349,7 @@ export default function CierreCaja() {
   // Calcular efectivo esperado (mismo cálculo que el backend)
   const openingCash = session.initial_cash || 0;
   const totalCash = summary?.byMethod.find(m => m.method === 'EFECTIVO')?.total || 0;
+  const totalTransfer = summary?.byMethod.find(m => m.method === 'TRANSFERENCIA')?.total || 0;
   const tipsCash = summary?.tipsCash || 0;
   const manualIn = summary?.manual?.income || 0;
   const manualOut = summary?.manual?.expense || 0;
@@ -460,7 +490,10 @@ export default function CierreCaja() {
               }}>
                 {manualList.map(t => (
                   <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.description}
+                      {t.category && <span style={{ color: 'var(--gray-400)' }}> · {expenseCategoryLabel(t.category)}</span>}
+                    </span>
                     <span className="tnum" style={{ flexShrink: 0 }}>
                       {t.type === 'INGRESO' ? '+' : '-'}{formatPriceCOP(t.amount)}
                     </span>
@@ -490,7 +523,11 @@ export default function CierreCaja() {
                     <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Tipo</label>
                     <select
                       value={gasto.type}
-                      onChange={(e) => setGasto({ ...gasto, type: e.target.value })}
+                      onChange={(e) => {
+                        const type = e.target.value;
+                        const options = type === 'INGRESO' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+                        setGasto({ ...gasto, type, category: options[0] });
+                      }}
                       style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', background: 'white', boxSizing: 'border-box' }}
                     >
                       <option value="EGRESO">Gasto (salió plata)</option>
@@ -498,17 +535,29 @@ export default function CierreCaja() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Monto</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={gasto.amount}
-                      onChange={(e) => setGasto({ ...gasto, amount: e.target.value })}
-                      placeholder="Ej: 12.000"
-                      className="tnum"
-                      style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
-                    />
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Categoría</label>
+                    <select
+                      value={gasto.category}
+                      onChange={(e) => setGasto({ ...gasto, category: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', background: 'white', boxSizing: 'border-box' }}
+                    >
+                      {(gasto.type === 'INGRESO' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                        <option key={cat} value={cat}>{expenseCategoryLabel(cat)}</option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+                <div style={{ marginBottom: '0.6rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Monto</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={gasto.amount}
+                    onChange={(e) => setGasto({ ...gasto, amount: e.target.value })}
+                    placeholder="Ej: 12.000"
+                    className="tnum"
+                    style={{ width: '100%', padding: '0.6rem', fontSize: '16px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }}
+                  />
                 </div>
                 <div style={{ marginBottom: '0.6rem' }}>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', marginBottom: '0.25rem' }}>Descripción</label>
@@ -522,7 +571,7 @@ export default function CierreCaja() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
-                    onClick={() => { setShowGastoForm(false); setGasto({ type: 'EGRESO', amount: '', description: '' }); }}
+                    onClick={() => { setShowGastoForm(false); setGasto({ type: 'EGRESO', category: EXPENSE_CATEGORIES[0], amount: '', description: '' }); }}
                     className="btn-secondary"
                     style={{ flex: 1, padding: '0.6rem' }}
                   >
@@ -602,6 +651,64 @@ export default function CierreCaja() {
           )}
         </div>
 
+        {/* Arqueo de transferencia declarada por el cajero (mismo patrón que
+            el arqueo de efectivo, contra el total del sistema). Tarjeta se
+            oculta: el local todavía no cobra con datáfono — ver CLAUDE.md
+            "Pendientes conocidos". El backend acepta declared_card si algún
+            día se reactiva. */}
+        <div style={{
+          background: 'white',
+          padding: '1.25rem 1.4rem',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-sm)',
+          marginBottom: '0.9rem'
+        }}>
+          <h3 style={{ margin: '0 0 0.9rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Arqueo de transferencia</h3>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--gray-600)', fontSize: '0.9375rem' }}>
+              <span>Transferencia (sistema)</span>
+              <span className="tnum">{formatPriceCOP(totalTransfer)}</span>
+            </div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Total transferencia
+            </label>
+            <input
+              type="number"
+              value={declaredTransfer}
+              onChange={(e) => setDeclaredTransfer(e.target.value)}
+              placeholder="0"
+              min="0"
+              step="100"
+              className="tnum"
+              style={{
+                width: '100%',
+                padding: '0.8rem 1rem',
+                fontSize: '1.25rem',
+                border: '2px solid var(--brand)',
+                borderRadius: 'var(--radius-lg)',
+                textAlign: 'right',
+                fontWeight: 700,
+                boxSizing: 'border-box'
+              }}
+            />
+            {declaredTransfer && !isNaN(parseMontoCOP(declaredTransfer)) && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: getDiffColor(parseMontoCOP(declaredTransfer) - totalTransfer)
+              }}>
+                <span>{getDiffLabel(parseMontoCOP(declaredTransfer) - totalTransfer)}</span>
+                <span className="tnum">{formatPriceCOP(Math.abs(parseMontoCOP(declaredTransfer) - totalTransfer))}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* PASO 14.3: Mensaje cuando no hay conexión */}
         {!isOnline && (
           <div style={{
@@ -622,7 +729,12 @@ export default function CierreCaja() {
         {/* Botón cerrar: única acción final de la pantalla → ancho completo está bien */}
         <button
           onClick={handleClose}
-          disabled={closing || !closingCash || isNaN(parseMontoCOP(closingCash)) || !isOnline}
+          disabled={
+            closing ||
+            !closingCash || isNaN(parseMontoCOP(closingCash)) ||
+            !declaredTransfer || isNaN(parseMontoCOP(declaredTransfer)) ||
+            !isOnline
+          }
           className="btn-danger"
           style={{ width: '100%', padding: '1rem', fontSize: '1.2rem' }}
         >

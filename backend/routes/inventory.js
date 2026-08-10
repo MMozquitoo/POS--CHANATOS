@@ -27,7 +27,6 @@ router.get("/", requireAuth, async (req, res) => {
         i.updated_at
       FROM ingredients ing
       LEFT JOIN inventory i ON i.ingredient_id = ing.id
-      WHERE ing.is_active = 1
       ORDER BY ing.name`
     );
 

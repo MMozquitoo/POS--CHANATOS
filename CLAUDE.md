@@ -38,16 +38,42 @@ backend/
                          #   valida montos contra el saldo REAL; pago parcial NO libera la mesa;
                          #   inventario se descuenta solo al quedar PAGADA; anular pago: bloqueado si
                          #   su caja ya cerró, repone inventario y devuelve items a pendiente
-    cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash}
-                         #   (OJO: /cash/session/open NO existe). Arqueo excluye pagos anulados e
-                         #   incluye propinas en efectivo en el esperado; los gastos/ingresos
-                         #   manuales (/cash/manual-transactions, pantalla GASTOS DE CAJA) también
-                         #   entran al esperado, filtrados por created_at DENTRO de la sesión (si la
-                         #   plata salió antes de abrir, ya se reflejó al contar la base).
+    cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash,
+                         #   declared_transfer, declared_card opcional}. (OJO: /cash/session/open NO
+                         #   existe). Arqueo excluye pagos anulados e incluye propinas en efectivo en
+                         #   el esperado; los gastos/ingresos manuales (/cash/manual-transactions)
+                         #   también entran al esperado, filtrados por created_at DENTRO de la sesión
+                         #   (si la plata salió antes de abrir, ya se reflejó al contar la base).
+                         #   ARQUEO ELECTRÓNICO (2026-08): además del efectivo contado, el cajero
+                         #   declara total de transferencia (siempre) y de tarjeta (opcional — oculto
+                         #   en la UI hasta que el local tenga datáfono, ver "Pendientes conocidos");
+                         #   cada uno se compara contra lo que el sistema registró (declared_X -
+                         #   total_X = diff_X, guardado en cash_sessions y en el snapshot del cierre).
+                         #   manual-transactions: category opcional (ver expenseCategories.js) +
+                         #   GET /manual-transactions?from&to&type&category (rango, para Contaduría)
+                         #   además del viejo GET /manual-transactions/:date (un solo día).
     reports.js           # /reports/summary?from&to: ventas/propinas/descuentos/canceladas, ticket
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
-    inventory.js         # /inventory/low-stock ya existe (stock <= min_stock)
+                         #   /reports/pnl?from&to (Contaduría, 2026-08): ventas − compras de insumos
+                         #   controlados (inventory_movements type=IN con purchase_total_cost, CASH-
+                         #   BASIS: el día que se pagaron, no el día que se vendió lo que llevaban) −
+                         #   gastos generales por categoría (manual_transactions EGRESO) + ingresos
+                         #   generales (INGRESO) = utilidad neta.
+    ingredients.js       # CRUD insumos CONTROLADOS (carne/pulpas, pan, papa...; ver recipes.js/
+                         #   inventoryMovements.js). unit = unidad BASE en la que las recetas
+                         #   descuentan (ej. gramo); conversion_factor = cuántas unidades base entran
+                         #   en 1 unidad de COMPRA (ej. comprás en kg, recetas en gramos → 1000).
+                         #   cost_per_unit se recalcula solo con cada compra, no se edita a mano.
+    recipes.js           # GET/PUT /recipes/product/:id: ingredientes + qty_used (unidad base) de UN
+                         #   producto. Un ingrediente puede estar en varias recetas con qty_used
+                         #   distinto (ej. Papa: 2 en "Papas Locas", 1 en "Porción"). Sin receta = el
+                         #   producto no descuenta stock (así quedan las verduras y todo lo que va por
+                         #   Gastos generales en vez de por acá).
+    inventory.js         # /inventory (con stock/min_stock por ingrediente), /inventory/low-stock
+                         #   (stock <= min_stock). POST /inventory crea el registro de stock de un
+                         #   ingrediente (arranca en 0) — sin esto, /inventory-movements "compra"
+                         #   rechaza el movimiento ("no existe inventario").
     products.js         # CRUD productos (CAJA). flavors: CSV de sabores (ej. gaseosas,
                          #   Michelada); flavor_prices: JSON {sabor:precio} (CAJA edita, ej.
                          #   Michelada Poker≠Corona); flavors_active: JSON array = subconjunto de
@@ -61,8 +87,13 @@ backend/
                          #   ANTES del BEGIN — el PRAGMA es no-op dentro de una transacción).
                          #   exceljs se carga con import DIFERIDO: el botón de actualizar no
                          #   reinstala node_modules, así el POS arranca igual sin la dependencia.
-    inventoryMovements.js # deduct/restoreInventoryFromOrderItems; stock negativo permitido pero
-                         #   auditado (STOCK_NEGATIVE); errores auditados (INVENTORY_ERROR)
+    inventoryMovements.js # deduct/restoreInventoryFromOrderItems (descuento automático al vender,
+                         #   por receta); stock negativo permitido pero auditado (STOCK_NEGATIVE);
+                         #   errores auditados (INVENTORY_ERROR). POST /inventory-movements "modo
+                         #   compra" (type=IN + purchase_qty + purchase_total_cost): calcula
+                         #   cost_per_unit = purchase_total_cost / (purchase_qty × conversion_factor)
+                         #   y lo guarda en ingredients — ES el flujo "compré 2kg de carne por
+                         #   30.000". UI: botón "Registrar compra" en Ingredientes.jsx.
   scripts/               # init-db, migrate, reset-day
   data/                  # pos_chanatos.db (gitignored), products.json (seed), backups/
 
@@ -75,6 +106,11 @@ frontend/
                          #   teléfono tarda en despertar) 2) mDNS 3) escaneo de subredes. En nativo usa
                          #   CapacitorHttp con timeouts. Verifica firma {app:"pos-chanatos"}.
       statusLabels.js    # Enums → texto legible. NUNCA mostrar EN_PREP etc. al usuario.
+      expenseCategories.js # Categorías FIJAS de Gastos generales (VERDURAS, SERVICIOS, ARRIENDO,
+                         #   NOMINA, ASEO, MANTENIMIENTO, TRANSPORTE, OTROS + APORTE_CAPITAL para
+                         #   ingresos). Mismo espíritu que statusLabels.js: un solo lugar traduce
+                         #   categoría → texto legible, usado por GastosGenerales.jsx, CierreCaja.jsx
+                         #   (gasto rápido del cierre) y Reportes.jsx (sección Contaduría).
       kitchenSound.js    # Chime Web Audio (sin archivos); unlockAudio en primer toque
     components/
       Modal.jsx          # OJO: efecto de foco con deps [open] y onCloseRef — NO agregar onClose a las
@@ -137,6 +173,47 @@ frontend/
                          #   <768px porque BottomNav ya cubre lo mismo), DashboardCaja ("Resumen"),
                          #   Reportes, CajaRoutes monta BottomNav/OrdenesDrawer/MenuDrawer +
                          #   catch-all → /centro
+                         #
+                         #   CONTADURÍA (2026-08) — dos niveles de gasto, no confundir:
+                         #   1) Insumos CONTROLADOS (carne/pulpas, pan, papa...): Ingredientes.jsx
+                         #      (`/ingredientes`, CRUD + botón "Registrar compra" → modo compra de
+                         #      inventoryMovements.js) y botón "Receta" en cada tarjeta de Menu.jsx
+                         #      (GET/PUT /recipes/product/:id). Con receta, el stock se descuenta
+                         #      solo al vender.
+                         #   2) Gastos GENERALES (verduras, servicios, arriendo, nómina...): sin
+                         #      receta ni inventario, solo categoría. GastosGenerales.jsx
+                         #      (`/gastos-generales`) es el ÚNICO lugar para REGISTRARLOS — funciona
+                         #      con la caja abierta o cerrada. El gasto rápido dentro de CierreCaja.jsx
+                         #      ("+ REGISTRAR GASTO DE CAJA") sigue existiendo aparte porque ajusta el
+                         #      arqueo del efectivo en vivo mientras se cierra; ambos escriben en
+                         #      manual_transactions con category.
+                         #   Reportes.jsx tiene una sección "Contaduría" (GET /reports/pnl) que junta
+                         #   ventas − compras controladas − gastos generales + ingresos generales.
+                         #
+                         #   MENÚ SIMPLIFICADO (2026-08) — OPCIONES (MasCaja.jsx) tenía 15+ botones;
+                         #   se juntaron pantallas relacionadas en 3 pantallas nuevas con pestañas
+                         #   (mismo patrón: prop `embedded` en el componente original, que se salta su
+                         #   propio CajaHeader/container cuando se usa adentro de una pestaña):
+                         #     - HistorialGeneral.jsx (ruta `/historial`, pestañas PAGOS/CIERRES) usa
+                         #       `<Historial embedded />` y `<HistorialCierres embedded />`.
+                         #     - Conexion.jsx (`/conexion`, pestañas ESTADO/CONFIGURAR) usa
+                         #       `<Diagnostico embedded onGoToServer={...} />` y `<ConfigServidor
+                         #       embedded />`. OJO: `/config-servidor` sigue existiendo standalone
+                         #       (embedded=false por defecto) porque es ruta PÚBLICA (Login.jsx,
+                         #       ConnectionBanner.jsx la usan sin sesión) — no se puede eliminar.
+                         #     - Aplicacion.jsx (`/aplicacion`): BUSCAR ACTUALIZACIONES + DESCARGAR
+                         #       DATOS (EXCEL) + RESTAURAR DATOS + COPIA DE SEGURIDAD, sacados enteros
+                         #       de MasCaja.jsx (antes vivían ahí inline).
+                         #   HistorialSesiones.jsx (`/historial-caja`, "HISTORIAL DE CAJA" en el menú)
+                         #   pasó a ser SOLO LECTURA (ya no se puede agregar/borrar transacción manual
+                         #   ahí) — quedaba un tercer camino para lo mismo que Gastos generales, que
+                         #   es justo el patrón de "doble navegación confusa" (ver Convenciones).
+                         #   TRAMPA: no reusar las clases `.centro-total-tabs`/`.centro-total-tab`
+                         #   para pestañas nuevas que no sean las de CentroTotal — mobile-polish.css
+                         #   las oculta con `display:none !important` en <768px porque ahí son
+                         #   redundantes con BottomNav; en una pantalla nueva NO lo son y las pestañas
+                         #   quedan invisibles en el celular (bug real de esta sesión, se corrigió
+                         #   sacando el className y dejando solo estilos inline).
     styles/
       chanatos-theme.css # Design tokens v2 "estilo Apple" (rediseño 2026-08): grises iOS (--gray-*),
                          #   semánticos con variante -text legible (--green/-red/-orange/-blue),
@@ -206,7 +283,7 @@ cd frontend && npx cap sync android && cd android && \
 POS_VERSION=<version-del-ultimo-release> ./scripts/build-desktop.sh   # → ~/Desktop/Instalar-POS-Chanatos.exe
 # (subir a GitHub: gh release upload vX Instalar-POS-Chanatos.exe --repo MMozquitoo/POS--CHANATOS --clobber)
 
-# Publicar una actualización remota (el PC la instala con el botón OPCIONES→BUSCAR ACTUALIZACIONES)
+# Publicar una actualización remota (el PC la instala con el botón OPCIONES→APLICACIÓN→BUSCAR ACTUALIZACIONES)
 ./scripts/publicar-actualizacion.sh   # compila + sube Release "latest" a GitHub
 
 # Servidor de producción en la Mac del dueño (launchd) — ACTUALMENTE DESACTIVADO.
@@ -240,6 +317,7 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 - Todo lo monetario de reportes/arqueo cuenta **al pagar**, no al pedir.
 - Propina separada de la venta (payments.tip_amount); descuento por orden (orders.discount_amount + motivo, auditado).
 - **Timestamps SIEMPRE explícitos en hora Bogotá** (`toBogotaSQLiteTimestamp`) — el DEFAULT CURRENT_TIMESTAMP de SQLite es UTC y ya causó un bug de +5h. Nunca confiar en el default.
+- **Contaduría (2026-08):** dos niveles de gasto que NO se mezclan (ver Estructura → Caja/ para el detalle de pantallas). Insumos controlados (carne, pan, papa...) llevan receta + descuento de stock automático al vender. Todo lo demás (verduras, servicios, arriendo, nómina) es un monto suelto por categoría en Gastos generales, sin inventario. El arqueo de tarjeta (`declared_card`) existe en el backend pero está oculto en la UI hasta que el local tenga datáfono.
 
 ## Concurrencia (importante)
 
@@ -282,10 +360,10 @@ La base de datos vive DENTRO de la carpeta de instalación (`resources\backend\d
 desinstalador de electron-builder hace `RMDir /r $INSTDIR` (plantilla `uninstaller.nsh`, rama
 `isUpdated`). **Reinstalar el .exe encima borra las ventas.** Por eso, antes de reinstalar:
 
-1. En el POS: OPCIONES → **DESCARGAR DATOS (EXCEL)** (o COPIA DE SEGURIDAD COMPLETA para el `.db`
-   exacto). Guardar el archivo fuera del PC (USB o correo).
+1. En el POS: OPCIONES → APLICACIÓN → **DESCARGAR DATOS (EXCEL)** (o COPIA DE SEGURIDAD COMPLETA
+   para el `.db` exacto). Guardar el archivo fuera del PC (USB o correo).
 2. Instalar la versión nueva.
-3. OPCIONES → **RESTAURAR DATOS DESDE ARCHIVO** y subir el `.xlsx`.
+3. OPCIONES → APLICACIÓN → **RESTAURAR DATOS DESDE ARCHIVO** y subir el `.xlsx`.
 
 El round-trip está verificado como exacto (mismos datos y timestamps; solo cambia el orden de las
 columnas cuando la BD vieja tenía columnas agregadas con ALTER TABLE). El import es transaccional:
@@ -297,4 +375,5 @@ de `$INSTDIR` para que reinstalar deje de ser destructivo.
 - Impresora térmica de cocina (no hay impresora aún)
 - Facturación electrónica DIAN (no están registrados aún)
 - Usuarios por empleado (PIN individual), ficha de clientes para domicilios, resumen remoto del dueño
-- Datáfono: el dueño evalúa Bold/Wompi (persona natural con RUT); el método TARJETA ya existe en el POS
+- Datáfono: el dueño evalúa Bold/Wompi (persona natural con RUT); el método TARJETA ya existe en el POS,
+  y el arqueo de tarjeta en el cierre de caja también (backend listo, oculto en la UI — ver "Reglas de negocio clave")
