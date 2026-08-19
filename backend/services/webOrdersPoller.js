@@ -55,6 +55,31 @@ async function ack(pedidoId) {
   });
 }
 
+/**
+ * Reporta si hay una sesion de caja abierta ahora mismo. La web usa esto
+ * para saber si puede dejar hacer pedidos (sin caja abierta no hay quien
+ * los atienda). Mismo criterio que ya usa routes/cash.js en todos lados:
+ * "SELECT ... WHERE closed_at IS NULL" = sesion activa.
+ */
+async function reportCashStatus() {
+  try {
+    const db = getDb();
+    const activeSession = await db.get(
+      "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1"
+    );
+    await fetch(`${ENDPOINT}/pos-status`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Web-Orders-Secret": SECRET,
+      },
+      body: JSON.stringify({ isOpen: !!activeSession }),
+    });
+  } catch (err) {
+    console.error("⚠️  No se pudo reportar el estado de la caja:", err.message);
+  }
+}
+
 function buildDeliveryNote(pedido) {
   const customer = pedido.customer || {};
   const fulfillment = pedido.fulfillment || {};
@@ -202,6 +227,9 @@ export function startWebOrdersPoller(port) {
     if (sessionToken) {
       await poll();
     }
+    // No depende de sessionToken: usa el secreto compartido, no el login
+    // de "Pedidos Web". Corre igual aunque el login este fallando.
+    await reportCashStatus();
     setTimeout(loop, POLL_INTERVAL_MS);
   };
 
