@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 import fs from "fs";
+import os from "os";
 
 // Importar rutas
 import { validateSession, loadSessionsFromDb } from "./routes/auth.js";
@@ -158,9 +159,25 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// IP de la red local (Wi-Fi) de esta máquina: la usan el celular para conectarse
+// y esta misma app para mostrar "SERVIDOR ACTUAL" con un link útil cuando se abre
+// desde el propio PC (ahí window.location.hostname es "localhost", que no sirve
+// para nada fuera de esa máquina — reporte del dueño 2026-08-19).
+function getLanIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+}
+
 // Descubrimiento automático: la app móvil escanea la red buscando esta firma
 app.get("/api/discover", (req, res) => {
-  res.status(200).json({ app: "pos-chanatos", name: "POS Chanatos" });
+  res.status(200).json({ app: "pos-chanatos", name: "POS Chanatos", ip: getLanIp(), port: Number(PORT) });
 });
 
 // WebSocket authentication

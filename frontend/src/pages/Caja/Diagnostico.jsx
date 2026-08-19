@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,6 +25,38 @@ export default function Diagnostico({ embedded = false, onGoToServer }) {
   const { isOnline, lastError } = useConnection();
   const [status, setStatus] = useState('idle'); // idle, loading, ok, error
   const [result, setResult] = useState(null);
+  // Cuando esta pantalla se abre desde el mismo PC del servidor (Electron
+  // carga http://localhost:3000), "SERVIDOR ACTUAL" muestra "localhost" — útil
+  // ahí mismo, pero inservible como link para el celular. Pedimos la IP LAN
+  // real al backend para mostrar el link que sí funciona desde otro equipo
+  // (reporte del dueño 2026-08-19: "no aparece un link para abrirlo en el celular").
+  const [lanUrl, setLanUrl] = useState(null);
+
+  const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(
+    (() => { try { return new URL(getApiBaseUrl()).hostname; } catch { return ''; } })()
+  );
+
+  useEffect(() => {
+    if (!isLocalHost) return;
+    axios.get(`${getApiBaseUrl()}/api/discover`)
+      .then((res) => {
+        if (res.data?.ip) {
+          setLanUrl(`http://${res.data.ip}:${res.data.port || 3000}`);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCopyLanUrl = async () => {
+    if (!lanUrl) return;
+    try {
+      await navigator.clipboard.writeText(lanUrl);
+      showAlert('Link copiado. Pégalo en el navegador del celular (misma red Wi-Fi).');
+    } catch (error) {
+      showAlert(`No se pudo copiar. Anótalo a mano: ${lanUrl}`);
+    }
+  };
 
   // Probar conectividad
   const handleTest = async () => {
@@ -138,6 +170,40 @@ isOnline (ConnectionContext): ${isOnline ? 'true' : 'false'}
               {baseUrl}
             </div>
           </div>
+
+          {/* Link para el celular: solo aparece cuando esta pantalla se ve desde
+              el propio PC del servidor (ahí "SERVIDOR ACTUAL" dice localhost) */}
+          {isLocalHost && lanUrl && (
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: 700,
+                fontSize: 'var(--text-15)',
+                color: 'var(--gray-900)'
+              }}>
+                LINK PARA EL CELULAR
+              </label>
+              <div style={{
+                padding: '0.75rem',
+                background: 'var(--brand-tint, #FFF3D6)',
+                border: '1px solid var(--brand)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--text-15)',
+                color: 'var(--gray-900)',
+                wordBreak: 'break-all',
+                marginBottom: '0.5rem'
+              }}>
+                {lanUrl}
+              </div>
+              <button onClick={handleCopyLanUrl} className="btn btn--secondary">
+                COPIAR LINK
+              </button>
+              <div style={{ marginTop: '0.5rem', fontSize: 'var(--text-13)', color: 'var(--gray-500)' }}>
+                Escríbelo en el navegador del celular, conectado a la misma red Wi-Fi.
+              </div>
+            </div>
+          )}
 
           {/* Botón probar */}
           <button

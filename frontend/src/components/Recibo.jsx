@@ -40,7 +40,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
     const qty = toNumber(item.qty || item.quantity || 1);
     const price = toNumber(item.price || item.unit_price || item.unitPrice || 0);
     const subtotal = qty * price;
-    
+
     return {
       qty,
       name: item.name || item.product_name || 'Item',
@@ -50,6 +50,22 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
       hasPrice: price > 0
     };
   });
+
+  // Agrupar items iguales (mismo producto + misma nota, ej. mismo sabor) para
+  // que la factura diga "3x Jugo" en vez de tres líneas de "1x Jugo" (pedido
+  // del dueño 2026-08-19: sin desglose individual por ítem).
+  const groupedItems = Object.values(
+    normalizedItems.reduce((acc, item) => {
+      const key = `${item.name}|${item.notes}`;
+      if (!acc[key]) {
+        acc[key] = { ...item };
+      } else {
+        acc[key].qty += item.qty;
+        acc[key].subtotal += item.subtotal;
+      }
+      return acc;
+    }, {})
+  );
 
   // Calcular total sumando subtotales
   const total = normalizedItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -358,38 +374,27 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             <div style={{ borderTop: '1px solid #333', marginTop: '0.5rem' }}></div>
           </div>
 
-          {/* Lista de productos (numerada) */}
+          {/* Lista de productos agrupados (sin desglose de precio unitario por
+              ítem — pedido del dueño: la factura solo dice "3x Jugo", no tres
+              líneas de "1x Jugo" con precio c/u repetido) */}
           <div style={{ marginBottom: '0.75rem' }}>
-            {normalizedItems.map((item, idx) => (
-              <div key={idx} style={{ 
-                marginBottom: '0.5rem',
-                paddingBottom: '0.5rem',
-                borderBottom: idx < normalizedItems.length - 1 ? '1px solid #ddd' : 'none'
+            {groupedItems.map((item, idx) => (
+              <div key={idx} style={{
+                marginBottom: '0.4rem',
+                paddingBottom: '0.4rem',
+                borderBottom: idx < groupedItems.length - 1 ? '1px solid #ddd' : 'none'
               }}>
-                {/* Primera línea: número + cantidad x nombre */}
-                <div style={{ marginBottom: '0.2rem' }}>
-                  <strong>{idx + 1}) {item.qty}x {item.name}</strong>
-                  {!item.hasPrice && (
-                    <span style={{ fontSize: '0.7rem', marginLeft: '0.3rem' }}>(sin precio)</span>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <strong>{item.qty}x {item.name}</strong>
+                  <span>{formatPriceCOP(item.subtotal)}</span>
                 </div>
-                {/* Segunda línea: precio unitario c/u + Sub: subtotal */}
-                <div style={{ 
-                  fontSize: '0.85rem',
-                  marginLeft: '1.2rem',
-                  marginBottom: item.notes ? '0.15rem' : '0'
-                }}>
-                  {item.hasPrice ? formatPriceCOP(item.price) : '$ 0'} c/u   Sub: {formatPriceCOP(item.subtotal)}
-                </div>
-                {/* Tercera línea: notas (si existen) */}
                 {item.notes && (
-                  <div style={{ 
-                    fontSize: '0.75rem', 
+                  <div style={{
+                    fontSize: '0.75rem',
                     fontStyle: 'italic',
-                    marginLeft: '1.2rem',
-                    marginTop: '0.15rem'
+                    marginTop: '0.1rem'
                   }}>
-                    Nota: {item.notes}
+                    {item.notes}
                   </div>
                 )}
               </div>
@@ -403,7 +408,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
           <div style={{ marginBottom: '0.75rem', fontSize: '0.9rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
               <span>Items:</span>
-              <span>{normalizedItems.length}</span>
+              <span>{normalizedItems.reduce((sum, item) => sum + item.qty, 0)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
               <span>Subtotal:</span>

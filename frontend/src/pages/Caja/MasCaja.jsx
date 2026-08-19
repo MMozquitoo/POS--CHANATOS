@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import ZoomControl from '../../components/ZoomControl.jsx';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
@@ -21,6 +22,11 @@ export default function MasCaja() {
         title="OPCIONES"
         backTo="/centro"
       />
+      {isElectron && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 1rem 0' }}>
+          <ZoomControl />
+        </div>
+      )}
       <div style={{
         display: 'flex',
         justifyContent: 'center',

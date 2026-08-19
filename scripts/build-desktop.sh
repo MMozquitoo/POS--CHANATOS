@@ -17,7 +17,9 @@ rm -rf "$RES"; mkdir -p "$RES/backend/data" "$RES/frontend"
 curl -sL -o /tmp/node-win.zip "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-win-x64.zip"
 rm -rf /tmp/node-unzip && mkdir /tmp/node-unzip && unzip -q /tmp/node-win.zip -d /tmp/node-unzip
 mv "/tmp/node-unzip/node-$NODE_VER-win-x64" "$RES/node"
-for d in routes db middleware utils scripts; do cp -R "$REPO/backend/$d" "$RES/backend/"; done
+for d in routes db middleware utils scripts config services; do
+  [ -d "$REPO/backend/$d" ] && cp -R "$REPO/backend/$d" "$RES/backend/"
+done
 cp "$REPO/backend/server.js" "$REPO/backend/package.json" "$REPO/backend/package-lock.json" "$RES/backend/"
 cp "$REPO/backend/data/products.json" "$RES/backend/data/"
 cp -R "$REPO/frontend/dist" "$RES/frontend/dist"

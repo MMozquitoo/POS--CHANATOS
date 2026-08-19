@@ -239,6 +239,12 @@ export default function DetalleMesa() {
   const [cancelOrderReason, setCancelOrderReason] = useState('');
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [showVoidItemModal, setShowVoidItemModal] = useState(false);
+  // CAMBIAR DE MESA (2026-08-19): mover una orden a otra mesa física —
+  // corregir mesa equivocada o pasar de Ventanilla/Domicilio a una mesa.
+  const [showMoveTableModal, setShowMoveTableModal] = useState(false);
+  const [freeTables, setFreeTables] = useState([]);
+  const [loadingFreeTables, setLoadingFreeTables] = useState(false);
+  const [movingTable, setMovingTable] = useState(false);
   // CAMBIO DE VARIANTE (2026-08): "pidió Sencilla, la quiere en Combo" —
   // item a cambiar por otra variante del mismo producto, sin anular+reagregar
   const [swapItem, setSwapItem] = useState(null);
@@ -290,6 +296,38 @@ export default function DetalleMesa() {
       setAllTables(res.data || []);
     } catch (error) {
       console.error('Error cargando mesas:', error);
+    }
+  }
+
+  async function openMoveTableModal() {
+    setShowMoveTableModal(true);
+    setLoadingFreeTables(true);
+    try {
+      const res = await axios.get('/tables');
+      const free = (res.data || []).filter(
+        (t) => t.number >= 1 && t.number <= 8 && t.status === 'libre' && t.id !== activeOrder?.table_id
+      );
+      setFreeTables(free);
+    } catch (error) {
+      console.error('Error cargando mesas libres:', error);
+      showAlert('Error al cargar las mesas disponibles');
+    } finally {
+      setLoadingFreeTables(false);
+    }
+  }
+
+  async function handleMoveTable(newTableId) {
+    if (!activeOrder) return;
+    setMovingTable(true);
+    try {
+      await axios.patch(`/orders/${activeOrder.id}/table`, { newTableId });
+      setShowMoveTableModal(false);
+      navigate(`/mesa/${newTableId}?orderId=${activeOrder.id}`);
+    } catch (error) {
+      console.error('Error moviendo orden de mesa:', error);
+      showAlert(error.response?.data?.error || 'Error al cambiar de mesa');
+    } finally {
+      setMovingTable(false);
     }
   }
 
@@ -1574,6 +1612,28 @@ export default function DetalleMesa() {
                     </button>
                   )}
 
+                  {/* CAMBIAR DE MESA (2026-08-19): corregir mesa equivocada o pasar
+                      de Ventanilla/Domicilio a una mesa física */}
+                  {activeOrder.status !== 'PAGADA' && activeOrder.status !== 'CANCELADO' && (
+                    <button
+                      className="pos-mobile-no-break detalle-mesa-hdr-btn"
+                      onClick={openMoveTableModal}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#0d6efd',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Cambiar de Mesa
+                    </button>
+                  )}
+
                   {/* FASE 12.6: Botón cancelar orden */}
                   {activeOrder.status !== 'PAGADA' && activeOrder.status !== 'CANCELADO' && (
                     <button
@@ -2718,6 +2778,90 @@ export default function DetalleMesa() {
                 {cancellingOrder ? 'Cancelando...' : 'Confirmar Cancelación'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CAMBIAR DE MESA (2026-08-19) */}
+      {showMoveTableModal && activeOrder && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '1.5rem'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.3rem', color: '#0d6efd' }}>
+              Cambiar de Mesa
+            </h3>
+            <div style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' }}>
+              Orden {activeOrder.daily_no ? `ORDEN ${activeOrder.daily_no}` : (activeOrder.code || `#${activeOrder.id}`)} — mesa actual: {activeOrder.table_label || 'Sin mesa'}
+            </div>
+
+            {loadingFreeTables ? (
+              <div style={{ padding: '1rem 0', color: '#666' }}>Cargando mesas disponibles...</div>
+            ) : freeTables.length === 0 ? (
+              <div style={{ padding: '1rem 0', color: '#666' }}>No hay mesas libres en este momento.</div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                gap: '0.6rem',
+                marginBottom: '1rem'
+              }}>
+                {freeTables.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleMoveTable(t.id)}
+                    disabled={movingTable}
+                    style={{
+                      padding: '1rem 0.5rem',
+                      background: '#e7f1ff',
+                      color: '#0d6efd',
+                      border: '2px solid #0d6efd',
+                      borderRadius: '8px',
+                      cursor: movingTable ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '1rem',
+                      opacity: movingTable ? 0.6 : 1
+                    }}
+                  >
+                    {t.label || `Mesa ${t.number}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowMoveTableModal(false)}
+              disabled={movingTable}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1.5rem',
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: movingTable ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold',
+                opacity: movingTable ? 0.6 : 1
+              }}
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}

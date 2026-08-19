@@ -1370,16 +1370,16 @@ export default function CentroTotal() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#333' }}>
-                          {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
-                        </div>
-                        <div style={{ color: '#666', fontSize: '0.8rem' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#333' }}>
                           {order.table_label || 'Sin mesa'}
                           {enCocina && (
-                            <span style={{ marginLeft: '0.4rem', color: '#B25000', fontWeight: 700 }}>
+                            <span style={{ marginLeft: '0.4rem', color: '#B25000', fontWeight: 700, fontSize: '0.8rem' }}>
                               {statusLabel(order.status)}
                             </span>
                           )}
+                        </div>
+                        <div style={{ color: '#666', fontSize: '0.8rem' }}>
+                          {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>

@@ -2,6 +2,7 @@ const { app, BrowserWindow, session, shell, ipcMain, Notification } = require('e
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 
 // En la app empaquetada, extraResources cae en process.resourcesPath.
 // En desarrollo (npm start) usamos ./resources.
@@ -16,6 +17,41 @@ app.setAppUserModelId('co.chanatos.pos');
 let backend = null;
 let win = null;
 let quitting = false;
+
+// Zoom estilo Chrome, editable desde Opciones (pedido del dueño 2026-08-19):
+// la UI es mobile-first (botones/fuentes grandes para dedo) y se ve
+// desproporcionada maximizada en un monitor de PC. Arranca en 80% por
+// defecto y el dueño lo ajusta desde la app; queda guardado en un archivo
+// junto a la config de la app para sobrevivir reinicios/actualizaciones.
+const ZOOM_FILE = path.join(app.getPath('userData'), 'zoom.json');
+const DEFAULT_ZOOM = 0.8;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 1.5;
+
+function loadZoomFactor() {
+  try {
+    const raw = fs.readFileSync(ZOOM_FILE, 'utf8');
+    const factor = JSON.parse(raw)?.factor;
+    if (typeof factor === 'number' && factor >= ZOOM_MIN && factor <= ZOOM_MAX) return factor;
+  } catch (e) { /* primer arranque o archivo corrupto: usar default */ }
+  return DEFAULT_ZOOM;
+}
+
+function saveZoomFactor(factor) {
+  try {
+    fs.writeFileSync(ZOOM_FILE, JSON.stringify({ factor }));
+  } catch (e) {
+    console.error('No se pudo guardar el zoom:', e);
+  }
+}
+
+ipcMain.handle('zoom:get', () => (win ? win.webContents.getZoomFactor() : loadZoomFactor()));
+ipcMain.handle('zoom:set', (_event, factor) => {
+  const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number(factor) || DEFAULT_ZOOM));
+  if (win) win.webContents.setZoomFactor(clamped);
+  saveZoomFactor(clamped);
+  return clamped;
+});
 
 // Notificación nativa del sistema operativo (pedido del dueño: que suene incluso con
 // la ventana minimizada o sin foco, cosa que Web Audio NO puede hacer porque los
@@ -89,6 +125,13 @@ async function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.maximize();
+
+  // Zoom guardado (editable desde Opciones, ver ipcMain 'zoom:set'). Se
+  // reaplica en cada carga porque el watchdog recarga la ventana tras
+  // actualizar y Chromium no siempre conserva el zoom entre cargas.
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomFactor(loadZoomFactor());
+  });
 
   // Los enlaces externos se abren en el navegador del sistema, no dentro de la app
   win.webContents.setWindowOpenHandler(({ url }) => {

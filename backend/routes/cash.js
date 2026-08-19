@@ -671,10 +671,31 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       [sessionId]
     );
 
+    // Pendiente por cobrar HOY: items de órdenes de hoy que todavía no se han
+    // pagado (en mesa/ventanilla/domicilio, EN_PREP o LISTO sin cobrar). El
+    // dueño pidió que "Ventas teóricas" sea vendido + pendiente, no solo lo
+    // ya cobrado (2026-08-19) — antes daba la misma cifra que "Total cobrado"
+    // y no reflejaba lo que había en mesas sin facturar.
+    const pendingSalesResult = await db.get(
+      `SELECT COALESCE(SUM(oi.qty * oi.price), 0) as total
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE oi.voided_at IS NULL
+         AND oi.paid_at IS NULL
+         AND o.status != 'CANCELADO'
+         AND o.business_day = ?`,
+      [getBogotaDateString()]
+    );
+
+    const paidSales = theoreticalSalesResult?.total || 0;
+    const pendingSales = pendingSalesResult?.total || 0;
+
     res.json({
       sessionId,
       total: totalResult?.total_amount || 0,
-      theoreticalSales: theoreticalSalesResult?.total || 0,
+      theoreticalSales: paidSales + pendingSales,
+      theoreticalSalesPaid: paidSales,
+      theoreticalSalesPending: pendingSales,
       paymentCount: totalResult?.payment_count || 0,
       byMethod: paymentsByMethod || [],
       tipsCash: paymentsByMethod.find((m) => m.method === "EFECTIVO")?.tips || 0,

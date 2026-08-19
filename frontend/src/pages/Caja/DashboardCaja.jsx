@@ -166,6 +166,7 @@ export default function DashboardCaja() {
   // Calcular valores para el bloque informativo
   const initialCash = session?.initial_cash || 0;
   const totalSales = summary?.theoreticalSales || 0;
+  const pendingSales = summary?.theoreticalSalesPending || 0;
   const totalCash = summary?.byMethod?.find(m => m.method === 'EFECTIVO')?.total || 0;
   const totalCard = summary?.byMethod?.find(m => m.method === 'TARJETA')?.total || 0;
   const totalTransfer = summary?.byMethod?.find(m => m.method === 'TRANSFERENCIA')?.total || 0;
@@ -259,7 +260,7 @@ export default function DashboardCaja() {
             {/* Stat tiles estilo widgets iOS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
               {[
-                { label: 'Ventas teóricas', value: totalSales, color: 'var(--brand-deep)' },
+                { label: 'Ventas teóricas', value: totalSales, color: 'var(--brand-deep)', hint: pendingSales > 0 ? `Incluye ${formatPriceCOP(pendingSales)} pendiente por cobrar` : null },
                 { label: 'Total cobrado', value: totalCash + totalCard + totalTransfer, color: 'var(--green-text)' },
                 { label: 'Efectivo', value: totalCash, color: 'var(--gray-900)' },
                 { label: 'Transferencias', value: totalTransfer, color: 'var(--gray-900)' },
@@ -268,7 +269,7 @@ export default function DashboardCaja() {
                   value: diffCash,
                   color: diffCash === 0 ? 'var(--green-text)' : diffCash > 0 ? 'var(--orange-text)' : 'var(--red-text)'
                 }] : []),
-              ].map(({ label, value, color }) => (
+              ].map(({ label, value, color, hint }) => (
                 <div key={label} style={{
                   background: 'white',
                   borderRadius: 'var(--radius-lg)',
@@ -281,6 +282,11 @@ export default function DashboardCaja() {
                   <div className="tnum" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color, lineHeight: 1.15 }}>
                     {formatPriceCOP(value)}
                   </div>
+                  {hint && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.2rem' }}>
+                      {hint}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
