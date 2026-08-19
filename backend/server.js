@@ -29,6 +29,7 @@ import settingsRoutes from "./routes/settings.js";
 
 // Importar base de datos
 import { initDatabase, getDb } from "./db/database.js";
+import { startWebOrdersPoller } from "./services/webOrdersPoller.js";
 
 // Configuración
 const __filename = fileURLToPath(import.meta.url);
@@ -240,4 +241,9 @@ httpServer.listen(PORT, "0.0.0.0", () => {
     .catch((err) => {
       console.warn("⚠️ No se pudo anunciar por mDNS:", err.message);
     });
+
+  // Pedidos web -> POS: consulta la cola en la nube (Railway) y crea la
+  // orden local. No-op si no hay WEB_ORDERS_ENDPOINT configurado (instalaciones
+  // sin esta variable siguen funcionando exactamente igual que antes).
+  startWebOrdersPoller(Number(PORT));
 });

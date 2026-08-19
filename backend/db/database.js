@@ -819,6 +819,44 @@ export const initDatabase = async () => {
     console.error("⚠️  Error agregando category a manual_transactions:", categoryError);
   }
 
+  // Pedidos web -> POS: columna para deduplicar (por si el poller reintenta
+  // tras un corte) y usuario de servicio dedicado para el poller — chequeo
+  // incondicional.
+  try {
+    const ordersColsWebOrders = await database.all("PRAGMA table_info(orders)");
+    if (!ordersColsWebOrders.some((c) => c.name === "web_order_id")) {
+      console.log("  ➕ Agregando web_order_id a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN web_order_id TEXT");
+      console.log("  ✅ Campo web_order_id agregado a orders");
+    }
+  } catch (webOrderIdError) {
+    console.error("⚠️  Error agregando web_order_id:", webOrderIdError);
+  }
+
+  try {
+    const webOrdersUser = await database.get(
+      "SELECT id FROM users WHERE name = 'Pedidos Web'"
+    );
+    if (!webOrdersUser) {
+      const pin = process.env.WEB_ORDERS_POLLER_PIN || "";
+      if (pin) {
+        console.log("  ➕ Creando usuario 'Pedidos Web' para el poller de pedidos...");
+        const pinHash = await bcrypt.hash(pin, 10);
+        await database.run(
+          "INSERT INTO users (name, role, pin_hash) VALUES (?, ?, ?)",
+          ["Pedidos Web", "MESERO", pinHash]
+        );
+        console.log("  ✅ Usuario 'Pedidos Web' creado");
+      } else {
+        console.warn(
+          "⚠️  WEB_ORDERS_POLLER_PIN no configurado: el usuario 'Pedidos Web' no se crea todavia"
+        );
+      }
+    }
+  } catch (webOrdersUserError) {
+    console.error("⚠️  Error creando usuario 'Pedidos Web':", webOrdersUserError);
+  }
+
   console.log("✅ Base de datos inicializada correctamente");
 };
 

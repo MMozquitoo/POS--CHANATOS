@@ -114,7 +114,7 @@ router.post(
       }
 
       // 2) Validar payload mínimo
-    const { tableId, channel, items, service } = req.body;
+    const { tableId, channel, items, service, web_order_id: webOrderId } = req.body;
 
       if (!channel) {
         return res.status(400).json({ error: "channel es requerido" });
@@ -137,7 +137,28 @@ router.post(
       }
 
     const db = getDb();
-    
+
+    // Idempotencia: si esta orden ya se creó (ej. el poller de pedidos web
+    // reintentó tras un corte de red antes de confirmar), devolver la
+    // existente en vez de duplicarla.
+    if (webOrderId) {
+      const existing = await db.get("SELECT id FROM orders WHERE web_order_id = ?", [
+        webOrderId,
+      ]);
+      if (existing) {
+        const existingOrder = await db.get("SELECT * FROM orders WHERE id = ?", [
+          existing.id,
+        ]);
+        const existingItems = await db.all(
+          "SELECT * FROM order_items WHERE order_id = ?",
+          [existing.id]
+        );
+        return res.status(200).json({
+          order: { ...existingOrder, items: existingItems },
+        });
+      }
+    }
+
     // FASE 1: Determinar service según número de mesa si no se proporciona
     let finalTableId = tableId;
     let orderService = service;
@@ -2396,6 +2417,89 @@ router.post("/:id/merge", requireAuth, requireRole("CAJA"), async (req, res) => 
     });
   } catch (error) {
     console.error("Error uniendo órdenes:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// PATCH /:id/table - Mover una orden a otra mesa física (1-8). Cubre dos
+// casos pedidos por el dueño (2026-08-19): corregir una mesa equivocada, y
+// convertir un pedido de Ventanilla/Domicilio en pedido de mesa cuando el
+// cliente decide sentarse a comer. La orden mudada conserva items/estado/
+// cocina; solo cambian table_id/channel/service. Mesa destino debe estar
+// libre (mismo chequeo anti-colisión que crear orden) y la orden origen no
+// puede estar PAGADA/CANCELADO (estados terminales).
+router.patch("/:id/table", requireAuth, requireRole("CAJA", "MESERO"), async (req, res) => {
+  try {
+    const db = getDb();
+    const orderId = parseInt(req.params.id);
+    const newTableId = parseInt(req.body.newTableId);
+
+    if (!newTableId) {
+      return res.status(400).json({ error: "newTableId es requerido" });
+    }
+
+    const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    if (!order) {
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+
+    const OPEN_STATUSES = ["NUEVO", "EN_PREP", "LISTO"];
+    if (!OPEN_STATUSES.includes(order.status)) {
+      return res.status(409).json({ error: "Solo se pueden mover órdenes abiertas (no pagadas ni canceladas)" });
+    }
+
+    if (order.table_id === newTableId) {
+      return res.status(400).json({ error: "La orden ya está en esa mesa" });
+    }
+
+    const newTable = await db.get("SELECT id, number, label FROM tables WHERE id = ?", [newTableId]);
+    if (!newTable) {
+      return res.status(404).json({ error: "Mesa destino no encontrada" });
+    }
+    if (newTable.number === 9 || newTable.number === 10) {
+      return res.status(400).json({ error: "Solo se puede mover a una mesa física (1-8)" });
+    }
+
+    const activeAtDestination = await db.get(
+      `SELECT id FROM orders WHERE table_id = ? AND paid_at IS NULL AND status != 'CANCELADO' LIMIT 1`,
+      [newTableId]
+    );
+    if (activeAtDestination) {
+      return res.status(409).json({ error: "Ya hay una orden activa en la mesa destino" });
+    }
+
+    const oldTableId = order.table_id;
+    const timestamp = toBogotaSQLiteTimestamp(new Date());
+
+    await db.run(
+      `UPDATE orders SET table_id = ?, channel = 'MESA', service = 'MESA', updated_at = ? WHERE id = ?`,
+      [newTableId, timestamp, orderId]
+    );
+
+    await logAudit({
+      action: 'ORDER_TABLE_CHANGED',
+      entity_type: 'order',
+      entity_id: orderId,
+      order_id: orderId,
+      user_id: req.user.id,
+      ip: req.ip || req.connection?.remoteAddress || null,
+      summary: `Orden ${order.daily_no || order.code || orderId} movida a mesa ${newTable.label || newTable.number}`,
+      meta: { old_table_id: oldTableId, new_table_id: newTableId }
+    });
+
+    const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const items = await db.all("SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL", [orderId]);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("order:updated", { order: { ...updatedOrder, items } });
+      if (oldTableId) io.emit("table:updated", { tableId: oldTableId });
+      io.emit("table:updated", { tableId: newTableId });
+    }
+
+    res.json({ ok: true, order: { ...updatedOrder, items } });
+  } catch (error) {
+    console.error("Error moviendo orden de mesa:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
