@@ -330,8 +330,8 @@ router.post(
         const createdAt = toBogotaSQLiteTimestamp(new Date());
 
         result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at, web_order_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             code,
             finalTableId || null,
@@ -345,6 +345,7 @@ router.post(
             // updated_at explícito también: el DEFAULT de SQLite es UTC y la
             // orden recién creada reportaba updated_at +5h (auditoría 2026-08-03)
             createdAt,
+            webOrderId || null,
           ]
         );
 
