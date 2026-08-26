@@ -24,10 +24,12 @@ const PERIODS = [
 const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
 
 // Fila con barra horizontal (una sola magnitud → un solo tono validado #B8860B)
-// money=false para magnitudes que son conteos, no plata
-function BarRow({ label, value, max, extra, money = true }) {
+// money=false para magnitudes que son conteos, no plata; display sobreescribe
+// el texto mostrado (ej. "5.4 kg") sin afectar el % de la barra, que sigue
+// usando value
+function BarRow({ label, value, max, extra, money = true, display: displayOverride }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
-  const display = money ? formatPriceCOP(value) : String(value);
+  const display = displayOverride ?? (money ? formatPriceCOP(value) : String(value));
   return (
     <div className="rep-bar-row" title={`${label}: ${display}`}>
       <div className="rep-bar-label">{label}</div>
@@ -50,15 +52,21 @@ export default function Reportes() {
   const [lowStock, setLowStock] = useState([]);
   const [pnl, setPnl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  const currentRange = useCallback(() => {
+    if (period === 'rango') {
+      if (!customFrom || !customTo) return null; // fecha a medio digitar
+      return customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
+    }
+    return PERIODS.find(p => p.key === period).range();
+  }, [period, customFrom, customTo]);
 
   const load = useCallback(async () => {
-    let from, to;
-    if (period === 'rango') {
-      if (!customFrom || !customTo) return; // fecha a medio digitar
-      [from, to] = customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
-    } else {
-      [from, to] = PERIODS.find(p => p.key === period).range();
-    }
+    const range = currentRange();
+    if (!range) return;
+    const [from, to] = range;
     setLoading(true);
     try {
       const [repRes, stockRes, pnlRes] = await Promise.all([
@@ -74,7 +82,32 @@ export default function Reportes() {
     } finally {
       setLoading(false);
     }
-  }, [period, customFrom, customTo]);
+  }, [currentRange]);
+
+  const handleDownloadExcel = async () => {
+    const range = currentRange();
+    if (!range) return;
+    const [from, to] = range;
+    setDownloading(true);
+    setDownloadError('');
+    try {
+      const res = await axios.get(`/reports/summary/excel?from=${from}&to=${to}`, { responseType: 'blob' });
+      const nombre = `Reporte-Ventas-${from}-a-${to}.xlsx`;
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (error) {
+      console.error('Error descargando Excel:', error);
+      setDownloadError('No se pudo descargar el Excel. Intenta de nuevo.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -85,6 +118,14 @@ export default function Reportes() {
   const maxHour = Math.max(0, ...(data?.byHour || []).map(h => h.total));
   const maxOrdersHour = Math.max(0, ...(data?.ordersByHour || []).map(h => h.count));
   const maxDay = Math.max(0, ...(data?.byDay || []).map(d => d.total));
+  const maxIngredient = Math.max(0, ...(data?.ingredientConsumption || []).map(i => i.qty_consumed));
+
+  // Gramos → kilos con 1 decimal cuando conviene; el resto de unidades se
+  // dejan tal cual (unidad, etc.)
+  function formatQty(qty, unit) {
+    if (unit === 'gramo' && qty >= 1000) return `${(qty / 1000).toFixed(1)} kg`;
+    return `${qty} ${unit}`;
+  }
 
   return (
     <div className="caja-container">
@@ -102,6 +143,23 @@ export default function Reportes() {
               {p.label}
             </button>
           ))}
+        </div>
+
+        {/* Descargar Excel del periodo elegido arriba */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={handleDownloadExcel}
+            disabled={downloading || loading}
+          >
+            {downloading ? 'Generando…' : 'Descargar Excel'}
+          </button>
+          {downloadError && (
+            <div style={{ color: 'var(--red-text, #dc3545)', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+              {downloadError}
+            </div>
+          )}
         </div>
 
         {/* Fechas personalizadas (solo con Rango) */}
@@ -167,6 +225,10 @@ export default function Reportes() {
                 <div className="rep-kpi-value">{t.cancelled}</div>
                 <div className="rep-kpi-label">Canceladas</div>
               </div>
+              <div className="rep-kpi">
+                <div className="rep-kpi-value">{t.burgersSold}</div>
+                <div className="rep-kpi-label">Hamburguesas vendidas</div>
+              </div>
               {t.prepCount > 0 && (
                 <>
                   <div className="rep-kpi">
@@ -192,6 +254,25 @@ export default function Reportes() {
                 ))
               )}
             </section>
+
+            {/* Consumo de insumos según receta (carne, pan, etc. de lo vendido
+                en el periodo — distinto de "Compras de insumos" en Contaduría,
+                que es lo que se pagó, no lo que se usó) */}
+            {data.ingredientConsumption.length > 0 && (
+              <section className="rep-section">
+                <h3>Consumo de insumos <span className="rep-section-hint">(según receta)</span></h3>
+                {data.ingredientConsumption.map(i => (
+                  <BarRow
+                    key={i.ingredient_id}
+                    label={i.ingredient_name}
+                    value={i.qty_consumed}
+                    max={maxIngredient}
+                    money={false}
+                    display={formatQty(i.qty_consumed, i.unit)}
+                  />
+                ))}
+              </section>
+            )}
 
             {/* Por método de pago */}
             <section className="rep-section">
