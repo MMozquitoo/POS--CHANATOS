@@ -29,6 +29,30 @@ backend/
                          #   /items/:id/ready (cocina plato por plato; al completar todos → LISTO solo);
                          #   MESERO puede: crear, agregar items, NUEVO→EN_PREP, cancelar NUEVO/EN_PREP,
                          #   ver cualquier orden (piso compartido). Cancelar exige motivo ≥3 y cero pagos.
+                         #   NOTA DE COCINA (2026-09) — dos niveles, no confundir:
+                         #   1) orders.special_note: aviso de TODA la orden, independiente de un
+                         #      producto ("cliente con prisa", "para llevar"). Viaja en POST /orders
+                         #      (specialNote) o se edita después con PATCH /:id/special-note (MESERO+
+                         #      CAJA, bloqueado en PAGADA/CANCELADO). Se muestra junto a la orden en
+                         #      Cocina/CocinaCaja, separado de las notas por plato.
+                         #   2) order_items.special_note: la de siempre, por producto (ProductPicker).
+                         #   EDITAR UN ITEM YA AGREGADO (2026-09): PATCH /items/:id ahora acepta
+                         #   MESERO además de CAJA, pero solo para notes/specialNote/qty — name/price/
+                         #   productId siguen siendo exclusivos de CAJA (403 si el mesero los manda).
+                         #   Antes un item quedaba fijo tras agregarlo (sin forma de corregir una salsa
+                         #   olvidada sin anular y reagregar). UI: components/EditItemNoteModal.jsx
+                         #   (salsas/sabor + nota especial, reutiliza SalsasChips/SaboresChips) y
+                         #   components/OrderNoteModal.jsx (nota de la orden), usados en PedidoMesa,
+                         #   DetalleMesa, Ventanilla y Domicilios — los 4 lugares donde se arma/edita
+                         #   un pedido (ver Convenciones: no arreglar solo una pantalla).
+                         #   RAPPI (2026-10): orders.delivery_platform ('RAPPI' | null). Viaja en
+                         #   POST /orders (deliveryPlatform) o PATCH /:id/delivery-platform (MESERO+
+                         #   CAJA, bloqueado en PAGADA/CANCELADO). Rappi YA le cobró al cliente y le
+                         #   paga al local después (semanal): acá nadie cobra. closeOrderIfPrepaid,
+                         #   al llegar la orden a LISTO, inserta solo un pago method='RAPPI' por el
+                         #   saldo y cierra (PAGADA+archivada+inventario). Si se marca Rappi una
+                         #   orden que ya estaba LISTA, cierra ahí mismo. Esa plata NO entra al
+                         #   arqueo del día (ver cash.js) pero SÍ a Reportes.
     payments.js          # /payments (orden completa; acepta payments:[{method,amount}] dividido y
                          #   tipAmount); /payments/items (por items; incompatible con descuento → 409);
                          #   PAGO ADELANTADO (2026-08): VENTANILLA/DOMICILIO puede cobrarse en
@@ -49,10 +73,18 @@ backend/
                          #   en la UI hasta que el local tenga datáfono, ver "Pendientes conocidos");
                          #   cada uno se compara contra lo que el sistema registró (declared_X -
                          #   total_X = diff_X, guardado en cash_sessions y en el snapshot del cierre).
+                         #   RAPPI (2026-10): method='RAPPI' se excluye de total_sales, del efectivo
+                         #   esperado, del "total" y de las ventas teóricas de /session/:id/summary
+                         #   (van aparte en `rappi` {count,total} y en cash_sessions.total_rappi /
+                         #   snapshot.totals.total_rappi). El CHECK de payments.method se reconstruyó
+                         #   en database.js para admitir 'RAPPI' (SQLite no edita CHECKs: tabla nueva,
+                         #   copia conservando ids, rename, índices recreados).
                          #   manual-transactions: category opcional (ver expenseCategories.js) +
                          #   GET /manual-transactions?from&to&type&category (rango, para Contaduría)
                          #   además del viejo GET /manual-transactions/:date (un solo día).
     reports.js           # /reports/summary?from&to: ventas/propinas/descuentos/canceladas, ticket
+                         #   (totals.sales INCLUYE Rappi — es venta del período aunque la plata
+                         #   llegue después; totals.rappi dice cuánto de eso es Rappi),
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
                          #   /reports/pnl?from&to (Contaduría, 2026-08): ventas − compras de insumos
@@ -106,6 +138,7 @@ frontend/
                          #   teléfono tarda en despertar) 2) mDNS 3) escaneo de subredes. En nativo usa
                          #   CapacitorHttp con timeouts. Verifica firma {app:"pos-chanatos"}.
       statusLabels.js    # Enums → texto legible. NUNCA mostrar EN_PREP etc. al usuario.
+                         #   También PAYMENT_METHOD_LABELS (RAPPI → "Rappi") y DELIVERY_PLATFORM_LABELS.
       expenseCategories.js # Categorías FIJAS de Gastos generales (VERDURAS, SERVICIOS, ARRIENDO,
                          #   NOMINA, ASEO, MANTENIMIENTO, TRANSPORTE, OTROS + APORTE_CAPITAL para
                          #   ingresos). Mismo espíritu que statusLabels.js: un solo lugar traduce
@@ -122,11 +155,35 @@ frontend/
                          #   por flavors_active vía parseActiveFlavors() — el mesero apaga un sabor
                          #   en Sabores.jsx y automáticamente desaparece acá, un solo lugar alimenta
                          #   ProductPicker/Ventanilla/Domicilios/DetalleMesa/PedidoMesa.
-      ProductPicker.jsx  # Selector compartido categoría→producto→cantidad/notas/sabores→"Agregar".
+      ItemOptionsSheet.jsx # PANEL POR ITEM (2026-10): sheet en celular / modal en PC con cantidad,
+                         #   sabor, salsas, ADICIONALES, observación y nota especial. Lo abre
+                         #   ProductPicker al tocar un producto (mode="add") y EditItemNoteModal al
+                         #   tocar un item ya agregado (mode="edit"). Antes el formulario quedaba
+                         #   inline debajo de la grilla y había que deslizar para encontrarlo.
+                         #   Precio unitario = base (según sabor) + adicionales; un item YA enviado
+                         #   conserva el precio guardado (no se recalcula).
+      AdicionalesChips.jsx # Adicionales = productos de la categoría ADICIONALES del menú (CAJA los
+                         #   crea/precia en Menú/Precios — no hay pantalla aparte). Se escriben en
+                         #   notes como "+ Queso extra" (cocina los ve pegados al plato) y su precio
+                         #   SUMA al precio unitario del item. Trade-off: no descuentan inventario
+                         #   por receta (van dentro del plato). ProductPicker manda la pestaña
+                         #   ADICIONALES de última. getAdicionales(productsByCategory) es la fuente.
+      PlatformBadge.jsx  # Etiqueta "RAPPI" junto al número de orden (Cocina, CocinaCaja,
+                         #   DetalleMesa, Domicilios).
+      ProductPicker.jsx  # Selector compartido categoría→producto→PANEL (ItemOptionsSheet)→"Agregar".
                          #   Usado por Mesero, Caja (DetalleMesa) y Ventanilla/Domicilios — antes
                          #   cada pantalla tenía su propia versión (algunas con el patrón viejo de
                          #   "agregar al toque y editar después"), causaba desbordes/scroll
-                         #   inconsistentes entre pantallas al arreglar solo una.
+                         #   inconsistentes entre pantallas al arreglar solo una. Exporta también
+                         #   findProductById() (busca un producto por id en productsByCategory, para
+                         #   saber si un item ya agregado tiene sabores/salsas disponibles).
+      EditItemNoteModal.jsx # Editar un item YA agregado (pendiente o ya en la orden) — wrapper de
+                         #   ItemOptionsSheet en modo edit. Item LOCAL (aún no enviado): además
+                         #   cantidad y adicionales (allowQty/allowAdicionales, recalcula precio).
+                         #   Item YA ENVIADO: solo salsas/sabor/nota (el PATCH del mesero no toca
+                         #   precio). Usado en PedidoMesa, DetalleMesa, Ventanilla, Domicilios.
+      OrderNoteModal.jsx # Nota de LA ORDEN completa (orders.special_note), independiente de
+                         #   seleccionar un producto. Mismos 4 lugares que EditItemNoteModal.
       OrdenesDrawer.jsx  # Modal con grid de mesas 1-8 + Ventanilla/Domicilios; compartido entre
                          #   Caja y Mesero (antes vivía en components/caja/, se movió a components/
                          #   raíz). OJO: goToTable() siempre navega a /mesa/:id — para Mesero eso
@@ -157,6 +214,9 @@ frontend/
                          #   MenuDrawer + catch-all → "/" (evita pantalla en blanco al cambiar rol),
                          #   Sabores.jsx (prender/apagar sabores del día, ver products.js arriba)
       Ventanilla/ Domicilios/  # Multi-orden (fila de clientes), unir cuentas (caja), importan Caja.css,
+                         #   Domicilios tiene el switch "Pedido de Rappi" al armar el pedido (y en el
+                         #   detalle de una orden abierta, por si se olvidó). Con Rappi, CAJA NO va al
+                         #   riel de cobro al crear (no hay nada que cobrar) y el botón COBRAR se oculta.
                          #   usan ProductPicker para agregar items. OJO: loadOrders es function
                          #   declaration (hoisting) — useVentanillaRefresh la referencia antes de su
                          #   línea (TDZ crasheaba la página)
@@ -316,6 +376,11 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 - **PAGADA y CANCELADO son terminales** para modificaciones; cancelar exige motivo y cero pagos válidos.
 - Todo lo monetario de reportes/arqueo cuenta **al pagar**, no al pedir.
 - Propina separada de la venta (payments.tip_amount); descuento por orden (orders.discount_amount + motivo, auditado).
+- **Rappi (2026-10):** un pedido marcado Rappi lo paga Rappi después, no el cliente en el local.
+  Se cierra solo al quedar LISTO con un pago `RAPPI`; NO entra en el total ni en el arqueo del
+  cierre de caja ni en el "Total cobrado" del Resumen (se muestra aparte como "Rappi, paga
+  después"), pero SÍ cuenta como venta en Reportes/Contaduría. En DetalleMesa el único método
+  ofrecido para una orden Rappi es "Rappi".
 - **Timestamps SIEMPRE explícitos en hora Bogotá** (`toBogotaSQLiteTimestamp`) — el DEFAULT CURRENT_TIMESTAMP de SQLite es UTC y ya causó un bug de +5h. Nunca confiar en el default.
 - **Contaduría (2026-08):** dos niveles de gasto que NO se mezclan (ver Estructura → Caja/ para el detalle de pantallas). Insumos controlados (carne, pan, papa...) llevan receta + descuento de stock automático al vender. Todo lo demás (verduras, servicios, arriendo, nómina) es un monto suelto por categoría en Gastos generales, sin inventario. El arqueo de tarjeta (`declared_card`) existe en el backend pero está oculto en la UI hasta que el local tenga datáfono.
 

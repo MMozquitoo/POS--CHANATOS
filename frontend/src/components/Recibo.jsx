@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { formatPriceCOP } from '../utils/currency.js';
+import { paymentMethodLabel } from '../utils/statusLabels.js';
 import { formatBogotaDateTime } from '../utils/timezone.js';
 import ModalHost from './ModalHost';
+import BrandMark from './BrandMark';
 import { useAlert, useConfirm, usePrompt } from '../hooks/useModal';
 
 // Impresión/PDF ocultos por ahora (no hay impresora en el local y el dueño no
@@ -348,6 +350,9 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
         >
           {/* Encabezado PRO */}
           <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.35rem' }}>
+              <BrandMark size={40} />
+            </div>
             <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>CHANATOS</h1>
             <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>NIT: --</div>
             <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>Dirección: --</div>
@@ -446,7 +451,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
           {/* Pago PRO */}
           <div style={{ marginBottom: '0.75rem', fontSize: '0.9rem' }}>
             <div style={{ marginBottom: '0.3rem' }}>
-              <strong>Pago:</strong> {payment.method}
+              <strong>Pago:</strong> {paymentMethodLabel(payment.method)}
             </div>
             {isEfectivo && changeAmount !== undefined && changeAmount !== null && (
               <>
@@ -586,6 +591,11 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             font-weight: bold !important;
             line-height: 1.2 !important;
           }
+
+          .print-80mm img {
+            width: 26px !important;
+            height: 26px !important;
+          }
           
           .print-80mm p {
             font-size: 8px !important;
@@ -649,6 +659,11 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             color: black !important;
             font-weight: bold !important;
             line-height: 1.1 !important;
+          }
+
+          .print-58mm img {
+            width: 22px !important;
+            height: 22px !important;
           }
           
           .print-58mm p {

@@ -170,6 +170,8 @@ export default function DashboardCaja() {
   const totalCash = summary?.byMethod?.find(m => m.method === 'EFECTIVO')?.total || 0;
   const totalCard = summary?.byMethod?.find(m => m.method === 'TARJETA')?.total || 0;
   const totalTransfer = summary?.byMethod?.find(m => m.method === 'TRANSFERENCIA')?.total || 0;
+  // Rappi paga después: se muestra aparte, nunca dentro de "Total cobrado"
+  const totalRappi = summary?.rappi?.total || summary?.byMethod?.find(m => m.method === 'RAPPI')?.total || 0;
   const expectedCash = initialCash + totalCash;
   const diffCash = session?.closing_cash !== null && session?.closing_cash !== undefined 
     ? session.closing_cash - expectedCash 
@@ -264,6 +266,7 @@ export default function DashboardCaja() {
                 { label: 'Total cobrado', value: totalCash + totalCard + totalTransfer, color: 'var(--green-text)' },
                 { label: 'Efectivo', value: totalCash, color: 'var(--gray-900)' },
                 { label: 'Transferencias', value: totalTransfer, color: 'var(--gray-900)' },
+                ...(totalRappi > 0 ? [{ label: 'Rappi (por cobrar)', value: totalRappi, color: '#C2330F', hint: 'Rappi paga después; no entra en lo de hoy' }] : []),
                 ...(diffCash !== null ? [{
                   label: 'Diferencia',
                   value: diffCash,

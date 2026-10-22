@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import RoleBadge from './RoleBadge';
+import BrandMark from './BrandMark';
 import { getRoleTheme } from '../utils/roleTheme';
 import '../pages/Caja/Caja.css';
 
@@ -159,6 +160,7 @@ export default function CajaHeader({ title, subtitle, backTo, rightButton, varia
       >
         {/* FASE 18.1: Título con badge de rol */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <BrandMark size={compact ? 18 : 22} />
           <h1 style={titleStyle}>{title}</h1>
           {user?.role && !compact && <RoleBadge role={user.role} />}
         </div>

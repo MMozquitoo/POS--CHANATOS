@@ -656,8 +656,16 @@ export default function Menu() {
                     marginTop: "0.25rem",
                   }}
                 >
-                  Si el producto tiene sabores, al agregarlo a un pedido se pedirá elegir uno
+                  Si el producto tiene sabores, al agregarlo a un pedido se pedirá elegir uno.
+                  <strong> No es para describir lo que incluye un combo</strong> (ej. "papas", "gaseosa"):
+                  eso va en el nombre o en la variante, si no el mesero ve "Sabor: Papas" y se confunde.
                 </div>
+                {parseFlavors(formData.flavors).length === 1 && (
+                  <div style={{ fontSize: "0.8rem", color: "#B8860B", marginTop: "0.35rem", fontWeight: 600 }}>
+                    Solo hay un sabor ("{parseFlavors(formData.flavors)[0]}"): no es una elección.
+                    Si es algo que el producto incluye, deja este campo vacío.
+                  </div>
+                )}
               </div>
 
               {/* Precio por sabor (opcional): solo para productos donde el sabor SÍ cambia

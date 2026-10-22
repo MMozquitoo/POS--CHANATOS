@@ -168,6 +168,11 @@ async function computeSummary(db, from, to) {
   );
 
   const orders = ordersRow?.orders || 0;
+  // RAPPI: la plataforma le paga al local después (no es plata del día — se
+  // excluye del arqueo en cash.js), pero SÍ es venta del período: entra en
+  // totals.sales y se informa aparte para que el dueño sepa cuánto de ese
+  // total todavía está "en Rappi".
+  const rappiSales = byMethod.find((r) => r.method === "RAPPI")?.total || 0;
 
   return {
     from,
@@ -184,6 +189,7 @@ async function computeSummary(db, from, to) {
       avgPrepMin: prepRow?.avg_min != null ? Math.round(prepRow.avg_min) : null,
       maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       burgersSold: burgersRow?.qty || 0,
+      rappi: rappiSales,
     },
     byMethod,
     byService,

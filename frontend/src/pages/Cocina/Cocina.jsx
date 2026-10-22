@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
+import BrandMark from '../../components/BrandMark';
+import PlatformBadge from '../../components/PlatformBadge';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { playKitchenChime, unlockAudio, notifyDesktop } from '../../utils/kitchenSound';
 import { getBogotaDateString } from '../../utils/timezone.js';
@@ -231,8 +233,9 @@ export default function Cocina() {
           </div>
         )}
         <div className="order-header-kitchen">
-          <div className="order-code-kitchen">
-            {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
+          <div className="order-table-kitchen">
+            {order.table_label || (order.daily_no ? `ORDEN ${order.daily_no}` : order.code)}
+            <PlatformBadge platform={order.delivery_platform} style={{ marginLeft: '0.5rem' }} />
             {markable && activeItems.length > 1 && (
               <span className={`order-progress ${readyCount > 0 ? 'started' : ''}`}>
                 {readyCount}/{activeItems.length}
@@ -246,7 +249,12 @@ export default function Cocina() {
           </div>
         </div>
         {order.table_label && (
-          <div className="order-table-kitchen">Mesa: {order.table_label}</div>
+          <div className="order-code-kitchen">
+            {order.daily_no ? `Orden ${order.daily_no}` : order.code}
+          </div>
+        )}
+        {order.special_note && (
+          <div className="order-special-note-kitchen">⚠ {order.special_note}</div>
         )}
         <div className="order-items-kitchen">
           {activeItems.map((item, idx) => {
@@ -258,6 +266,9 @@ export default function Cocina() {
                 <span className="item-name">{item.name}</span>
                 {item.notes && (
                   <span className="item-notes">({item.notes})</span>
+                )}
+                {item.special_note && (
+                  <span className="item-special-note">⚠ {item.special_note}</span>
                 )}
               </>
             );
@@ -293,7 +304,10 @@ export default function Cocina() {
   return (
     <div className="cocina-container">
       <header className="cocina-header">
-        <h1>Cocina</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <BrandMark size={22} />
+          <h1>Cocina</h1>
+        </div>
         <div className="header-actions">
           <label
             className="sound-toggle"

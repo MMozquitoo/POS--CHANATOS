@@ -6,6 +6,7 @@ import PlanoMesas from '../../components/PlanoMesas';
 import TableCard from '../../components/TableCard';
 import { splitTables, getSpecialType } from '../../utils/tables';
 import EmptyState from '../../components/EmptyState';
+import BrandMark from '../../components/BrandMark';
 import './Mesero.css';
 
 export default function Mesas() {
@@ -121,7 +122,10 @@ export default function Mesas() {
   return (
     <div className="mesero-container mesero-bottom-nav-spacer">
       <header className="mesero-header">
-        <h1>Mesas</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <BrandMark size={22} />
+          <h1>Mesas</h1>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             type="button"

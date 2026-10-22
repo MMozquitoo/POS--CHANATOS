@@ -72,8 +72,8 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     // Validar method
     if (!method) {
       validationErrors.push('Falta method (o payment_method/paymentMethod)');
-    } else if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA"].includes(method)) {
-      validationErrors.push(`method inválido: ${method}. Debe ser EFECTIVO, TARJETA o TRANSFERENCIA`);
+    } else if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(method)) {
+      validationErrors.push(`method inválido: ${method}. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA o RAPPI`);
     }
 
     // Validar tableId u orderId
@@ -685,8 +685,8 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     // Validar cada línea de pago
     const normalizedLines = [];
     for (const line of paymentLines) {
-      if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA"].includes(line.method)) {
-        return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA o TRANSFERENCIA" });
+      if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(line.method)) {
+        return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA o RAPPI" });
       }
       const amountNum = typeof line.amount === 'string' ? parseFloat(line.amount) : Number(line.amount);
       if (isNaN(amountNum) || amountNum <= 0) {
@@ -974,7 +974,7 @@ router.get("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     }
 
     // Filtro por método
-    if (method && ["EFECTIVO", "TARJETA", "TRANSFERENCIA"].includes(method)) {
+    if (method && ["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(method)) {
       conditions.push("p.method = ?");
       params.push(method);
     }

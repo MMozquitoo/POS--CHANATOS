@@ -135,6 +135,7 @@ export const initDatabase = async () => {
       qty INTEGER NOT NULL DEFAULT 1,
       price REAL NOT NULL DEFAULT 0,
       notes TEXT,
+      special_note TEXT,
       paid_at DATETIME,
       voided_at DATETIME,
       ready_at DATETIME,
@@ -696,6 +697,14 @@ export const initDatabase = async () => {
       await database.run("ALTER TABLE order_items ADD COLUMN ready_at DATETIME");
       console.log("  ✅ Campo ready_at agregado a order_items");
     }
+    // Nota especial (2026-09): campo LIBRE, separado de `notes` (que guarda
+    // salsas/sabor en formato lista). Se muestra más grande en cocina para que
+    // no se pierda entre los chips de salsas.
+    if (!itemsCols.some((c) => c.name === "special_note")) {
+      console.log("  ➕ Agregando special_note a order_items...");
+      await database.run("ALTER TABLE order_items ADD COLUMN special_note TEXT");
+      console.log("  ✅ Campo special_note agregado a order_items");
+    }
   } catch (readyError) {
     console.error("⚠️  Error agregando ready_at:", readyError);
   }
@@ -855,6 +864,83 @@ export const initDatabase = async () => {
     }
   } catch (webOrdersUserError) {
     console.error("⚠️  Error creando usuario 'Pedidos Web':", webOrdersUserError);
+  }
+
+  // Nota especial de la ORDEN completa (2026-09): distinta de order_items.special_note
+  // (que es por plato). Esta es para avisos que no son de ningún producto en
+  // particular (ej. "cliente con prisa", "para llevar") — se escribe sin pasar
+  // por ProductPicker. Chequeo incondicional.
+  try {
+    const ordersColsSpecialNote = await database.all("PRAGMA table_info(orders)");
+    if (!ordersColsSpecialNote.some((c) => c.name === "special_note")) {
+      console.log("  ➕ Agregando special_note a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN special_note TEXT");
+      console.log("  ✅ Campo special_note agregado a orders");
+    }
+  } catch (orderSpecialNoteError) {
+    console.error("⚠️  Error agregando special_note a orders:", orderSpecialNoteError);
+  }
+
+  // RAPPI (2026-10): orders.delivery_platform marca pedidos que llegan por una
+  // plataforma de domicilios (hoy solo 'RAPPI'; null = pedido propio). Rappi
+  // cobra al cliente y le paga al local DESPUÉS (semanal), así que esa plata
+  // NO entra al arqueo del día: payments.method = 'RAPPI' se excluye del
+  // efectivo/transferencia esperados y del "total ventas" del cierre, pero sí
+  // cuenta en Reportes/Contaduría. Chequeo incondicional.
+  try {
+    const ordersColsPlatform = await database.all("PRAGMA table_info(orders)");
+    if (!ordersColsPlatform.some((c) => c.name === "delivery_platform")) {
+      console.log("  ➕ Agregando delivery_platform a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN delivery_platform TEXT");
+      console.log("  ✅ Campo delivery_platform agregado a orders");
+    }
+    const cashColsRappi = await database.all("PRAGMA table_info(cash_sessions)");
+    if (!cashColsRappi.some((c) => c.name === "total_rappi")) {
+      console.log("  ➕ Agregando total_rappi a cash_sessions...");
+      await database.run("ALTER TABLE cash_sessions ADD COLUMN total_rappi REAL NOT NULL DEFAULT 0");
+      console.log("  ✅ Campo total_rappi agregado a cash_sessions");
+    }
+  } catch (platformError) {
+    console.error("⚠️  Error agregando columnas de Rappi:", platformError);
+  }
+
+  // El CHECK de payments.method era fijo (EFECTIVO/TARJETA/TRANSFERENCIA):
+  // SQLite no permite editarlo, hay que reconstruir la tabla (mismo patrón que
+  // el CHECK de orders.status en migrateDatabase). Se conservan los ids de los
+  // pagos (la auditoría los referencia). PRAGMA foreign_keys va FUERA de la
+  // transacción (dentro es no-op, ver backup.js).
+  try {
+    const paymentsSqlRow = await database.get(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='payments'"
+    );
+    const paymentsSql = paymentsSqlRow?.sql || "";
+    if (paymentsSql && /CHECK\(method\s+IN\s*\([^)]+\)\)/i.test(paymentsSql) && !paymentsSql.includes("'RAPPI'")) {
+      console.log("  🔄 Actualizando CHECK de payments.method para incluir 'RAPPI'...");
+      const paymentsCols = (await database.all("PRAGMA table_info(payments)")).map((c) => c.name);
+      const colList = paymentsCols.join(", ");
+      const newSql = paymentsSql
+        .replace(/CHECK\(method\s+IN\s*\([^)]+\)\)/i, "CHECK(method IN ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'RAPPI'))")
+        .replace(/CREATE TABLE\s+"?payments"?\s*\(/i, "CREATE TABLE payments_new (");
+      await database.run("PRAGMA foreign_keys=off");
+      await database.run("BEGIN IMMEDIATE");
+      try {
+        await database.run(newSql);
+        await database.run(`INSERT INTO payments_new (${colList}) SELECT ${colList} FROM payments`);
+        await database.run("DROP TABLE payments");
+        await database.run("ALTER TABLE payments_new RENAME TO payments");
+        await database.run("COMMIT");
+      } catch (rebuildError) {
+        try { await database.run("ROLLBACK"); } catch { /* ignorar */ }
+        throw rebuildError;
+      } finally {
+        await database.run("PRAGMA foreign_keys=on");
+      }
+      await database.run("CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)");
+      await database.run("CREATE INDEX IF NOT EXISTS idx_payments_cash_session ON payments(cash_session_id)");
+      console.log("  ✅ CHECK de payments.method actualizado (RAPPI permitido)");
+    }
+  } catch (paymentsCheckError) {
+    console.error("⚠️  Error actualizando CHECK de payments.method:", paymentsCheckError);
   }
 
   console.log("✅ Base de datos inicializada correctamente");

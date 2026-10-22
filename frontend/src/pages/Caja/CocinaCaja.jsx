@@ -6,6 +6,8 @@ import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { statusLabel } from '../../utils/statusLabels.js';
 import Modal from '../../components/Modal';
+import BrandMark from '../../components/BrandMark';
+import PlatformBadge from '../../components/PlatformBadge';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 
@@ -72,10 +74,11 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
-          {order.daily_no ? `ORDEN ${order.daily_no}` : order.code}
+        <div style={{ fontWeight: 800, fontSize: '1.5rem', color: '#333', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {order.table_label || (order.daily_no ? `ORDEN ${order.daily_no}` : order.code)}
+          <PlatformBadge platform={order.delivery_platform} />
           {order.status === 'EN_PREP' && activeItems.length > 1 && (
-            <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700, background: readyCount > 0 ? '#FFF3D6' : '#f0f0f0', color: readyCount > 0 ? '#B8860B' : '#888' }}>
+            <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700, background: readyCount > 0 ? '#FFF3D6' : '#f0f0f0', color: readyCount > 0 ? '#B8860B' : '#888' }}>
               {readyCount}/{activeItems.length}
             </span>
           )}
@@ -86,8 +89,14 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
       </div>
 
       {order.table_label && (
-        <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-          Mesa: {order.table_label}
+        <div style={{ color: '#999', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+          {order.daily_no ? `Orden ${order.daily_no}` : order.code}
+        </div>
+      )}
+
+      {order.special_note && (
+        <div style={{ color: '#dc3545', background: '#f8d7da', fontWeight: 700, fontSize: '0.85rem', padding: '4px 10px', borderRadius: '6px', marginBottom: '0.5rem' }}>
+          ⚠ {order.special_note}
         </div>
       )}
 
@@ -102,6 +111,7 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
             key={item.id ?? idx}
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'baseline',
               gap: '0.4rem',
               fontSize: '0.9rem',
@@ -113,6 +123,20 @@ function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStat
             <span style={{ fontWeight: 700, color: item.ready_at ? '#999' : '#F5BB4C' }}>{item.qty}x</span>
             <span>{item.name}</span>
             {item.notes && <span style={{ color: '#888', fontSize: '0.8rem' }}>({item.notes})</span>}
+            {item.special_note && (
+              <span style={{
+                flexBasis: '100%',
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                color: 'var(--red-text)',
+                background: 'var(--red-tint)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                textDecoration: 'none',
+              }}>
+                ⚠ {item.special_note}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -293,7 +317,10 @@ export default function CocinaCaja({ hideHeader = false }) {
         // iOS Safari que hacía desaparecer el header en Centro de Control.
         <header className="caja-header" style={{ flexShrink: 0, position: 'relative' }}>
           <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
-          <h1>COCINA</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <BrandMark size={22} />
+            <h1>COCINA</h1>
+          </div>
           <div style={{ width: '100px' }}></div>
         </header>
       )}
@@ -545,6 +572,19 @@ export default function CocinaCaja({ hideHeader = false }) {
                           {item.notes && (
                             <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                               Notas: {item.notes}
+                            </div>
+                          )}
+                          {item.special_note && (
+                            <div style={{
+                              color: 'var(--red-text)',
+                              background: 'var(--red-tint)',
+                              fontWeight: 800,
+                              fontSize: '0.95rem',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              marginTop: '0.35rem',
+                            }}>
+                              ⚠ {item.special_note}
                             </div>
                           )}
                           <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>

@@ -32,7 +32,7 @@ function getDiffTint(diff) {
   return "var(--brand-tint)";
 }
 
-const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
+const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia', RAPPI: 'Rappi (paga después)' };
 
 export default function CierreCaja() {
   const navigate = useNavigate();
@@ -185,7 +185,8 @@ export default function CierreCaja() {
       `Efectivo esperado: ${formatPriceCOP(expectedCash)}\n` +
       `Efectivo contado: ${formatPriceCOP(cash)}\n\n` +
       `Transferencia sistema: ${formatPriceCOP(totalTransfer)}\n` +
-      `Transferencia declarada: ${formatPriceCOP(transfer)}`;
+      `Transferencia declarada: ${formatPriceCOP(transfer)}` +
+      ((summary.rappi?.total || 0) > 0 ? `\n\nRappi (no entra hoy, Rappi paga después): ${formatPriceCOP(summary.rappi.total)}` : '');
 
     if (!(await showConfirm(confirmMsg))) {
       return;
@@ -407,7 +408,7 @@ export default function CierreCaja() {
             <h3 style={{ margin: '0 0 0.9rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resumen de ventas</h3>
             {summary.byMethod.length > 0 ? (
               <>
-                {summary.byMethod.map((method, idx) => (
+                {summary.byMethod.filter((m) => m.method !== 'RAPPI').map((method, idx) => (
                   <div key={idx} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -421,6 +422,26 @@ export default function CierreCaja() {
                     <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP(method.total)}</span>
                   </div>
                 ))}
+                {(summary.rappi?.total || 0) > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    marginBottom: '0.4rem',
+                    padding: '0.7rem 0.85rem',
+                    background: '#FFE9E3',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.9375rem',
+                    color: '#C2330F'
+                  }}>
+                    <span>
+                      <strong>Rappi</strong> · {summary.rappi.count} pedido(s)
+                      <div style={{ fontSize: 'var(--text-13)', fontWeight: 500 }}>No entra en el total de hoy: Rappi paga después</div>
+                    </span>
+                    <span className="tnum" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatPriceCOP(summary.rappi.total)}</span>
+                  </div>
+                )}
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',

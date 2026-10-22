@@ -198,6 +198,17 @@ export default function ReporteCierre({ snapshot, format: initialFormat, showCon
               <span><strong>TRANSFERENCIA:</strong></span>
               <span>{formatPriceCOP(snapshot.totals.total_transfer || 0)}</span>
             </div>
+            {(snapshot.totals.total_rappi || 0) > 0 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '0.4rem',
+                fontSize: printFormat === 'A4' ? '0.95rem' : '0.8rem'
+              }}>
+                <span><strong>RAPPI (no entra hoy, paga después):</strong></span>
+                <span>{formatPriceCOP(snapshot.totals.total_rappi || 0)}</span>
+              </div>
+            )}
           </div>
           <div style={{ 
             display: 'flex', 

@@ -110,14 +110,17 @@
   gap: 0.5rem;
 }
 
-.order-code-kitchen {
+/* Lo que canta el cocinero (Mesa 3 / Ventanilla / Domicilio): lo grande,
+   arriba del todo, para leerlo desde el otro lado de la cocina. */
+.order-table-kitchen {
   font-weight: 800;
-  font-size: var(--text-20);
+  font-size: var(--text-28);
   letter-spacing: var(--tracking-title);
   color: var(--gray-900);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .order-time-kitchen {
@@ -125,11 +128,11 @@
   color: var(--gray-500);
 }
 
-/* La mesa es lo que canta el cocinero: grande */
-.order-table-kitchen {
-  font-size: var(--text-17);
-  font-weight: 700;
-  color: var(--gray-900);
+/* Número de orden (referencia interna, no lo que se canta): secundario */
+.order-code-kitchen {
+  font-size: var(--text-15);
+  font-weight: 600;
+  color: var(--gray-500);
   margin-bottom: 0.6rem;
 }
 
@@ -139,6 +142,7 @@
 
 .order-item-kitchen {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   font-size: var(--text-17);
@@ -163,6 +167,31 @@
   font-style: normal;
   font-weight: 600;
   font-size: var(--text-15);
+}
+
+/* Nota especial (alergias, sin gluten, etc.): en su propia línea, más
+   grande y en rojo — no se debe perder entre las salsas/sabores. */
+.item-special-note {
+  flex-basis: 100%;
+  color: var(--red-text);
+  background: var(--red-tint);
+  font-weight: 800;
+  font-size: var(--text-17);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  margin-top: 2px;
+}
+
+/* Nota de LA ORDEN completa (no de un plato) — "cliente con prisa", "para
+   llevar". Va junto al encabezado, antes de la lista de items. */
+.order-special-note-kitchen {
+  color: var(--red-text);
+  background: var(--red-tint);
+  font-weight: 700;
+  font-size: var(--text-15);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.6rem;
 }
 
 .action-btn {
@@ -370,12 +399,12 @@
     margin-bottom: 0.6rem;
   }
 
-  .order-code-kitchen {
-    font-size: var(--text-17);
+  .order-table-kitchen {
+    font-size: var(--text-22);
   }
 
-  .order-table-kitchen {
-    font-size: var(--text-15);
+  .order-code-kitchen {
+    font-size: var(--text-13);
     margin-bottom: 0.5rem;
   }
 

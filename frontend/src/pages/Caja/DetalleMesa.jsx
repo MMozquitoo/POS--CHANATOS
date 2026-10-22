@@ -6,7 +6,11 @@ import { formatPriceCOP, parseMontoCOP } from '../../utils/currency.js';
 import CalculadoraVuelto from '../../components/CalculadoraVuelto.jsx';
 import Recibo from '../../components/Recibo.jsx';
 import ComprobanteAnulacion from '../../components/ComprobanteAnulacion.jsx';
-import ProductPicker from '../../components/ProductPicker.jsx';
+import ProductPicker, { findProductById } from '../../components/ProductPicker.jsx';
+import EditItemNoteModal from '../../components/EditItemNoteModal.jsx';
+import { getAdicionales } from '../../components/AdicionalesChips.jsx';
+import OrderNoteModal from '../../components/OrderNoteModal.jsx';
+import PlatformBadge from '../../components/PlatformBadge.jsx';
 import DividirCuenta from '../../components/caja/DividirCuenta.jsx';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -248,6 +252,12 @@ export default function DetalleMesa() {
   // CAMBIO DE VARIANTE (2026-08): "pidió Sencilla, la quiere en Combo" —
   // item a cambiar por otra variante del mismo producto, sin anular+reagregar
   const [swapItem, setSwapItem] = useState(null);
+  // Editar salsas/nota especial de un item YA agregado (en la orden o pendiente de enviar)
+  const [editingSentItem, setEditingSentItem] = useState(null);
+  const [editingLocalIndex, setEditingLocalIndex] = useState(null);
+  // Nota de LA ORDEN (independiente de un producto puntual)
+  const [showOrderNoteModal, setShowOrderNoteModal] = useState(false);
+  const [orderNoteDraft, setOrderNoteDraft] = useState('');
 
   // Variantes hermanas: mismo product.name, distinto id (Sencillo/Combo/Doble)
   const getVariantSiblings = (item) => {
@@ -272,6 +282,30 @@ export default function DetalleMesa() {
       showAlert(e.response?.data?.error || 'Error cambiando el producto');
     }
   };
+
+  const saveSentItemNote = async ({ notes, specialNote }) => {
+    await axios.patch(`/orders/items/${editingSentItem.id}`, { notes, specialNote });
+    await loadActiveOrder();
+    await loadTableData();
+  };
+
+  // Item aún no enviado: además de notas puede cambiar cantidad y adicionales
+  // (el panel ya recalculó el precio unitario con los adicionales marcados)
+  const saveLocalItemNote = async ({ notes, specialNote, price, qty }) => {
+    setNewOrderItems((prev) => prev.map((it, i) => (i === editingLocalIndex
+      ? { ...it, notes: notes || '', specialNote, ...(price != null ? { price } : {}), ...(qty ? { qty } : {}) }
+      : it)));
+  };
+
+  const saveOrderNote = async (text) => {
+    if (activeOrder && activeOrder.id) {
+      await axios.patch(`/orders/${activeOrder.id}/special-note`, { specialNote: text });
+      await loadActiveOrder();
+    } else {
+      setOrderNoteDraft(text);
+    }
+  };
+
   const [voidItemReason, setVoidItemReason] = useState('');
   const [voidingItem, setVoidingItem] = useState(false);
   const [selectedItemToVoid, setSelectedItemToVoid] = useState(null);
@@ -455,6 +489,16 @@ export default function DetalleMesa() {
     tableData
   });
 
+  // RAPPI: el pedido ya lo cobró Rappi al cliente. El único método posible es
+  // "Rappi" (no entra al arqueo del día) — se preselecciona para que caja no
+  // tenga que pensarlo; al salir de una orden Rappi se vuelve a Efectivo.
+  const esRappi = activeOrder?.delivery_platform === 'RAPPI';
+  useEffect(() => {
+    if (esRappi && paymentMethod !== 'RAPPI') setPaymentMethod('RAPPI');
+    if (!esRappi && paymentMethod === 'RAPPI') setPaymentMethod('EFECTIVO');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esRappi]);
+
   useEffect(() => {
     setOpenOrdersList([]);
     setSelectedOrderId(null);
@@ -474,6 +518,14 @@ export default function DetalleMesa() {
       loadActiveOrder();
     }
   }, [tableData?.table?.id, orderIdFromUrl]);
+
+  // "Recibido" (Calculadora de vuelto) es un monto que ahora limita el cobro
+  // (pago parcial, ver payActiveOrder) — no puede quedar pegado de una orden
+  // anterior al cambiar de orden/mesa, o dispararía un cobro parcial no
+  // intencional sobre la orden nueva.
+  useEffect(() => {
+    setReceivedAmount(0);
+  }, [activeOrder?.id]);
 
   // Abrir sesión de caja
   async function openCashSession() {
@@ -758,6 +810,78 @@ export default function DetalleMesa() {
         return;
       }
 
+      // Pago parcial en efectivo: si "Recibido" (Calculadora de vuelto) es menor
+      // al total, no se puede cobrar la orden completa — se registra solo lo
+      // recibido como pago parcial (mismo mecanismo que "Dividir cuenta" monto
+      // libre, ver handleDividirParte) y la orden sigue abierta con el saldo.
+      if (paymentMethod === 'EFECTIVO' && receivedAmount > 0 && receivedAmount < total) {
+        const pendiente = total - receivedAmount;
+        if (!(await showConfirm(
+          `Recibiste ${formatPriceCOP(receivedAmount)} de ${formatPriceCOP(total)}. ` +
+          `¿Registrar como PAGO PARCIAL? Quedará pendiente ${formatPriceCOP(pendiente)}.`
+        ))) {
+          setLoadingPay(false);
+          return;
+        }
+
+        try {
+          const tip = Math.max(0, parseMontoCOP(tipAmount) || 0);
+          await axios.post('/payments', {
+            orderId: activeOrder.id,
+            method: paymentMethod,
+            amount: receivedAmount,
+            tipAmount: tip,
+          });
+          setTipAmount('');
+          setReceivedAmount(0);
+
+          const orderRes = await axios.get(`/orders/${activeOrder.id}`);
+          const orderStatus = orderRes.data?.status;
+          const saldoRestante = orderRes.data?.saldo;
+
+          if (orderStatus === 'PAGADA' || (saldoRestante != null && saldoRestante <= 0)) {
+            setReciboData({
+              order: {
+                ...orderRes.data,
+                table_label: tableData.table?.label ||
+                  (tableData.table?.number === 9 ? 'VENTANILLA' :
+                   tableData.table?.number === 10 ? 'DOMICILIOS' :
+                   tableData.table?.number ? `Mesa ${tableData.table.number}` : 'Sin mesa'),
+              },
+              payment: {
+                method: paymentMethod,
+                amount: receivedAmount,
+                created_at: new Date().toISOString(),
+              },
+              items: orderRes.data.items || [],
+            });
+            setChangeAmount(0);
+            setShowRecibo(true);
+
+            const orderId = activeOrder.id;
+            pendingRefreshRef.current = async () => {
+              setActiveOrder(null);
+              setActiveOrderItems([]);
+              setCreatingNewOrder(false);
+              setSelectedOrderId(null);
+              setNewOrderItems([]);
+              await refreshAfterPayment(orderId, orderStatus);
+            };
+          } else {
+            showAlert(`Pago parcial registrado: ${formatPriceCOP(receivedAmount)}. Saldo pendiente: ${formatPriceCOP(pendiente)}.`);
+            await loadActiveOrder();
+            await loadTableData();
+          }
+        } catch (error) {
+          console.error('Error cobrando pago parcial:', error);
+          showAlert(error.response?.data?.error || 'No se pudo registrar el pago parcial.');
+          await loadActiveOrder();
+        }
+
+        setLoadingPay(false);
+        return;
+      }
+
       if (!(await showConfirm(`¿Cobrar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(total)}?`))) {
         setLoadingPay(false);
         return;
@@ -974,9 +1098,11 @@ export default function DetalleMesa() {
         channel: service === 'MESA' ? 'MESA' : 'VENTANILLA',
         service,
         items: newOrderItems,
+        specialNote: orderNoteDraft.trim() || undefined,
       });
 
       setNewOrderItems([]);
+      setOrderNoteDraft('');
       setCreatingNewOrder(false);
       showAlert('Pedido creado');
       if (isSpecial && tableData?.table) {
@@ -1494,6 +1620,28 @@ export default function DetalleMesa() {
           flexDirection: 'column',
           gap: '1rem'
         }}>
+          {/* Nota de la orden: independiente de agregar productos — visible
+              aunque todavía no exista la orden (viaja en la creación). No se
+              muestra en modo cobro (ahí la orden ya no se edita). */}
+          {!modoCobro && (
+            <button
+              type="button"
+              onClick={() => setShowOrderNoteModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
+                marginBottom: '1rem', padding: '0.7rem 0.9rem', borderRadius: '8px',
+                border: 'none', textAlign: 'left', cursor: 'pointer', flexShrink: 0,
+                background: (activeOrder?.special_note || orderNoteDraft) ? '#f8d7da' : '#f8f9fa',
+                color: (activeOrder?.special_note || orderNoteDraft) ? '#dc3545' : '#495057',
+                fontWeight: 600, fontSize: '0.9rem',
+              }}
+            >
+              {(activeOrder?.special_note || orderNoteDraft)
+                ? `⚠ Nota para cocina: ${activeOrder?.special_note || orderNoteDraft}`
+                : '+ Nota para cocina (no de un producto)'}
+            </button>
+          )}
+
           {/* FASE M8.9: ÓRDENES ABIERTAS + NUEVA ORDEN (solo Ventanilla/Domicilios).
               En modo cobro NO: la pantalla es solo para cobrar la orden elegida. */}
           {isSpecialTable(tableData?.table?.number) && !modoCobro && (
@@ -1557,8 +1705,9 @@ export default function DetalleMesa() {
             <>
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
                 <div>
-                  <h2 className="pos-mobile-no-break" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>
+                  <h2 className="pos-mobile-no-break" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {activeOrder.daily_no ? `ORDEN ${activeOrder.daily_no}` : (activeOrder.code || `ORDEN ${activeOrder.id}`)}
+                    <PlatformBadge platform={activeOrder.delivery_platform} />
                   </h2>
                   <div style={{ marginTop: '0.5rem' }}>
                     <StatusPill status={activeOrder.status} />
@@ -1748,6 +1897,11 @@ export default function DetalleMesa() {
                           {item.qty}x {formatPriceCOP(item.price)} = {formatPriceCOP(item.qty * item.price)}
                           {item.notes && <span> • {item.notes}</span>}
                         </div>
+                        {item.special_note && (
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545', marginTop: '0.2rem' }}>
+                            ⚠ {item.special_note}
+                          </div>
+                        )}
                       </div>
                       {/* Orden prepagada: los items ya no se editan (el pago cubrió el total) */}
                       {['NUEVO', 'EN_PREP'].includes(activeOrder.status) && !pagadaAdelantado && (
@@ -1829,6 +1983,28 @@ export default function DetalleMesa() {
                         </div>
                       )}
                       
+                      {/* Editar salsas/nota especial de un item YA agregado —
+                          antes quedaba fijo tras agregarlo (había que anular y
+                          reagregar para corregir una salsa olvidada). */}
+                      {!item.paid_at && !item.voided_at && ['NUEVO', 'EN_PREP'].includes(activeOrder.status) && (
+                        <button
+                          onClick={() => setEditingSentItem(item)}
+                          style={{
+                            padding: '0.5rem 0.85rem',
+                            minHeight: 40,
+                            background: 'var(--gray-50)',
+                            color: 'var(--gray-900)',
+                            border: 'none',
+                            borderRadius: '999px',
+                            cursor: 'pointer',
+                            fontSize: '0.8125rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          Nota
+                        </button>
+                      )}
+
                       {/* CAMBIO DE VARIANTE: solo si el producto tiene hermanas
                           (mismo nombre, otra variante: Sencillo/Combo) y la orden
                           aún es editable (NUEVO/EN_PREP, regla del backend) */}
@@ -1957,15 +2133,23 @@ export default function DetalleMesa() {
                     <div className="new-order-list" style={{ marginTop: '1rem' }}>
                       {newOrderItems.map((it, idx) => (
                         <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
-                          <div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingLocalIndex(idx)}
+                            style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0 }}
+                          >
                             <div style={{ fontWeight: 'bold' }}>
                               {it.name}
                               {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
                             </div>
                             <div style={{ fontSize: '0.9rem', color: '#666' }}>
                               Cantidad: {it.qty} {it.notes && `• ${it.notes}`}
+                              <span style={{ color: '#1971c2', marginLeft: '0.4rem' }}>editar</span>
                             </div>
-                          </div>
+                            {it.specialNote && (
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>⚠ {it.specialNote}</div>
+                            )}
+                          </button>
                           <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
                         </div>
                       ))}
@@ -2015,7 +2199,11 @@ export default function DetalleMesa() {
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>Items a agregar:</h3>
                   {newOrderItems.map((it, idx) => (
                     <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
-                      <div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingLocalIndex(idx)}
+                        style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0 }}
+                      >
                         <div style={{ fontWeight: 'bold' }}>
                           {it.name}
                           {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
@@ -2023,8 +2211,12 @@ export default function DetalleMesa() {
                         <div style={{ color: '#666', fontSize: '0.85rem' }}>
                           {it.qty}x {formatPriceCOP(it.price)} = {formatPriceCOP(it.qty * it.price)}
                           {it.notes && ` • ${it.notes}`}
+                          <span style={{ color: '#1971c2', marginLeft: '0.4rem' }}>editar</span>
                         </div>
-                      </div>
+                        {it.specialNote && (
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>⚠ {it.specialNote}</div>
+                        )}
+                      </button>
                       <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
                     </div>
                   ))}
@@ -2208,19 +2400,25 @@ export default function DetalleMesa() {
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Método de pago</h3>
-                  {activeOrder.status !== 'LISTO' && (
+                  {esRappi ? (
+                    <div style={{ padding: '0.55rem 0.8rem', background: '#FFE9E3', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-13)', color: '#C2330F', fontWeight: 500, marginBottom: '0.6rem' }}>
+                      Pedido de Rappi: el cliente ya le pagó a Rappi. Al quedar lista se cierra sola; si la cierras acá queda como "Rappi" y no entra al arqueo de hoy.
+                    </div>
+                  ) : activeOrder.status !== 'LISTO' && (
                     <div style={{ padding: '0.55rem 0.8rem', background: 'var(--blue-tint)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-13)', color: 'var(--blue-text)', fontWeight: 500, marginBottom: '0.6rem' }}>
                       Pago por adelantado: la orden sigue en cocina y se cierra sola cuando esté lista.
                     </div>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: esRappi ? '1fr' : 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía.
                         Se deja el código de payments/reportes intacto (reversible) — ver
                         CLAUDE.md "Pendientes conocidos": evalúa Bold/Wompi. */}
-                    {[
-                      { key: 'EFECTIVO', label: 'Efectivo' },
-                      { key: 'TRANSFERENCIA', label: 'Transfer.' },
-                    ].map(({ key, label }) => {
+                    {(esRappi
+                      ? [{ key: 'RAPPI', label: 'Rappi (paga después)' }]
+                      : [
+                        { key: 'EFECTIVO', label: 'Efectivo' },
+                        { key: 'TRANSFERENCIA', label: 'Transfer.' },
+                      ]).map(({ key, label }) => {
                       const selected = paymentMethod === key;
                       return (
                         <button
@@ -3080,6 +3278,32 @@ export default function DetalleMesa() {
       </Modal>
 
       <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
+
+      <OrderNoteModal
+        open={showOrderNoteModal}
+        value={activeOrder?.special_note || orderNoteDraft}
+        onClose={() => setShowOrderNoteModal(false)}
+        onSave={saveOrderNote}
+      />
+
+      <EditItemNoteModal
+        open={!!editingSentItem}
+        item={editingSentItem}
+        product={editingSentItem ? findProductById(productsByCategory, editingSentItem.product_id).product : null}
+        onClose={() => setEditingSentItem(null)}
+        onSave={saveSentItemNote}
+      />
+
+      <EditItemNoteModal
+        open={editingLocalIndex !== null}
+        item={editingLocalIndex !== null ? newOrderItems[editingLocalIndex] : null}
+        product={editingLocalIndex !== null ? findProductById(productsByCategory, newOrderItems[editingLocalIndex]?.product_id).product : null}
+        onClose={() => setEditingLocalIndex(null)}
+        onSave={saveLocalItemNote}
+        adicionales={getAdicionales(productsByCategory)}
+        allowAdicionales
+        allowQty
+      />
     </div>
   );
 }

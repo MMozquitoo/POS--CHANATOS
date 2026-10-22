@@ -32,11 +32,30 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
     "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE order_id = ? AND voided_at IS NULL",
     [orderId]
   );
-  if ((paidRow?.total || 0) < total - 1) return false; // tolerancia de 1 peso
+  const yaPagado = paidRow?.total || 0;
+
+  // RAPPI (2026-10): el cliente ya le pagó a Rappi, acá nadie cobra. Al quedar
+  // LISTA se registra solo un pago method='RAPPI' por el saldo (así la orden
+  // cierra, descuenta inventario y aparece en Reportes), pero esa plata NO
+  // entra al arqueo del día (cash.js la excluye): Rappi paga después.
+  const esRappi = order.delivery_platform === "RAPPI";
+  const saldoRappi = esRappi ? Math.max(0, total - yaPagado) : 0;
+  if (!esRappi && yaPagado < total - 1) return false; // tolerancia de 1 peso
 
   const ts = toBogotaSQLiteTimestamp(new Date());
+  let rappiPaymentId = null;
   await db.run("BEGIN IMMEDIATE");
   try {
+    if (saldoRappi > 1) {
+      const openSession = await db.get(
+        "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1"
+      );
+      const ins = await db.run(
+        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount) VALUES (?, 'RAPPI', ?, ?, ?, ?, 0)",
+        [orderId, saldoRappi, userId, ts, openSession?.id || null]
+      );
+      rappiPaymentId = ins.lastID;
+    }
     await db.run(
       "UPDATE order_items SET paid_at = COALESCE(paid_at, ?) WHERE order_id = ? AND voided_at IS NULL",
       [ts, orderId]
@@ -49,6 +68,22 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
   } catch (e) {
     try { await db.run("ROLLBACK"); } catch { /* ignorar */ }
     throw e;
+  }
+
+  if (rappiPaymentId) {
+    await logAudit({
+      action: 'PAYMENT_CREATED',
+      entity_type: 'payment',
+      entity_id: rappiPaymentId,
+      order_id: orderId,
+      user_id: userId,
+      summary: `Pago RAPPI por ${saldoRappi} - Orden ${order.daily_no || order.code || orderId} (registrado solo al quedar lista; Rappi paga después)`,
+      meta: { amount: saldoRappi, method: 'RAPPI', auto: true, platform: 'RAPPI' }
+    }).catch(() => {});
+    if (io) {
+      const p = await db.get("SELECT * FROM payments WHERE id = ?", [rappiPaymentId]);
+      io.emit("payment:created", { payment: p, orderId });
+    }
   }
 
   // Mismo contrato que el cobro normal: inventario al quedar PAGADA.
@@ -75,8 +110,10 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
     entity_id: orderId,
     order_id: orderId,
     user_id: userId,
-    summary: `Orden ${order.daily_no || order.code || orderId} quedó LISTA ya pagada (pago adelantado): se cerró sola`,
-    meta: { from: 'LISTO', to: 'PAGADA', reason: 'PREPAID_AUTOCLOSE' }
+    summary: esRappi
+      ? `Orden ${order.daily_no || order.code || orderId} de RAPPI quedó LISTA: se cerró sola (Rappi paga después)`
+      : `Orden ${order.daily_no || order.code || orderId} quedó LISTA ya pagada (pago adelantado): se cerró sola`,
+    meta: { from: 'LISTO', to: 'PAGADA', reason: esRappi ? 'RAPPI_AUTOCLOSE' : 'PREPAID_AUTOCLOSE' }
   }).catch(() => {});
 
   if (io) {
@@ -87,6 +124,10 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
   }
   return true;
 }
+
+// Plataformas de domicilio soportadas (orders.delivery_platform). Solo Rappi
+// por ahora; agregar otra = sumarla acá y en statusLabels.js del frontend.
+const DELIVERY_PLATFORMS = ["RAPPI"];
 
 const formatYyyyMmDdLocal = () => {
   // YYYY-MM-DD en horario local America/Bogota
@@ -115,6 +156,13 @@ router.post(
 
       // 2) Validar payload mínimo
     const { tableId, channel, items, service, web_order_id: webOrderId } = req.body;
+    const orderSpecialNote = (req.body.specialNote ?? req.body.special_note ?? '').trim() || null;
+    // RAPPI: pedido que llega por la plataforma (ver closeOrderIfPrepaid)
+    const rawPlatform = String(req.body.deliveryPlatform ?? req.body.delivery_platform ?? '').trim().toUpperCase();
+    if (rawPlatform && !DELIVERY_PLATFORMS.includes(rawPlatform)) {
+      return res.status(400).json({ error: "Plataforma de domicilio inválida (solo RAPPI)" });
+    }
+    const deliveryPlatform = rawPlatform || null;
 
       if (!channel) {
         return res.status(400).json({ error: "channel es requerido" });
@@ -330,8 +378,8 @@ router.post(
         const createdAt = toBogotaSQLiteTimestamp(new Date());
 
         result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at, web_order_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at, web_order_id, special_note, delivery_platform)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             code,
             finalTableId || null,
@@ -346,6 +394,8 @@ router.post(
             // orden recién creada reportaba updated_at +5h (auditoría 2026-08-03)
             createdAt,
             webOrderId || null,
+            orderSpecialNote,
+            deliveryPlatform,
           ]
         );
 
@@ -368,8 +418,8 @@ router.post(
           const isCustom = productId ? 0 : (item.isCustom || item.is_custom ? 1 : 0);
 
           await db.run(
-            "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [orderId, item.name, item.qty || 1, itemPrice, item.notes || null, productId, isCustom, createdAt]
+            "INSERT INTO order_items (order_id, name, qty, price, notes, special_note, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [orderId, item.name, item.qty || 1, itemPrice, item.notes || null, item.specialNote || item.special_note || null, productId, isCustom, createdAt]
           );
         }
 
@@ -1486,8 +1536,8 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
         const price = parseFloat(item.price);
 
         const result = await db.run(
-          "INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [orderId, item.name.trim(), qty, price, item.notes || null, productId, isCustom, itemsCreatedAt]
+          "INSERT INTO order_items (order_id, name, qty, price, notes, special_note, product_id, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [orderId, item.name.trim(), qty, price, item.notes || null, item.specialNote || item.special_note || null, productId, isCustom, itemsCreatedAt]
         );
 
         const newItem = await db.get("SELECT * FROM order_items WHERE id = ?", [result.lastID]);
@@ -1639,11 +1689,22 @@ router.delete("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) =
 
 // PATCH /api/orders/items/:id - Editar item de orden (solo CAJA)
 // Permite editar nombre, precio, cantidad y notas de un item
-router.patch("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
+router.patch("/items/:id", requireAuth, requireRole("CAJA", "MESERO"), async (req, res) => {
   try {
-    const { name, price, qty, notes, productId } = req.body;
+    const { name, price, qty, notes, specialNote, productId } = req.body;
     const db = getDb();
     const itemId = parseInt(req.params.id);
+
+    // El mesero puede corregir salsas/sabor y la nota especial de un item que
+    // ya agregó (se le olvidó algo) pero no tocar precio/nombre/producto —
+    // eso sigue siendo exclusivo de Caja (mismo espíritu que flavors-availability
+    // en products.js: el mesero nunca pone precio).
+    if (req.user.role === "MESERO") {
+      const camposDeCaja = ["name", "price", "productId"].filter((k) => req.body[k] !== undefined);
+      if (camposDeCaja.length > 0) {
+        return res.status(403).json({ error: "El mesero solo puede editar salsas/sabor y la nota especial del item" });
+      }
+    }
 
     // Verificar que el item existe y obtener estado de la orden
     const item = await db.get(`
@@ -1734,6 +1795,11 @@ router.patch("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) =>
     if (notes !== undefined) {
       updates.push("notes = ?");
       params.push(notes || null);
+    }
+
+    if (specialNote !== undefined) {
+      updates.push("special_note = ?");
+      params.push(specialNote || null);
     }
 
     // CAMBIO DE VARIANTE (2026-08): "pidió Sencilla, la quiere en Combo" —
@@ -1851,6 +1917,7 @@ router.get("/:id/receipt-data", requireAuth, requireRole("CAJA"), async (req, re
         oi.qty,
         oi.price,
         oi.notes,
+        oi.special_note,
         oi.is_custom,
         oi.paid_at,
         oi.voided_at
@@ -2200,6 +2267,112 @@ router.patch("/:id/discount", requireAuth, requireRole("CAJA"), async (req, res)
     res.json({ ok: true, order: updatedOrder });
   } catch (error) {
     console.error("Error aplicando descuento:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// PATCH /api/orders/:id/special-note - Nota especial de LA ORDEN (no de un
+// producto puntual): "cliente con prisa", "para llevar", etc. Independiente
+// del flujo de agregar items — mesero o caja la escriben directo sobre la
+// orden ya creada, sin pasar por ProductPicker.
+router.patch("/:id/special-note", requireAuth, requireRole("MESERO", "CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const orderId = parseInt(req.params.id);
+    const note = (req.body.specialNote ?? req.body.special_note ?? '').trim();
+
+    const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    if (!order) {
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+    if (["PAGADA", "CANCELADO"].includes(order.status)) {
+      return res.status(409).json({ error: "No se puede editar la nota de una orden pagada o cancelada" });
+    }
+
+    await db.run(
+      "UPDATE orders SET special_note = ?, updated_at = ? WHERE id = ?",
+      [note || null, toBogotaSQLiteTimestamp(new Date()), orderId]
+    );
+
+    await logAudit({
+      action: 'ORDER_SPECIAL_NOTE_SET',
+      entity_type: 'order',
+      entity_id: orderId,
+      order_id: orderId,
+      user_id: req.user.id,
+      ip: req.ip || req.connection?.remoteAddress || null,
+      summary: note
+        ? `Nota de cocina agregada a orden ${order.daily_no || order.code || orderId}: ${note}`
+        : `Nota de cocina retirada de orden ${order.daily_no || order.code || orderId}`,
+      meta: { note, previous_note: order.special_note || null }
+    });
+
+    const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("order:updated", { order: updatedOrder });
+    }
+
+    res.json({ ok: true, order: updatedOrder });
+  } catch (error) {
+    console.error("Error guardando nota especial de la orden:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// PATCH /api/orders/:id/delivery-platform - Marcar/desmarcar "pedido de Rappi"
+// (MESERO + CAJA). Si la orden ya está LISTA y se marca Rappi, se cierra sola
+// de una vez (closeOrderIfPrepaid registra el pago RAPPI). Bloqueado en
+// PAGADA/CANCELADO: ahí el pago ya quedó registrado con su método real.
+router.patch("/:id/delivery-platform", requireAuth, requireRole("MESERO", "CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const orderId = parseInt(req.params.id);
+    const rawPlatform = String(req.body.deliveryPlatform ?? req.body.delivery_platform ?? '').trim().toUpperCase();
+    if (rawPlatform && !DELIVERY_PLATFORMS.includes(rawPlatform)) {
+      return res.status(400).json({ error: "Plataforma de domicilio inválida (solo RAPPI)" });
+    }
+    const platform = rawPlatform || null;
+
+    const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    if (!order) return res.status(404).json({ error: "Orden no encontrada" });
+    if (["PAGADA", "CANCELADO"].includes(order.status)) {
+      return res.status(409).json({ error: "La orden ya está cerrada, no se puede cambiar la plataforma" });
+    }
+
+    const ts = toBogotaSQLiteTimestamp(new Date());
+    await db.run(
+      "UPDATE orders SET delivery_platform = ?, updated_at = ? WHERE id = ?",
+      [platform, ts, orderId]
+    );
+
+    await logAudit({
+      action: 'ORDER_UPDATED',
+      entity_type: 'order',
+      entity_id: orderId,
+      order_id: orderId,
+      user_id: req.user.id,
+      ip: req.ip || req.connection?.remoteAddress || null,
+      summary: platform
+        ? `Orden ${order.daily_no || order.code || orderId} marcada como pedido de ${platform}`
+        : `Orden ${order.daily_no || order.code || orderId} dejó de ser pedido de ${order.delivery_platform || 'plataforma'}`,
+      meta: { delivery_platform: platform, previous: order.delivery_platform || null }
+    }).catch(() => {});
+
+    const io = req.app.get("io");
+    let cerrada = false;
+    if (platform && order.status === "LISTO") {
+      cerrada = await closeOrderIfPrepaid(db, orderId, io, req.user.id);
+    }
+
+    const updated = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const items = await db.all("SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL", [orderId]);
+    if (io && !cerrada) {
+      io.emit("order:updated", { order: { ...updated, items } });
+    }
+    res.json({ order: { ...updated, items }, closed: cerrada });
+  } catch (error) {
+    console.error("Error cambiando plataforma de la orden:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });

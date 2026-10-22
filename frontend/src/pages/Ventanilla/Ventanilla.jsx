@@ -7,7 +7,10 @@ import { statusLabel } from '../../utils/statusLabels';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { useVentanillaRefresh } from '../../hooks/useOrdersRefresh.js';
-import ProductPicker from '../../components/ProductPicker.jsx';
+import ProductPicker, { findProductById } from '../../components/ProductPicker.jsx';
+import EditItemNoteModal from '../../components/EditItemNoteModal.jsx';
+import { getAdicionales } from '../../components/AdicionalesChips.jsx';
+import OrderNoteModal from '../../components/OrderNoteModal.jsx';
 import '../Mesero/Mesero.css';
 import '../Caja/Caja.css';
 
@@ -31,10 +34,22 @@ export default function Ventanilla() {
   const [openOrders, setOpenOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState([]);
+  // Detalle completo de la orden seleccionada, siempre por GET /orders/:id —
+  // NO se busca en `openOrders` porque una orden con pago adelantado (todos
+  // sus items con paid_at) sale de la lista only_open aunque siga NUEVO/EN_PREP,
+  // y "Modificar orden" desde Cocina quedaba en un cuadro en blanco (dueño,
+  // 2026-09).
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
   const [productsByCategory, setProductsByCategory] = useState({});
   const [newOrderItems, setNewOrderItems] = useState([]);
   const [showMerge, setShowMerge] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
+  // Nota de LA ORDEN (independiente de un producto puntual)
+  const [showOrderNoteModal, setShowOrderNoteModal] = useState(false);
+  const [orderNoteDraft, setOrderNoteDraft] = useState('');
+  // Editar salsas/nota especial de un item YA agregado (pendiente o ya en la orden)
+  const [editingSentItem, setEditingSentItem] = useState(null);
+  const [editingLocalIndex, setEditingLocalIndex] = useState(null);
 
   // FASE 16.3: Hook de refresh para órdenes archivadas
   const { refresh } = useVentanillaRefresh({
@@ -69,8 +84,15 @@ export default function Ventanilla() {
   const loadOrderItems = async (orderId) => {
     try {
       const res = await axios.get(`/orders/${orderId}`);
-      const allItems = res.data.items || [];
-      setSelectedOrderItems(allItems.filter(item => !item.paid_at && !item.voided_at));
+      const order = res.data;
+      const allItems = order.items || [];
+      const pendingItems = allItems.filter(item => !item.paid_at && !item.voided_at);
+      setSelectedOrderItems(pendingItems);
+      // GET /orders/:id no trae pendingTotal (solo /orders/service/:service lo
+      // calcula) — se arma acá para que el header muestre el saldo correcto
+      // sin depender de que la orden siga en la lista only_open.
+      const pendingTotal = pendingItems.reduce((s, i) => s + i.qty * i.price, 0);
+      setSelectedOrderDetail({ ...order, pendingTotal });
     } catch (error) {
       console.error('Error cargando items de orden:', error);
       showAlert('Error al cargar items de la orden');
@@ -117,9 +139,11 @@ export default function Ventanilla() {
         channel: 'VENTANILLA',
         service: 'VENTANILLA',
         items: newOrderItems,
+        specialNote: orderNoteDraft.trim() || undefined,
       });
 
       setNewOrderItems([]);
+      setOrderNoteDraft('');
 
       // CAJA: el cliente paga al pedir (pago adelantado) — directo al riel de
       // cobro de esa orden. MESERO no cobra: pantalla limpia para el siguiente
@@ -179,9 +203,33 @@ export default function Ventanilla() {
     setNewOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const saveOrderNote = async (text) => {
+    if (selectedOrderId) {
+      await axios.patch(`/orders/${selectedOrderId}/special-note`, { specialNote: text });
+      await loadOrderItems(selectedOrderId);
+      await loadOrders();
+    } else {
+      setOrderNoteDraft(text);
+    }
+  };
+
+  const saveSentItemNote = async ({ notes, specialNote }) => {
+    await axios.patch(`/orders/items/${editingSentItem.id}`, { notes, specialNote });
+    await loadOrderItems(selectedOrderId);
+    await loadOrders();
+  };
+
+  // Item aún no enviado: además de notas puede cambiar cantidad y adicionales
+  // (el panel ya recalculó el precio unitario con los adicionales marcados)
+  const saveLocalItemNote = async ({ notes, specialNote, price, qty }) => {
+    setNewOrderItems((prev) => prev.map((it, i) => (i === editingLocalIndex
+      ? { ...it, notes: notes || '', specialNote, ...(price != null ? { price } : {}), ...(qty ? { qty } : {}) }
+      : it)));
+  };
+
   const ACTIVE_STATUSES = ['NUEVO', 'EN_PREP', 'LISTO'];
   const openOrdersList = openOrders.filter((o) => ACTIVE_STATUSES.includes(o.status));
-  const selectedOrder = openOrders.find((o) => o.id === selectedOrderId);
+  const selectedOrder = selectedOrderDetail && selectedOrderDetail.id === selectedOrderId ? selectedOrderDetail : null;
   const canEdit = selectedOrder && ['NUEVO', 'EN_PREP'].includes(selectedOrder.status);
   const isCaja = user?.role === 'CAJA';
   const cartTotal = newOrderItems.reduce((s, it) => s + (it.qty || 1) * (it.price || 0), 0);
@@ -205,6 +253,21 @@ export default function Ventanilla() {
                   Total pendiente: <strong>{formatPriceCOP(selectedOrder.pendingTotal || 0)}</strong>
                   {` • ${statusLabel(selectedOrder.status)}`}
                 </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOrderNoteModal(true)}
+                    style={{
+                      display: 'block', marginTop: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '8px',
+                      border: 'none', textAlign: 'left', cursor: 'pointer',
+                      background: selectedOrder.special_note ? '#f8d7da' : '#f8f9fa',
+                      color: selectedOrder.special_note ? '#dc3545' : '#495057',
+                      fontWeight: 600, fontSize: '0.85rem',
+                    }}
+                  >
+                    {selectedOrder.special_note ? `⚠ Nota para cocina: ${selectedOrder.special_note}` : '+ Nota para cocina'}
+                  </button>
+                )}
               </div>
               <div className="order-detail-actions">
                 {isCaja && canEdit && openOrdersList.filter(o => o.id !== selectedOrderId).length > 0 && (
@@ -245,7 +308,13 @@ export default function Ventanilla() {
               <div className="items-list-detalle">
                 {selectedOrderItems.map(item => (
                   <div key={item.id} className="item-row-detalle">
-                    <div className="item-info-detalle">
+                    <button
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => setEditingSentItem(item)}
+                      className="item-info-detalle"
+                      style={{ background: 'none', border: 'none', textAlign: 'left', cursor: canEdit ? 'pointer' : 'default', padding: 0, flex: 1, minWidth: 0 }}
+                    >
                       <div className="item-name-detalle">
                         {item.name}
                         {!!item.is_custom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
@@ -253,8 +322,12 @@ export default function Ventanilla() {
                       <div className="item-details-detalle">
                         {item.qty}x {formatPriceCOP(item.price)} = {formatPriceCOP(item.qty * item.price)}
                         {item.notes && <span className="item-notes-detalle"> • {item.notes}</span>}
+                        {canEdit && <span style={{ color: '#1971c2', marginLeft: '0.4rem' }}>editar</span>}
                       </div>
-                    </div>
+                      {item.special_note && (
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545' }}>⚠ {item.special_note}</div>
+                      )}
+                    </button>
                     {canEdit && isCaja && (
                       <div className="item-actions-detalle">
                         <button
@@ -299,19 +372,43 @@ export default function Ventanilla() {
         {/* Armar pedido: nuevo (por defecto) o agregar items a la orden abierta */}
         {(!selectedOrderId || canEdit) && (
           <div className="new-order-form" style={{ marginTop: selectedOrderId ? '1.25rem' : 0 }}>
+            {!selectedOrderId && (
+              <button
+                type="button"
+                onClick={() => setShowOrderNoteModal(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
+                  marginBottom: '1rem', padding: '0.7rem 0.9rem', borderRadius: '8px',
+                  border: 'none', textAlign: 'left', cursor: 'pointer',
+                  background: orderNoteDraft ? '#f8d7da' : '#f8f9fa',
+                  color: orderNoteDraft ? '#dc3545' : '#495057',
+                  fontWeight: 600, fontSize: '0.9rem',
+                }}
+              >
+                {orderNoteDraft ? `⚠ Nota para cocina: ${orderNoteDraft}` : '+ Nota para cocina (no de un producto)'}
+              </button>
+            )}
             <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
 
             {newOrderItems.length > 0 && (
               <div className="new-order-list" style={{ marginTop: '1rem' }}>
                 {newOrderItems.map((it, idx) => (
                   <div key={idx} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8f9fa', borderRadius: '8px', marginBottom: '0.5rem' }}>
-                    <div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingLocalIndex(idx)}
+                      style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0 }}
+                    >
                       <div style={{ fontWeight: 'bold' }}>
                         {it.qty > 1 ? `${it.qty}× ` : ''}{it.name}
                         {it.isCustom && <span style={{ marginLeft: '0.5rem', background: '#F5BB4C', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>OTRO</span>}
+                        <span style={{ color: '#1971c2', marginLeft: '0.4rem', fontWeight: 600, fontSize: '0.85rem' }}>editar</span>
                       </div>
                       {it.notes && <div style={{ fontSize: '0.9rem', color: '#666' }}>{it.notes}</div>}
-                    </div>
+                      {it.specialNote && (
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>⚠ {it.specialNote}</div>
+                      )}
+                    </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                       <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP((it.qty || 1) * (it.price || 0))}</span>
                       <button onClick={() => removeNewOrderItem(idx)} className="remove-btn">×</button>
@@ -391,6 +488,32 @@ export default function Ventanilla() {
         </>}>
         <p>{confirmState.message}</p>
       </Modal>
+
+      <OrderNoteModal
+        open={showOrderNoteModal}
+        value={selectedOrder?.special_note || orderNoteDraft}
+        onClose={() => setShowOrderNoteModal(false)}
+        onSave={saveOrderNote}
+      />
+
+      <EditItemNoteModal
+        open={!!editingSentItem}
+        item={editingSentItem}
+        product={editingSentItem ? findProductById(productsByCategory, editingSentItem.product_id).product : null}
+        onClose={() => setEditingSentItem(null)}
+        onSave={saveSentItemNote}
+      />
+
+      <EditItemNoteModal
+        open={editingLocalIndex !== null}
+        item={editingLocalIndex !== null ? newOrderItems[editingLocalIndex] : null}
+        product={editingLocalIndex !== null ? findProductById(productsByCategory, newOrderItems[editingLocalIndex]?.product_id).product : null}
+        onClose={() => setEditingLocalIndex(null)}
+        onSave={saveLocalItemNote}
+        adicionales={getAdicionales(productsByCategory)}
+        allowAdicionales
+        allowQty
+      />
     </div>
   );
 }

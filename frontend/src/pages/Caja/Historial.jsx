@@ -105,7 +105,8 @@ export default function Historial({ embedded = false }) {
     const labels = {
       EFECTIVO: 'Efectivo',
       TARJETA: 'Tarjeta',
-      TRANSFERENCIA: 'Transferencia'
+      TRANSFERENCIA: 'Transferencia',
+      RAPPI: 'Rappi'
     };
     return labels[method] || method;
   };
@@ -114,7 +115,8 @@ export default function Historial({ embedded = false }) {
     const colors = {
       EFECTIVO: 'var(--green-text)',
       TARJETA: 'var(--brand-deep)',
-      TRANSFERENCIA: 'var(--blue-text)'
+      TRANSFERENCIA: 'var(--blue-text)',
+      RAPPI: '#C2330F'
     };
     return colors[method] || 'var(--gray-600)';
   };
@@ -269,6 +271,7 @@ export default function Historial({ embedded = false }) {
                 <option value="EFECTIVO">EFECTIVO</option>
                 <option value="TARJETA">TARJETA</option>
                 <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                <option value="RAPPI">RAPPI</option>
               </select>
             </div>
             <div>

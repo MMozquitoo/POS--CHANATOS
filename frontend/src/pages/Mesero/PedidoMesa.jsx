@@ -3,7 +3,10 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
-import ProductPicker from '../../components/ProductPicker';
+import ProductPicker, { findProductById } from '../../components/ProductPicker';
+import EditItemNoteModal from '../../components/EditItemNoteModal';
+import { getAdicionales } from '../../components/AdicionalesChips.jsx';
+import OrderNoteModal from '../../components/OrderNoteModal';
 import { useAlert } from '../../hooks/useModal';
 import { formatPriceCOP } from '../../utils/currency.js';
 import './Mesero.css';
@@ -50,6 +53,13 @@ export default function PedidoMesa() {
   const [productsByCategory, setProductsByCategory] = useState({});
   const [showCancelOrder, setShowCancelOrder] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  // Nota de la orden: si aún no existe la orden, se guarda local y viaja en el
+  // POST de creación; si ya existe, se guarda de una vez contra el backend.
+  const [orderNoteDraft, setOrderNoteDraft] = useState('');
+  const [showOrderNoteModal, setShowOrderNoteModal] = useState(false);
+  // Editar salsas/nota especial de un item YA agregado (pendiente o ya enviado)
+  const [editingLocalIndex, setEditingLocalIndex] = useState(null);
+  const [editingSentItem, setEditingSentItem] = useState(null);
 
   useEffect(() => {
     loadProducts();
@@ -110,6 +120,28 @@ export default function PedidoMesa() {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  const saveOrderNote = async (text) => {
+    if (order && order.id) {
+      await axios.patch(`/orders/${order.id}/special-note`, { specialNote: text });
+      await loadActiveOrder();
+    } else {
+      setOrderNoteDraft(text);
+    }
+  };
+
+  // Item aún no enviado: además de notas puede cambiar cantidad y adicionales
+  // (el panel ya recalculó el precio unitario con los adicionales marcados)
+  const saveLocalItemNote = async ({ notes, specialNote, price, qty }) => {
+    setItems((prev) => prev.map((it, i) => (i === editingLocalIndex
+      ? { ...it, notes: notes || '', specialNote, ...(price != null ? { price } : {}), ...(qty ? { qty } : {}) }
+      : it)));
+  };
+
+  const saveSentItemNote = async ({ notes, specialNote }) => {
+    await axios.patch(`/orders/items/${editingSentItem.id}`, { notes, specialNote });
+    await loadActiveOrder();
+  };
+
   const sendToKitchen = async () => {
     if (items.length === 0) {
       showAlert('Agrega al menos un producto');
@@ -144,11 +176,13 @@ export default function PedidoMesa() {
           channel: 'MESA',
           service: 'MESA',
           items: items,
+          specialNote: orderNoteDraft.trim() || undefined,
         });
         if (import.meta.env.DEV) {
           console.log('[FASE M8.7] Pedido creado:', response.data);
         }
         showAlert('Pedido enviado a cocina');
+        setOrderNoteDraft('');
       }
 
       await loadActiveOrder();
@@ -212,6 +246,25 @@ export default function PedidoMesa() {
       </header>
 
       <div className="pedido-content">
+        {/* Nota de la orden: independiente de agregar productos — visible
+            aunque todavía no exista la orden (viaja en la creación). */}
+        <button
+          type="button"
+          onClick={() => setShowOrderNoteModal(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
+            marginBottom: '1rem', padding: '0.7rem 0.9rem', borderRadius: 'var(--radius-md)',
+            border: 'none', textAlign: 'left', cursor: 'pointer',
+            background: (order?.special_note || orderNoteDraft) ? 'var(--red-tint)' : 'var(--gray-50)',
+            color: (order?.special_note || orderNoteDraft) ? 'var(--red-text)' : 'var(--gray-700)',
+            fontWeight: 600, fontSize: 'var(--text-15)',
+          }}
+        >
+          {(order?.special_note || orderNoteDraft)
+            ? `⚠ Nota para cocina: ${order?.special_note || orderNoteDraft}`
+            : '+ Nota para cocina (no de un producto)'}
+        </button>
+
         {/* Información de orden activa si existe */}
         {order && order.id && (
           <div style={{
@@ -253,9 +306,24 @@ export default function PedidoMesa() {
                   Ya en la orden
                 </div>
                 {order.items.filter(it => !it.voided_at).map(it => (
-                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', color: 'var(--gray-600)', padding: '0.18rem 0' }}>
-                    <span>{it.qty}× {it.name}{it.notes ? ` • ${it.notes}` : ''}</span>
-                  </div>
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => setEditingSentItem(it)}
+                    disabled={!['NUEVO', 'EN_PREP'].includes(order.status)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left',
+                      background: 'none', border: 'none', padding: '0.3rem 0', cursor: ['NUEVO', 'EN_PREP'].includes(order.status) ? 'pointer' : 'default',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.9375rem', color: 'var(--gray-600)' }}>
+                      {it.qty}× {it.name}{it.notes ? ` • ${it.notes}` : ''}
+                      {['NUEVO', 'EN_PREP'].includes(order.status) && <span style={{ color: 'var(--blue)', marginLeft: '0.4rem' }}>editar</span>}
+                    </span>
+                    {it.special_note && (
+                      <span style={{ fontSize: 'var(--text-13)', fontWeight: 700, color: 'var(--red-text)' }}>⚠ {it.special_note}</span>
+                    )}
+                  </button>
                 ))}
               </div>
             )}
@@ -287,12 +355,23 @@ export default function PedidoMesa() {
             <div className="items-list">
               {items.map((item, index) => (
                 <div key={index} className="item-card">
-                  <div className="item-info">
+                  <button
+                    type="button"
+                    onClick={() => setEditingLocalIndex(index)}
+                    className="item-info"
+                    style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0, flex: 1, minWidth: 0 }}
+                  >
                     <div className="item-name">{item.name}</div>
                     <div className="item-details">
                       Cantidad: {item.qty} {item.notes && `• ${item.notes}`}
+                      <span style={{ color: 'var(--blue)', marginLeft: '0.4rem' }}>editar</span>
                     </div>
-                  </div>
+                    {item.specialNote && (
+                      <div style={{ fontSize: 'var(--text-13)', fontWeight: 700, color: 'var(--red-text)' }}>
+                        ⚠ {item.specialNote}
+                      </div>
+                    )}
+                  </button>
                   <button onClick={() => removeItem(index)} className="remove-btn">×</button>
                 </div>
               ))}
@@ -337,6 +416,32 @@ export default function PedidoMesa() {
           style={{ width: '100%', padding: '0.6rem', border: '1.5px solid #e5e5e5', borderRadius: '8px', fontSize: '0.95rem' }}
         />
       </Modal>
+
+      <OrderNoteModal
+        open={showOrderNoteModal}
+        value={order?.special_note || orderNoteDraft}
+        onClose={() => setShowOrderNoteModal(false)}
+        onSave={saveOrderNote}
+      />
+
+      <EditItemNoteModal
+        open={editingLocalIndex !== null}
+        item={editingLocalIndex !== null ? items[editingLocalIndex] : null}
+        product={editingLocalIndex !== null ? findProductById(productsByCategory, items[editingLocalIndex]?.product_id).product : null}
+        onClose={() => setEditingLocalIndex(null)}
+        onSave={saveLocalItemNote}
+        adicionales={getAdicionales(productsByCategory)}
+        allowAdicionales
+        allowQty
+      />
+
+      <EditItemNoteModal
+        open={!!editingSentItem}
+        item={editingSentItem}
+        product={editingSentItem ? findProductById(productsByCategory, editingSentItem.product_id).product : null}
+        onClose={() => setEditingSentItem(null)}
+        onSave={saveSentItemNote}
+      />
     </div>
   );
 }

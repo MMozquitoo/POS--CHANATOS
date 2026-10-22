@@ -1,48 +1,72 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import SalsasChips, { productoLlevaSalsas } from './SalsasChips';
-import SaboresChips, { resolveSaborPrice } from './SaboresChips';
+import SalsasChips from './SalsasChips';
+import ItemOptionsSheet from './ItemOptionsSheet';
+import { getAdicionales } from './AdicionalesChips';
 import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import { useAlert } from '../hooks/useModal';
 import '../pages/Mesero/Mesero.css';
 
-// Selector de producto compartido: categoría → grid de productos → formulario
-// de confirmación (cantidad, notas, salsas/sabores) → "Agregar". Antes vivía
-// solo dentro de PedidoMesa.jsx (Mesero); DetalleMesa.jsx (Caja) agregaba el
+// Encuentra un producto y su categoría dentro de productsByCategory por id —
+// lo usa EditItemNoteModal para saber si un item ya agregado tiene sabores/
+// salsas disponibles, sin duplicar la búsqueda en cada pantalla.
+export function findProductById(productsByCategory, productId) {
+  if (!productId) return { product: null, category: null };
+  for (const [category, products] of Object.entries(productsByCategory || {})) {
+    const product = products.find((p) => p.id === productId);
+    if (product) return { product, category };
+  }
+  return { product: null, category: null };
+}
+
+// Selector de producto compartido: categoría → grid de productos → tocar un
+// producto abre un PANEL (ItemOptionsSheet: sheet en celular, modal en PC) con
+// cantidad, sabor, salsas, adicionales y notas → "Agregar". Antes vivía solo
+// dentro de PedidoMesa.jsx (Mesero); DetalleMesa.jsx (Caja) agregaba el
 // producto de una vez y se editaba después, un flujo distinto para la misma
 // tarea. Se unifica acá para que el mesero y la caja armen pedidos igual.
+// El formulario era inline debajo de la grilla y había que deslizar para
+// encontrarlo (dueño, 2026-10): ahora cada elemento abre su propio panel.
 export default function ProductPicker({ productsByCategory, onAdd }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [qty, setQty] = useState(1);
-  const [notes, setNotes] = useState('');
+  const adicionales = getAdicionales(productsByCategory);
   const [showCustomProduct, setShowCustomProduct] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState(1);
   const [customNotes, setCustomNotes] = useState('');
+  const [customSpecialNote, setCustomSpecialNote] = useState('');
+
+  // ADICIONALES va de última: sus productos se usan sobre todo desde el panel
+  // de cada item ("+ Queso"), no como primera pestaña (alfabéticamente quedaba
+  // primera y escondía las hamburguesas al abrir la pantalla).
+  const categories = Object.keys(productsByCategory || {}).sort((a, b) => {
+    const aAd = /^ADICIONAL/i.test(a) ? 1 : 0;
+    const bAd = /^ADICIONAL/i.test(b) ? 1 : 0;
+    return aAd - bAd;
+  });
 
   useEffect(() => {
-    const categories = Object.keys(productsByCategory || {});
     if (categories.length > 0 && !categories.includes(selectedCategory)) {
       setSelectedCategory(categories[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productsByCategory]);
 
-  const addItem = () => {
+  // El panel ya resolvió precio (sabor + adicionales), cantidad y notas
+  const addItem = ({ qty, notes, specialNote, price }) => {
     if (!selectedProduct) return;
     onAdd({
       name: selectedProduct.displayName || selectedProduct.name,
       qty,
-      price: resolveSaborPrice(selectedProduct.flavor_prices, selectedProduct.price, notes),
+      price,
       notes,
+      specialNote: specialNote || undefined,
       product_id: selectedProduct.id,
     });
     setSelectedProduct(null);
-    setQty(1);
-    setNotes('');
   };
 
   const addCustomItem = () => {
@@ -55,6 +79,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
       qty: customQty,
       price: parseMontoCOP(customPrice),
       notes: customNotes,
+      specialNote: customSpecialNote.trim() || undefined,
       isCustom: true,
     });
     setShowCustomProduct(false);
@@ -62,6 +87,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
     setCustomPrice('');
     setCustomQty(1);
     setCustomNotes('');
+    setCustomSpecialNote('');
   };
 
   return (
@@ -78,7 +104,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
       </div>
 
       <div className="category-tabs">
-        {Object.keys(productsByCategory || {}).map(category => (
+        {categories.map(category => (
           <button
             key={category}
             className={`category-tab ${selectedCategory === category ? 'active' : ''}`}
@@ -107,39 +133,15 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
         </div>
       )}
 
-      {selectedProduct && (
-        <div className="product-form">
-          <div className="form-group">
-            <label>Cantidad</label>
-            <div className="qty-controls">
-              <button onClick={() => setQty(Math.max(1, qty - 1))}>-</button>
-              <input type="number" value={qty} onChange={(e) => setQty(parseInt(e.target.value) || 1)} min="1" />
-              <button onClick={() => setQty(qty + 1)}>+</button>
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Notas</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ej: Sin azúcar"
-            />
-            {productoLlevaSalsas(selectedProduct, selectedCategory) && <SalsasChips value={notes} onChange={setNotes} />}
-            <SaboresChips
-              flavors={selectedProduct.flavors}
-              flavorsActive={selectedProduct.flavors_active}
-              flavorPrices={selectedProduct.flavor_prices}
-              basePrice={selectedProduct.price}
-              value={notes}
-              onChange={setNotes}
-            />
-          </div>
-          <button onClick={addItem} className="btn btn--primary btn--lg">
-            Agregar{qty > 1 ? ` (${qty})` : ''}
-          </button>
-        </div>
-      )}
+      <ItemOptionsSheet
+        open={!!selectedProduct}
+        mode="add"
+        product={selectedProduct}
+        category={selectedCategory}
+        adicionales={adicionales}
+        onClose={() => setSelectedProduct(null)}
+        onSubmit={addItem}
+      />
 
       {showCustomProduct && (
         <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
@@ -192,6 +194,16 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
               />
               <SalsasChips value={customNotes} onChange={setCustomNotes} />
             </div>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>Nota especial para cocina</label>
+              <textarea
+                value={customSpecialNote}
+                onChange={(e) => setCustomSpecialNote(e.target.value)}
+                placeholder="Ej: Alergia al maní, sin gluten, cliente con prisa..."
+                rows={2}
+                style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => {
@@ -200,6 +212,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
                   setCustomPrice('');
                   setCustomQty(1);
                   setCustomNotes('');
+                  setCustomSpecialNote('');
                 }}
                 className="btn btn--secondary"
                 style={{ flex: 1 }}

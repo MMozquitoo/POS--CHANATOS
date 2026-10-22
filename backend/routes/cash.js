@@ -314,6 +314,10 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     let totalCash = 0;
     let totalCard = 0;
     let totalTransfer = 0;
+    // RAPPI: la plataforma paga después (semanal) — se registra para que el
+    // cierre muestre cuánto quedó "en Rappi", pero NO entra al efectivo
+    // esperado ni al total de ventas del día (esa plata no está en el local).
+    let totalRappi = 0;
     let paymentCount = 0;
     let tipsCash = 0;
     let totalTips = 0;
@@ -328,6 +332,8 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         totalCard = row.total;
       } else if (row.method === 'TRANSFERENCIA') {
         totalTransfer = row.total;
+      } else if (row.method === 'RAPPI') {
+        totalRappi = row.total;
       }
     });
 
@@ -373,6 +379,7 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_cash: totalCash,
         total_card: totalCard,
         total_transfer: totalTransfer,
+        total_rappi: totalRappi,
         total_sales: totalSales,
         total_tips: totalTips,
         tips_cash: tipsCash,
@@ -397,6 +404,7 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
            total_cash = ?,
            total_card = ?,
            total_transfer = ?,
+           total_rappi = ?,
            total_sales = ?,
            payment_count = ?,
            closed_by = ?,
@@ -415,6 +423,7 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         totalCash,
         totalCard,
         totalTransfer,
+        totalRappi,
         totalSales,
         paymentCount,
         req.user.id,
@@ -477,6 +486,7 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
         total_cash: totalCash,
         total_card: totalCard,
         total_transfer: totalTransfer,
+        total_rappi: totalRappi,
         total_sales: totalSales,
         total_tips: totalTips,
         tips_cash: tipsCash,
@@ -624,15 +634,17 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       [sessionId]
     );
 
-    // Total general
+    // Total general. RAPPI se excluye: esa plata la paga la plataforma
+    // después, no está en el local hoy (dueño, 2026-10) — va aparte en `rappi`.
     const totalResult = await db.get(
       `SELECT
          COUNT(*) as payment_count,
          COALESCE(SUM(amount), 0) as total_amount
        FROM payments
-       WHERE cash_session_id = ? AND voided_at IS NULL`,
+       WHERE cash_session_id = ? AND voided_at IS NULL AND method != 'RAPPI'`,
       [sessionId]
     );
+    const rappiRow = paymentsByMethod.find((m) => m.method === "RAPPI");
 
     // Gastos/ingresos manuales registrados mientras esta caja estuvo abierta.
     // Se filtra por created_at dentro de la ventana de la sesión (no por
@@ -662,11 +674,15 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
     // orden que haya recibido al menos un pago en esta sesión. Usa cash_session_id
     // (no una ventana de fechas) para que cuadre con el resto de este resumen,
     // que también agrupa por esa columna.
+    // Los pedidos de Rappi quedan fuera de las ventas teóricas del día (igual
+    // que del total cobrado): Rappi los paga después.
     const theoreticalSalesResult = await db.get(
       `SELECT COALESCE(SUM(oi.qty * oi.price), 0) as total
        FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
        WHERE oi.voided_at IS NULL
          AND oi.paid_at IS NOT NULL
+         AND COALESCE(o.delivery_platform, '') != 'RAPPI'
          AND oi.order_id IN (SELECT DISTINCT order_id FROM payments WHERE cash_session_id = ?)`,
       [sessionId]
     );
@@ -683,6 +699,7 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
        WHERE oi.voided_at IS NULL
          AND oi.paid_at IS NULL
          AND o.status != 'CANCELADO'
+         AND COALESCE(o.delivery_platform, '') != 'RAPPI'
          AND o.business_day = ?`,
       [getBogotaDateString()]
     );
@@ -699,6 +716,7 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       paymentCount: totalResult?.payment_count || 0,
       byMethod: paymentsByMethod || [],
       tipsCash: paymentsByMethod.find((m) => m.method === "EFECTIVO")?.tips || 0,
+      rappi: { count: rappiRow?.count || 0, total: rappiRow?.total || 0 },
       manual: {
         income: manualIncome,
         expense: manualExpense,
@@ -757,6 +775,7 @@ router.get("/session/:id/close-report", requireAuth, requireRole("CAJA"), async 
         total_cash: session.total_cash || 0,
         total_card: session.total_card || 0,
         total_transfer: session.total_transfer || 0,
+        total_rappi: session.total_rappi || 0,
         total_sales: session.total_sales || 0,
         payment_count: session.payment_count || 0
       },
