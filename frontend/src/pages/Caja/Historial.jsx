@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
@@ -36,6 +36,7 @@ export default function Historial({ embedded = false }) {
 
   // Estados de detalle
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const reabrirDetalleRef = useRef(null);
   const [receiptData, setReceiptData] = useState(null);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -171,7 +172,13 @@ export default function Historial({ embedded = false }) {
     }
   };
 
+  // Los modales SIEMPRE quedan encima de los recibos (regla global, ver
+  // chanatos-theme). Si el recibo se abre con el "Detalle de pago" abierto,
+  // queda tapado (reporte del dueño, 2026-10-25): se cierra el detalle
+  // mientras se ve el recibo y se reabre al cerrarlo.
   const handlePrintReceipt = () => {
+    reabrirDetalleRef.current = selectedPayment;
+    setSelectedPayment(null);
     setShowReceipt(true);
   };
 
@@ -604,6 +611,11 @@ export default function Historial({ embedded = false }) {
           changeAmount={receiptData.changeAmount}
           onClose={() => {
             setShowReceipt(false);
+            // Volver al detalle del pago desde el que se reimprimió
+            if (reabrirDetalleRef.current) {
+              setSelectedPayment(reabrirDetalleRef.current);
+              reabrirDetalleRef.current = null;
+            }
           }}
           onPrint={() => {
             // Opcional: callback después de imprimir

@@ -11,7 +11,12 @@ body {
   background: var(--gray-50);
   color: var(--gray-900);
   width: 100%;
+  /* clip (no hidden): recorta igual el desborde lateral pero NO convierte al
+     contenedor en uno con scroll propio — con hidden, la barra lateral de Caja
+     (position: sticky) se iba con la página en vez de quedarse fija.
+     Navegadores viejos ignoran clip y se quedan con hidden. */
   overflow-x: hidden;
+  overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -20,6 +25,7 @@ body {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button {

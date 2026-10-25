@@ -1,131 +1,64 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import './Caja.css';
-import CajaHeader from '../../components/CajaHeader.jsx';
 import ZoomControl from '../../components/ZoomControl.jsx';
-import ModalHost from '../../components/ModalHost';
-import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
+import PageHeader from '../../components/ui/PageHeader';
+import Icon from '../../components/ui/Icon';
+import { ADMIN_NAV } from '../../components/shell/cajaNav';
+import '../../components/ui/ui.css';
+import './Caja.css';
+
+// ADMINISTRACIÓN (/mas) — rediseño 2026-10. Antes "OPCIONES": una lista de
+// botones de colores con las mismas pantallas que ahora tiene la barra
+// lateral. Queda como portada de Administración con la MISMA lista
+// (cajaNav.js), para no mantener dos menús distintos. Salir vive en la barra
+// lateral (escritorio) y en el menú (celular); el zoom de la app de
+// escritorio (Electron) sigue acá.
+const DESCRIPCIONES = {
+  '/menu': 'Productos, precios, sabores y recetas',
+  '/compras': 'Compras de insumos y gastos generales',
+  '/historial': 'Pagos y cierres anteriores',
+  '/cierre': 'Arqueo y cierre del turno',
+  '/auditoria': 'Quién hizo qué y cuándo',
+  '/aplicacion': 'Actualizaciones, respaldos y datos',
+  '/conexion': 'Servidor y diagnóstico de red',
+  '/impresora': 'Impresora de recibos',
+  '/identidad': 'Nombre, logo y datos del recibo',
+};
 
 export default function MasCaja() {
-  const { alertState, showAlert, closeAlert } = useAlert();
-  const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
-  const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
-
-  // Detectar si está en Electron
+  const [tapped, setTapped] = useState(null);
   const isElectron = typeof window !== 'undefined' && !!window.posElectron;
 
   return (
-    <div className="caja-container">
-      <CajaHeader
-        title="OPCIONES"
-        backTo="/centro"
-      />
-      {isElectron && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 1rem 0' }}>
-          <ZoomControl />
-        </div>
-      )}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '1rem',
-        background: '#f8f9fa',
-        borderBottom: '1px solid #ddd'
-      }}>
-        <button
-          onClick={async () => {
-            if (await showConfirm('¿Cerrar sesión?')) {
-              logout();
-            }
-          }}
-          className="btn-danger"
-          style={{ padding: '0.75rem 2rem' }}
-        >
-          SALIR
-        </button>
-      </div>
-
-      <div className="caja-content caja-page">
-        <div className="caja-menu-list">
-          {user?.role === 'CAJA' && (
-            <>
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/reportes')}
-                style={{ background: '#F5BB4C', color: '#1a1a2e', fontWeight: 'bold' }}
-              >
-                REPORTES DE VENTAS
-              </button>
-              {/* Junta HISTORIAL DE CIERRES + HISTORIAL DE PAGOS (pestañas adentro) */}
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/historial')}
-              >
-                HISTORIAL
-              </button>
-              {/* Compras junta Registrar compra + Ingredientes + Gastos
-                  generales (pestañas adentro) — ver Compras.jsx */}
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/compras')}
-                style={{ background: '#B8860B', color: 'white', fontWeight: 'bold' }}
-              >
-                COMPRAS
-              </button>
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/auditoria')}
-              >
-                AUDITORÍA
-              </button>
-            </>
-          )}
-
-          {user?.role === 'CAJA' && (
-            <>
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/menu')}
-              >
-                MENÚ (PRECIOS)
-              </button>
-            </>
-          )}
-
-          {user?.role === 'CAJA' && (
-            <>
-              {/* Junta BUSCAR ACTUALIZACIONES + DESCARGAR DATOS + RESTAURAR + BACKUP */}
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/aplicacion')}
-                style={{ background: '#2e7d32', color: 'white', fontWeight: 'bold' }}
-              >
-                APLICACIÓN
-              </button>
-
-              {/* Junta SERVIDOR + DIAGNÓSTICO (pestañas adentro) */}
-              <button
-                className="caja-menu-option"
-                onClick={() => navigate('/conexion')}
-              >
-                CONEXIÓN
-              </button>
-            </>
-          )}
-
-          {isElectron && (
+    <div className="workspace admin-page">
+      <div className="workspace__main">
+        <PageHeader
+          title="Administración"
+          subtitle="Herramientas fuera del servicio"
+          actions={isElectron ? <ZoomControl /> : null}
+        />
+        <div className="admin-grid">
+          {ADMIN_NAV.map((item) => (
             <button
-              className="caja-menu-option"
-              onClick={() => navigate('/impresora')}
+              key={item.to}
+              type="button"
+              className="surface admin-card"
+              onClick={() => {
+                setTapped(item.to);
+                navigate(item.to);
+              }}
             >
-              IMPRESORA
+              <span className="admin-card__icon"><Icon name={item.icon} size={22} play={tapped === item.to} /></span>
+              <span className="admin-card__body">
+                <strong>{item.label}</strong>
+                <span>{DESCRIPCIONES[item.to]}</span>
+              </span>
+              <Icon name="chevronRight" size={18} className="admin-card__chev" />
             </button>
-          )}
+          ))}
         </div>
       </div>
-      <ModalHost alertApi={{ alertState, showAlert, closeAlert }} confirmApi={{ confirmState, showConfirm, acceptConfirm, cancelConfirm }} promptApi={{ promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt }} />
     </div>
   );
 }

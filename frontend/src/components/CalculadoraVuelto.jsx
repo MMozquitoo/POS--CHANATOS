@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import './CalculadoraVuelto.css';
 
-export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
+// propina: si el cliente la paga con el mismo efectivo, el vuelto es
+// recibido − (total + propina). Se muestra sumada al total para que el cajero
+// vea exactamente cuánto tiene que cubrir lo que le entregan.
+export default function CalculadoraVuelto({ total = 0, propina = 0, onClose, onConfirm }) {
   const [recibido, setRecibido] = useState('');
   const [vuelto, setVuelto] = useState(0);
 
   useEffect(() => {
-    const totalNum = parseMontoCOP(total) || 0;
+    const totalNum = (parseMontoCOP(total) || 0) + (parseMontoCOP(propina) || 0);
     const recibidoNum = parseMontoCOP(recibido) || 0;
     const vueltoCalculado = recibidoNum - totalNum;
     setVuelto(vueltoCalculado >= 0 ? vueltoCalculado : 0);
-  }, [total, recibido]);
+  }, [total, propina, recibido]);
 
   const handleBillClick = (amount) => {
     const current = parseMontoCOP(recibido) || 0;
@@ -40,7 +43,12 @@ export default function CalculadoraVuelto({ total = 0, onClose, onConfirm }) {
         <div className="calculadora-content">
           <div className="calculadora-total-section">
             <label>Total a cobrar</label>
-            <div className="total-display">{formatPriceCOP(total)}</div>
+            <div className="total-display">{formatPriceCOP((parseMontoCOP(total) || 0) + (parseMontoCOP(propina) || 0))}</div>
+            {(parseMontoCOP(propina) || 0) > 0 && (
+              <div className="tnum" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--gray-600)', marginTop: '0.25rem' }}>
+                Incluye propina {formatPriceCOP(parseMontoCOP(propina))}
+              </div>
+            )}
           </div>
 
           <div className="calculadora-recibido-section">

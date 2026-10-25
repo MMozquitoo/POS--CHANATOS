@@ -1,0 +1,618 @@
+/* Tarjetas, detalle y plano de mesas del rediseño 2026-10 */
+
+/* ---------- Detalle (panel) ---------- */
+.order-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.order-detail__section-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.order-note {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #FFF6E0;
+  color: #5C4510;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.order-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.order-note__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.order-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.order-line:last-child {
+  border-bottom: none;
+}
+
+.order-line__qty {
+  min-width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--gray-50);
+  font-weight: 800;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.order-line__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-line__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-line__paid {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--green-tint);
+  color: var(--green-text);
+}
+
+.order-line__notes {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.order-line__special {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orange-text);
+}
+
+.order-line__price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.order-totals {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--gray-50);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-totals__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.order-totals__row dt,
+.order-totals__row dd {
+  margin: 0;
+}
+
+.order-totals__row--paid {
+  color: var(--green-text);
+  font-weight: 600;
+}
+
+.order-totals__row--grand {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  align-items: baseline;
+}
+
+.order-totals__row + .order-totals__row--grand {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.order-totals__row--grand dd {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.order-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-actions__row {
+  display: flex;
+  gap: 8px;
+}
+
+.order-actions__row {
+  flex-wrap: wrap;
+}
+
+.order-actions__row > .btn {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+/* Segundo toque para confirmar ("Marcar lista") */
+.order-actions .btn.is-armed {
+  background: var(--text);
+  color: #fff;
+  animation: toast-in var(--dur-select) var(--ease-out);
+}
+
+.order-line__kitchen {
+  margin-top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--orange-text);
+}
+
+.order-line__kitchen.is-done {
+  color: var(--green-text);
+}
+
+/* ---------- Tarjeta ---------- */
+.order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--dur-select) var(--ease-out),
+    background-color var(--dur-select) var(--ease-out),
+    transform var(--dur-press) var(--ease-out),
+    box-shadow var(--dur-select) var(--ease-out);
+  animation: card-in var(--dur-enter) var(--ease-out);
+}
+
+.order-card:hover {
+  box-shadow: 0 2px 4px rgba(25, 25, 25, 0.05), 0 12px 28px rgba(25, 25, 25, 0.08);
+}
+
+.order-card:active {
+  transform: scale(0.99);
+}
+
+.order-card:focus-visible {
+  outline: 3px solid rgba(245, 187, 76, 0.5);
+  outline-offset: 2px;
+}
+
+.order-card.is-selected {
+  border-color: var(--brand);
+  background: #FFFBF1;
+  box-shadow: 0 0 0 3px rgba(245, 187, 76, 0.22), var(--shadow-card);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.order-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Lugar protagonista: número de mesa grande, Ventanilla mostaza, Domicilio lila */
+.order-card__place {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 18px;
+  background: var(--text);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow var(--dur-select) var(--ease-out);
+}
+
+.order-card__place--ventanilla { background: #F5BB4C; color: #191919; }
+.order-card__place--domicilio { background: #ECEAFB; color: #4B40B0; }
+
+.order-card.is-selected .order-card__place {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--brand);
+}
+
+.order-card__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.order-card__num,
+.order-card__rappi {
+  flex-shrink: 0;
+}
+
+.order-card__cliente {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.order-card__num {
+  padding: 1px 7px;
+  border-radius: 7px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.order-card__rappi {
+  padding: 1px 7px;
+  border-radius: 7px;
+  background: #FFF0EA;
+  color: #C2410C;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.order-card__who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.order-card__who-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-card__time > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-card__time {
+  max-width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.order-card__time--warn { color: var(--orange-text); font-weight: 600; }
+.order-card__time--late { color: var(--red-text); font-weight: 700; }
+
+.order-card__lines {
+  list-style: none;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px dashed var(--gray-100);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.order-card__lines li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.order-card__qty {
+  min-width: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.order-card__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gray-800);
+}
+
+.order-card__price {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.order-card__more {
+  color: var(--gray-500);
+  font-size: 13px;
+  padding-left: 34px;
+}
+
+.order-card__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #FFF6E0;
+  color: #5C4510;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.order-card__totals {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-card__totals > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.order-card__total-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.order-card__total {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.order-card__abono {
+  align-self: flex-end;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-text);
+}
+
+@media (max-width: 768px) {
+  .order-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+/* ---------- Hoja de trabajo de una orden (OrderWorkspace) ----------
+   Encima de Órdenes/Mesas, sin cambiar de página. Escritorio: hoja ancha
+   desde la derecha dejando ver la barra lateral; celular: pantalla completa.
+   OJO: la animación NO deja transform puesto al terminar (fill-mode none) —
+   un transform en la hoja haría que el recibo y los modales "fixed" de
+   DetalleMesa queden atrapados dentro de ella. */
+.order-ws-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  background: rgba(25, 25, 25, 0.32);
+  animation: scrim-in var(--dur-panel) var(--ease-out);
+}
+
+.order-ws-scrim.is-closing {
+  animation: scrim-out 200ms ease-in forwards;
+}
+
+.order-ws {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(1180px, calc(100vw - 260px));
+  z-index: 1800;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  animation: order-ws-in var(--dur-panel) var(--ease-out);
+}
+
+.order-ws.is-closing {
+  animation: order-ws-out 200ms ease-in forwards;
+}
+
+@keyframes order-ws-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes order-ws-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateX(24px); }
+}
+
+.order-ws__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px 14px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.order-ws__place {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  background: var(--text);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.order-ws__place--ventanilla { background: #F5BB4C; color: #191919; }
+.order-ws__place--domicilio { background: #ECEAFB; color: #4B40B0; }
+
+.order-ws__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-ws__titles h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.order-ws__sub {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.order-ws__close {
+  width: 48px;
+  height: 48px;
+}
+
+.order-ws__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* DetalleMesa adentro: sin el alto de página completa ni el espacio de la barra inferior */
+.order-ws__body .detalle-mesa-container.is-embedded .caja-bottom-nav-spacer {
+  padding-bottom: 1rem !important;
+}
+
+@media (min-width: 769px) and (max-width: 1099px) {
+  .order-ws {
+    width: calc(100vw - 100px);
+  }
+}
+
+@media (max-width: 768px) {
+  .order-ws {
+    inset: 0;
+    width: auto;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .order-ws__head {
+    padding: 10px 12px;
+  }
+  .order-ws__place {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+  .order-ws__titles h2 {
+    font-size: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-ws, .order-ws-scrim { animation-duration: 1ms; }
+}
+
+.order-detail__cliente {
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.order-detail__cliente strong { color: var(--text); font-weight: 700; }

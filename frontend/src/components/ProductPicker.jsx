@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import SalsasChips from './SalsasChips';
 import ItemOptionsSheet from './ItemOptionsSheet';
@@ -6,6 +6,14 @@ import { getAdicionales } from './AdicionalesChips';
 import { formatPriceCOP, parseMontoCOP } from '../utils/currency.js';
 import { useAlert } from '../hooks/useModal';
 import '../pages/Mesero/Mesero.css';
+import { toast } from './ui/Toast';
+
+// "PERROS_CALIENTES" → "Perros calientes": en mayúsculas sostenidas las
+// palabras largas no cabían en 3 columnas y se partían ("HAMBURGUES / AS")
+const nombreCategoria = (category) => {
+  const t = category.replace(/_/g, ' ').toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 // Encuentra un producto y su categoría dentro de productsByCategory por id —
 // lo usa EditItemNoteModal para saber si un item ya agregado tiene sabores/
@@ -27,8 +35,19 @@ export function findProductById(productsByCategory, productId) {
 // tarea. Se unifica acá para que el mesero y la caja armen pedidos igual.
 // El formulario era inline debajo de la grilla y había que deslizar para
 // encontrarlo (dueño, 2026-10): ahora cada elemento abre su propio panel.
-export default function ProductPicker({ productsByCategory, onAdd }) {
+//
+// ENTRAR A LA CATEGORÍA (dueño, 2026-10): con una orden ya abierta arriba, la
+// grilla de categorías empezaba a mitad de pantalla y al tocar "Perros" los
+// productos quedaban debajo del borde — había que deslizar. Ahora tocar una
+// categoría RECOGE la grilla en una pastilla "‹ Categorías", muestra solo esos
+// productos y lleva la pantalla hasta ellos. Se queda en la categoría después
+// de agregar (para meter el segundo perro sin volver a buscarlo).
+// draftItems (opcional): el BORRADOR de la pantalla (productos elegidos que
+// todavía no se guardaron en la orden). Con él, el selector muestra al
+// instante cuántos productos lleva y por cuánto, separado de lo ya guardado.
+export default function ProductPicker({ productsByCategory, onAdd, draftItems }) {
   const { alertState, showAlert, closeAlert } = useAlert();
+  const rootRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const adicionales = getAdicionales(productsByCategory);
@@ -48,25 +67,57 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
     return aAd - bAd;
   });
 
+  // Si el menú cambia y la categoría abierta ya no existe, volver a la grilla
   useEffect(() => {
-    if (categories.length > 0 && !categories.includes(selectedCategory)) {
-      setSelectedCategory(categories[0]);
+    if (selectedCategory && !categories.includes(selectedCategory)) {
+      setSelectedCategory(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productsByCategory]);
 
+  // Después del render: subir el selector SOLO si su tope quedó fuera de la
+  // vista (tapado por el header o muy abajo). Si ya se ve, no se mueve nada —
+  // un desplazamiento forzado en cada toque desubica más de lo que ayuda.
+  // scroll-margin-top deja libre el header de la página.
+  const traerALaVista = () => {
+    requestAnimationFrame(() => {
+      const el = rootRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      if (top < 60 || top > window.innerHeight * 0.45) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  };
+
+  const openCategory = (category) => {
+    setSelectedCategory(category);
+    setSelectedProduct(null);
+    traerALaVista();
+  };
+
+  const volverACategorias = () => {
+    setSelectedCategory(null);
+    setSelectedProduct(null);
+    traerALaVista();
+  };
+
   // El panel ya resolvió precio (sabor + adicionales), cantidad y notas
-  const addItem = ({ qty, notes, specialNote, price }) => {
+  // "Cada una distinta": split trae una línea por combinación (2 iguales + 1 sin queso)
+  const addItem = ({ qty, notes, specialNote, price, split }) => {
     if (!selectedProduct) return;
-    onAdd({
-      name: selectedProduct.displayName || selectedProduct.name,
-      qty,
-      price,
-      notes,
-      specialNote: specialNote || undefined,
-      product_id: selectedProduct.id,
+    (split || [{ qty, notes, specialNote, price }]).forEach((linea) => {
+      onAdd({
+        name: selectedProduct.displayName || selectedProduct.name,
+        qty: linea.qty,
+        price: linea.price,
+        notes: linea.notes,
+        specialNote: linea.specialNote || undefined,
+        product_id: selectedProduct.id,
+      });
     });
     setSelectedProduct(null);
+    toast(split && split.length > 1 ? `Añadido al pedido · ${split.length} líneas` : 'Añadido al pedido');
   };
 
   const addCustomItem = () => {
@@ -82,6 +133,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
       specialNote: customSpecialNote.trim() || undefined,
       isCustom: true,
     });
+    toast('Añadido al pedido');
     setShowCustomProduct(false);
     setCustomName('');
     setCustomPrice('');
@@ -91,7 +143,7 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
   };
 
   return (
-    <div className="product-selector">
+    <div className="product-selector" ref={rootRef} style={{ scrollMarginTop: 76 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>Agregar producto</h3>
         <button
@@ -103,27 +155,54 @@ export default function ProductPicker({ productsByCategory, onAdd }) {
         </button>
       </div>
 
-      <div className="category-tabs">
-        {categories.map(category => (
+      {Array.isArray(draftItems) && draftItems.length > 0 && (() => {
+        const count = draftItems.reduce((n, it) => n + (Number(it.qty) || 0), 0);
+        const total = draftItems.reduce((n, it) => n + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+        return (
+          <div className="pp-draft" role="status" aria-live="polite">
+            {/* key: el contador "salta" en mostaza cada vez que cambia */}
+            <span className="pp-draft__count tnum" key={count}>{count}</span>
+            <span className="pp-draft__text">
+              <strong>{count === 1 ? 'producto' : 'productos'} en el borrador</strong>
+              <span>Sin enviar todavía</span>
+            </span>
+            <span className="pp-draft__total tnum">{formatPriceCOP(total)}</span>
+          </div>
+        );
+      })()}
+
+      {!selectedCategory ? (
+        <div className="category-tabs pp-cat-grid pp-fade-in">
+          {categories.map(category => (
+            <button
+              key={category}
+              className="category-tab"
+              onClick={() => openCategory(category)}
+            >
+              {nombreCategoria(category)}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="pp-drill-header">
           <button
-            key={category}
-            className={`category-tab ${selectedCategory === category ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedCategory(category);
-              setSelectedProduct(null);
-            }}
+            type="button"
+            className="pp-back-btn"
+            onClick={volverACategorias}
           >
-            {category.replace(/_/g, ' ')}
+            ‹ Categorías
           </button>
-        ))}
-      </div>
+          <span className="pp-drill-title">{nombreCategoria(selectedCategory)}</span>
+        </div>
+      )}
 
       {selectedCategory && productsByCategory[selectedCategory] && (
-        <div className="products-grid">
-          {productsByCategory[selectedCategory].map(product => (
+        <div className="products-grid" key={selectedCategory}>
+          {productsByCategory[selectedCategory].map((product, i) => (
             <button
               key={product.id}
-              className={`product-btn ${selectedProduct?.id === product.id ? 'selected' : ''}`}
+              className={`product-btn pp-pop-in ${selectedProduct?.id === product.id ? 'selected' : ''}`}
+              style={{ '--pp-i': i }}
               onClick={() => setSelectedProduct(product)}
             >
               <div className="product-name-btn">{product.displayName || product.name}</div>

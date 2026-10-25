@@ -49,8 +49,6 @@ export default function Reportes() {
   const [customFrom, setCustomFrom] = useState(bogotaDate(0));
   const [customTo, setCustomTo] = useState(bogotaDate(0));
   const [data, setData] = useState(null);
-  const [lowStock, setLowStock] = useState([]);
-  const [pnl, setPnl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -69,14 +67,8 @@ export default function Reportes() {
     const [from, to] = range;
     setLoading(true);
     try {
-      const [repRes, stockRes, pnlRes] = await Promise.all([
-        axios.get(`/reports/summary?from=${from}&to=${to}`),
-        axios.get('/inventory/low-stock'),
-        axios.get(`/reports/pnl?from=${from}&to=${to}`),
-      ]);
+      const repRes = await axios.get(`/reports/summary?from=${from}&to=${to}`);
       setData(repRes.data);
-      setLowStock(stockRes.data || []);
-      setPnl(pnlRes.data);
     } catch (error) {
       console.error('Error cargando reporte:', error);
     } finally {
@@ -118,14 +110,6 @@ export default function Reportes() {
   const maxHour = Math.max(0, ...(data?.byHour || []).map(h => h.total));
   const maxOrdersHour = Math.max(0, ...(data?.ordersByHour || []).map(h => h.count));
   const maxDay = Math.max(0, ...(data?.byDay || []).map(d => d.total));
-  const maxIngredient = Math.max(0, ...(data?.ingredientConsumption || []).map(i => i.qty_consumed));
-
-  // Gramos → kilos con 1 decimal cuando conviene; el resto de unidades se
-  // dejan tal cual (unidad, etc.)
-  function formatQty(qty, unit) {
-    if (unit === 'gramo' && qty >= 1000) return `${(qty / 1000).toFixed(1)} kg`;
-    return `${qty} ${unit}`;
-  }
 
   return (
     <div className="caja-container">
@@ -186,14 +170,10 @@ export default function Reportes() {
           </div>
         )}
 
-        {/* Alerta de stock bajo (estado, con icono y texto — nunca solo color) */}
-        {lowStock.length > 0 && (
-          <div className="rep-low-stock">
-            <strong>Stock bajo ({lowStock.length}):</strong>{' '}
-            {lowStock.slice(0, 6).map(i => `${i.ingredient_name} (${i.stock_qty} ${i.unit})`).join(' · ')}
-            {lowStock.length > 6 && ` · y ${lowStock.length - 6} más`}
-          </div>
-        )}
+        {/* "Stock bajo" se quitó de acá y del Resumen (dueño, 2026-10-25): sin
+            compras registradas en el POS mostraba ceros y negativos. El
+            inventario va a vivir en chanatos-plataforma-dev; el dato sigue en
+            Menú → Ingredientes. */}
 
         {loading || !data ? (
           <div className="rep-loading">Cargando reporte…</div>
@@ -235,14 +215,17 @@ export default function Reportes() {
                 <div className="rep-kpi-value">{t.burgersSold}</div>
                 <div className="rep-kpi-label">Hamburguesas vendidas</div>
               </div>
+              {/* "0 min" confundía (parecía un dato roto): menos de un minuto
+                  se dice "< 1 min". La cuenta del servidor está verificada
+                  (creada → lista, redondeada al minuto). */}
               {t.prepCount > 0 && (
                 <>
                   <div className="rep-kpi">
-                    <div className="rep-kpi-value">{t.avgPrepMin} min</div>
+                    <div className="rep-kpi-value">{t.avgPrepMin > 0 ? `${t.avgPrepMin} min` : '< 1 min'}</div>
                     <div className="rep-kpi-label">Preparación promedio</div>
                   </div>
                   <div className="rep-kpi">
-                    <div className="rep-kpi-value">{t.maxPrepMin} min</div>
+                    <div className="rep-kpi-value">{t.maxPrepMin > 0 ? `${t.maxPrepMin} min` : '< 1 min'}</div>
                     <div className="rep-kpi-label">Preparación más lenta</div>
                   </div>
                 </>
@@ -261,24 +244,9 @@ export default function Reportes() {
               )}
             </section>
 
-            {/* Consumo de insumos según receta (carne, pan, etc. de lo vendido
-                en el periodo — distinto de "Compras de insumos" en Contaduría,
-                que es lo que se pagó, no lo que se usó) */}
-            {data.ingredientConsumption.length > 0 && (
-              <section className="rep-section">
-                <h3>Consumo de insumos <span className="rep-section-hint">(según receta)</span></h3>
-                {data.ingredientConsumption.map(i => (
-                  <BarRow
-                    key={i.ingredient_id}
-                    label={i.ingredient_name}
-                    value={i.qty_consumed}
-                    max={maxIngredient}
-                    money={false}
-                    display={formatQty(i.qty_consumed, i.unit)}
-                  />
-                ))}
-              </section>
-            )}
+            {/* "Consumo de insumos (según receta)" se quitó (dueño, 2026-10-25):
+                el inventario va a vivir en chanatos-plataforma-dev. El servidor
+                sigue calculando data.ingredientConsumption. */}
 
             {/* Por método de pago */}
             <section className="rep-section">
@@ -303,6 +271,49 @@ export default function Reportes() {
                 ))
               )}
             </section>
+
+            {/* Rappi (2026-10-25, dueño): cuadre del depósito — Rappi recauda al
+                cliente y transfiere después (semanal). "7 días" o "Rango" sobre
+                la semana = lo que Rappi debe consignar. Independiente de la caja:
+                esa plata nunca entra al arqueo. */}
+            {data.rappi && (
+              <section className="rep-section rep-rappi">
+                <h3>Rappi <span className="rep-section-hint">(recauda y transfiere después)</span></h3>
+                {data.rappi.count === 0 && (
+                  <p className="rep-empty">Sin pedidos de Rappi en este periodo. Cuando los haya, aquí se cuadra el depósito: elige «7 días» o «Rango» sobre la semana que Rappi consigna.</p>
+                )}
+                {data.rappi.count > 0 && (
+                <div className="rep-kpis">
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(data.rappi.total)}</div>
+                    <div className="rep-kpi-label">Rappi debe transferir por este periodo</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{data.rappi.count}</div>
+                    <div className="rep-kpi-label">Pedidos de Rappi</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(Math.round(data.rappi.total / data.rappi.count))}</div>
+                    <div className="rep-kpi-label">Promedio por pedido</div>
+                  </div>
+                </div>
+                )}
+                {data.rappi.byDay.length > 1 && data.rappi.byDay.map(d => (
+                  <BarRow
+                    key={d.day}
+                    label={d.day}
+                    value={d.total}
+                    max={Math.max(0, ...data.rappi.byDay.map(x => x.total))}
+                    extra={`${d.count} ${d.count === 1 ? 'pedido' : 'pedidos'}`}
+                  />
+                ))}
+                {data.rappi.count > 0 && (
+                <p className="rep-rappi-note">
+                  Al cuadrar el depósito, recuerda que Rappi descuenta su comisión: acá está lo vendido, no lo neto.
+                </p>
+                )}
+              </section>
+            )}
 
             {/* Por día (solo si el periodo cubre varios días) */}
             {data.byDay.length > 1 && (
@@ -338,66 +349,10 @@ export default function Reportes() {
               )}
             </section>
 
-            {/* Contaduría: ventas menos compras de insumos controlados (carne,
-                pan, cash-basis: el día que se pagaron) menos gastos generales
-                por categoría (verduras, servicios, etc.), más ingresos manuales */}
-            {pnl && (
-              <section className="rep-section">
-                <h3>Contaduría</h3>
-                <div className="rep-kpis">
-                  <div className="rep-kpi">
-                    <div className="rep-kpi-value">{formatPriceCOP(pnl.sales)}</div>
-                    <div className="rep-kpi-label">Ventas</div>
-                  </div>
-                  <div className="rep-kpi">
-                    <div className="rep-kpi-value">{formatPriceCOP(pnl.controlledPurchases)}</div>
-                    <div className="rep-kpi-label">Compras insumos controlados</div>
-                  </div>
-                  <div className="rep-kpi">
-                    <div className="rep-kpi-value">{formatPriceCOP(pnl.generalExpenses)}</div>
-                    <div className="rep-kpi-label">Gastos generales</div>
-                  </div>
-                  <div className="rep-kpi">
-                    <div className="rep-kpi-value">{formatPriceCOP(pnl.manualIncome)}</div>
-                    <div className="rep-kpi-label">Ingresos generales</div>
-                  </div>
-                  <div className="rep-kpi">
-                    <div className="rep-kpi-value" style={{ color: pnl.netProfit >= 0 ? 'var(--green-text, #28a745)' : 'var(--red-text, #dc3545)' }}>
-                      {formatPriceCOP(pnl.netProfit)}
-                    </div>
-                    <div className="rep-kpi-label">Utilidad neta</div>
-                  </div>
-                </div>
-                {pnl.controlledPurchasesByIngredient?.length > 0 && (
-                  <>
-                    <h3 style={{ marginTop: '1rem' }}>Compras de insumos por producto</h3>
-                    {pnl.controlledPurchasesByIngredient.map(row => (
-                      <BarRow
-                        key={row.ingredient_id}
-                        label={row.ingredient_name}
-                        value={row.total}
-                        max={Math.max(0, ...pnl.controlledPurchasesByIngredient.map(r => r.total))}
-                        extra={`${row.count} compra${row.count === 1 ? '' : 's'}`}
-                      />
-                    ))}
-                  </>
-                )}
-                {pnl.expensesByCategory.length > 0 && (
-                  <>
-                    <h3 style={{ marginTop: '1rem' }}>Gastos generales por categoría</h3>
-                    {pnl.expensesByCategory.map(row => (
-                      <BarRow
-                        key={row.category}
-                        label={expenseCategoryLabel(row.category)}
-                        value={row.total}
-                        max={Math.max(0, ...pnl.expensesByCategory.map(r => r.total))}
-                        extra={`${row.count} mov.`}
-                      />
-                    ))}
-                  </>
-                )}
-              </section>
-            )}
+            {/* "Contaduría" (ventas − compras − gastos) oculta: sin compras ni
+                gastos cargados en el POS solo repetía las ventas; la contabilidad
+                va a vivir en chanatos-plataforma-dev (dueño, 2026-10-25).
+                GET /reports/pnl sigue en el servidor. */}
           </>
         )}
       </div>

@@ -53,8 +53,23 @@
   height: 24px;
 }
 
+.bn-tab {
+  position: relative;
+}
+
+/* Activa: icono oscuro sobre mostaza suave (mismo lenguaje que la barra
+   lateral de escritorio) */
 .bn-tab.active {
-  color: var(--brand-deep);
+  color: var(--gray-900);
+}
+
+.bn-tab.active svg {
+  background: #FCEFCF;
+  border-radius: 999px;
+  padding: 3px 14px;
+  width: 54px;
+  height: 30px;
+  box-sizing: border-box;
 }
 
 .bn-tab:active {

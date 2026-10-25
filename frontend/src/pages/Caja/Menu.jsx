@@ -7,6 +7,7 @@ import CajaHeader from "../../components/CajaHeader.jsx";
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import ConfigSalsasSabores from '../../components/caja/ConfigSalsasSabores.jsx';
+import OpcionesProductoField from '../../components/caja/OpcionesProductoField.jsx';
 import { parseFlavors, parseFlavorPrices } from '../../components/SaboresChips.jsx';
 
 export default function Menu() {
@@ -21,9 +22,22 @@ export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showConfigSalsasSabores, setShowConfigSalsasSabores] = useState(false);
+  // Listas generales de salsas y "quitar" (para elegir las propias de un producto)
+  const [listasGenerales, setListasGenerales] = useState({ salsas: [], quitar: [] });
 
   // Estados del modal - IMPORTANTE: siempre se resetean completamente
   const [showModal, setShowModal] = useState(false);
+  // (va después de showModal: antes estaba arriba y Menú se caía — TDZ)
+  useEffect(() => {
+    if (!showModal) return;
+    Promise.all([
+      axios.get('/settings/salsas').catch(() => null),
+      axios.get('/settings/quitar').catch(() => null),
+    ]).then(([s, q]) => setListasGenerales({
+      salsas: Array.isArray(s?.data?.salsas) ? s.data.salsas : [],
+      quitar: Array.isArray(q?.data?.quitar) ? q.data.quitar : [],
+    }));
+  }, [showModal]);
   const [editingProductId, setEditingProductId] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +58,8 @@ export default function Menu() {
     is_active: true,
     flavors: "",
     flavorPrices: {},
+    salsas: null,
+    quitar: null,
   });
 
   // Cargar datos iniciales
@@ -91,6 +107,8 @@ export default function Menu() {
       is_active: true,
       flavors: "",
       flavorPrices: {},
+      salsas: null,
+      quitar: null,
     });
     setEditingProductId(null);
     setSaving(false);
@@ -113,6 +131,8 @@ export default function Menu() {
         is_active: product.is_active === 1,
         flavors: product.flavors || "",
         flavorPrices: parseFlavorPrices(product.flavor_prices),
+        salsas: product.salsas ?? null,
+        quitar: product.quitar ?? null,
       });
     } else {
       // Si es nuevo, usar valores por defecto limpios
@@ -188,6 +208,9 @@ export default function Menu() {
         is_active: formData.is_active ? 1 : 0,
         flavors: formData.flavors.trim() || null,
         flavor_prices: Object.keys(flavorPrices).length > 0 ? flavorPrices : null,
+        // null = lista general · "" = no lleva · "A,B" = propias
+        salsas: formData.salsas,
+        quitar: formData.quitar,
       };
 
       if (editingProductId) {
@@ -339,7 +362,7 @@ export default function Menu() {
             style={{ background: "#F5BB4C", color: "white" }}
             onClick={() => setShowConfigSalsasSabores(true)}
           >
-            Configurar salsas y sabores
+            Salsas, quitar y sabores
           </button>
 
           <select
@@ -411,14 +434,9 @@ export default function Menu() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    onClick={() => handleOpenReceta(product)}
-                    title="Recetas de insumos controlados (carne, pan, etc.)"
-                    className="btn btn--sm"
-                    style={{ flex: 1, background: "var(--brand-tint)", color: "var(--brand-deep)" }}
-                  >
-                    Receta
-                  </button>
+                  {/* "Receta" (insumos que descuenta cada venta) oculta: el inventario
+                      va a vivir en chanatos-plataforma-dev (dueño, 2026-10-25).
+                      handleOpenReceta y su modal siguen acá para reactivarla. */}
                   <button
                     onClick={() => handleOpenModal(product)}
                     className="btn btn--secondary btn--sm"
@@ -757,6 +775,24 @@ export default function Menu() {
                   }}
                 />
               </div>
+
+              {/* Salsas y "Quitar" de ESTE producto (2026-10): las hamburguesas no
+                  llevan las mismas salsas que las papas */}
+              <OpcionesProductoField
+                label="Salsas de este producto"
+                tipo="salsas"
+                value={formData.salsas}
+                generales={listasGenerales.salsas}
+                onChange={(v) => setFormData((f) => ({ ...f, salsas: v }))}
+              />
+              <OpcionesProductoField
+                label="«Quitar» de este producto"
+                tipo="quitar"
+                value={formData.quitar}
+                generales={listasGenerales.quitar}
+                onChange={(v) => setFormData((f) => ({ ...f, quitar: v }))}
+                ayuda="Botones como «Sin queso» al agregarlo a un pedido."
+              />
 
               {/* Activo/Inactivo */}
               <div style={{ marginBottom: "1.5rem" }}>

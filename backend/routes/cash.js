@@ -279,7 +279,6 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
       FROM orders o
       WHERE o.status = 'LISTO'
         AND o.paid_at IS NULL
-        AND o.archived_at IS NULL
         AND o.status != 'CANCELADO'
         AND EXISTS (
           SELECT 1
@@ -292,7 +291,9 @@ router.post("/session/close", requireAuth, requireRole("CAJA"), async (req, res)
     
     if (pendingReadyOrders[0]?.count > 0) {
       return res.status(409).json({ 
-        error: "Hay órdenes LISTO pendientes de cobro. Debes cobrarlas o cancelarlas antes de cerrar caja." 
+        error: pendingReadyOrders[0].count === 1
+          ? "Hay 1 orden lista sin cobrar. Cóbrala o cancélala antes de cerrar caja (la ves en Órdenes → Listas para cobrar)."
+          : `Hay ${pendingReadyOrders[0].count} órdenes listas sin cobrar. Cóbralas o cancélalas antes de cerrar caja (las ves en Órdenes → Listas para cobrar).` 
       });
     }
 
@@ -730,6 +731,103 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
 });
 
 // GET /api/cash/session/:id/close-report - Reporte completo de cierre (FASE 9.3)
+// GET /api/cash/session/:id/activity — bloques del Resumen (rediseño 2026-10):
+// ventas por hora, productos más vendidos y actividad reciente DE ESTA SESIÓN.
+// Mismo criterio que "Total cobrado" de /summary: pagos de la sesión, sin
+// anulados y SIN Rappi (Rappi paga después; va aparte). Datos reales, nada
+// estimado: si la sesión no tiene pagos, los bloques vienen vacíos.
+router.get("/session/:id/activity", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const sessionId = parseInt(req.params.id);
+    if (isNaN(sessionId)) {
+      return res.status(400).json({ error: "ID de sesión inválido" });
+    }
+    const db = getDb();
+    const session = await db.get("SELECT * FROM cash_sessions WHERE id = ?", [sessionId]);
+    if (!session) {
+      return res.status(404).json({ error: "Sesión no encontrada" });
+    }
+
+    const byHour = await db.all(
+      `SELECT substr(created_at, 1, 13) as hour_key,
+              substr(created_at, 12, 2) as hour,
+              COALESCE(SUM(amount), 0) as total,
+              COUNT(*) as count
+       FROM payments
+       WHERE cash_session_id = ? AND voided_at IS NULL AND method != 'RAPPI'
+       GROUP BY hour_key
+       ORDER BY hour_key`,
+      [sessionId]
+    );
+
+    // Productos de las órdenes cobradas en esta sesión (items pagados). Una
+    // orden Rappi no tiene pagos de la sesión salvo el automático 'RAPPI', que
+    // se excluye arriba; acá también: solo órdenes con algún pago no-Rappi.
+    const topProducts = await db.all(
+      `SELECT oi.name, SUM(oi.qty) as qty, COALESCE(SUM(oi.qty * oi.price), 0) as total
+       FROM order_items oi
+       WHERE oi.voided_at IS NULL AND oi.paid_at IS NOT NULL
+         AND oi.order_id IN (
+           SELECT DISTINCT order_id FROM payments
+           WHERE cash_session_id = ? AND voided_at IS NULL AND method != 'RAPPI'
+         )
+       GROUP BY oi.name
+       ORDER BY qty DESC, total DESC
+       LIMIT 6`,
+      [sessionId]
+    );
+
+    // Actividad reciente: pagos (y sus anulaciones) + órdenes creadas/listas
+    // dentro de la sesión. Cada evento con su hora real.
+    const desde = session.opened_at;
+    const hasta = session.closed_at || "9999-12-31 23:59:59";
+    const pagos = await db.all(
+      `SELECT p.id, p.order_id, p.method, p.amount, p.tip_amount, p.created_at, p.voided_at,
+              o.daily_no, o.code, o.service, t.number as table_number
+       FROM payments p
+       JOIN orders o ON o.id = p.order_id
+       LEFT JOIN tables t ON t.id = o.table_id
+       WHERE p.cash_session_id = ?
+       ORDER BY p.created_at DESC
+       LIMIT 20`,
+      [sessionId]
+    );
+    const ordenes = await db.all(
+      `SELECT o.id as order_id, o.daily_no, o.code, o.service, o.status, o.created_at, o.ready_at,
+              o.delivery_platform, t.number as table_number
+       FROM orders o
+       LEFT JOIN tables t ON t.id = o.table_id
+       WHERE (o.created_at BETWEEN ? AND ?) OR (o.ready_at BETWEEN ? AND ?)
+       ORDER BY COALESCE(o.ready_at, o.created_at) DESC
+       LIMIT 20`,
+      [desde, hasta, desde, hasta]
+    );
+
+    const lugar = (r) => ({ order_id: r.order_id, daily_no: r.daily_no, code: r.code, service: r.service, table_number: r.table_number });
+    const events = [];
+    for (const p of pagos) {
+      events.push({ type: "PAGO", at: p.created_at, amount: p.amount, tip: p.tip_amount, method: p.method, payment_id: p.id, ...lugar(p) });
+      if (p.voided_at) {
+        events.push({ type: "ANULACION", at: p.voided_at, amount: p.amount, method: p.method, payment_id: p.id, ...lugar(p) });
+      }
+    }
+    for (const o of ordenes) {
+      if (o.created_at >= desde && o.created_at <= hasta) {
+        events.push({ type: "ORDEN_NUEVA", at: o.created_at, delivery_platform: o.delivery_platform, ...lugar(o) });
+      }
+      if (o.ready_at && o.ready_at >= desde && o.ready_at <= hasta) {
+        events.push({ type: "ORDEN_LISTA", at: o.ready_at, delivery_platform: o.delivery_platform, ...lugar(o) });
+      }
+    }
+    events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+    res.json({ byHour, topProducts, recent: events.slice(0, 12) });
+  } catch (error) {
+    console.error("Error obteniendo actividad de la sesión:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 router.get("/session/:id/close-report", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const sessionId = parseInt(req.params.id);
@@ -1017,15 +1115,19 @@ router.post("/open", requireAuth, requireRole("CAJA"), async (req, res) => {
         .json({ error: "Ya hay una caja abierta." });
     }
 
-    // REGLA OPERATIVA: Al abrir caja, se inicia un nuevo día operativo
-    // - Archivar todas las órdenes activas (no archivadas y no canceladas)
-    // - Esto hace que cocina inicie vacía y no haya pedidos activos visibles
+    // REGLA OPERATIVA: Al abrir caja, se inicia un nuevo día operativo.
+    // Se archivan SOLO las órdenes ya pagadas que hubieran quedado sin archivar.
+    // CUENTAS ABIERTAS (2026-10): antes se archivaba TODO lo no cancelado, y un
+    // pedido tomado con la caja cerrada (o que quedó en cocina de ayer)
+    // desaparecía de cocina y de Caja al abrir — pero la mesa seguía ocupada
+    // ("Ya existe una orden activa") sin poder verla ni cobrarla. Ahora las
+    // cuentas sin cobrar pasan a la caja nueva y se cobran ahí.
     const timestamp = toBogotaSQLiteTimestamp(new Date());
     const archiveResult = await db.run(
       `UPDATE orders 
        SET archived_at = ?, updated_at = ? 
        WHERE archived_at IS NULL 
-       AND status != 'CANCELADO'`,
+       AND status = 'PAGADA'`,
       [timestamp, timestamp]
     );
     
@@ -1040,6 +1142,7 @@ router.post("/open", requireAuth, requireRole("CAJA"), async (req, res) => {
     const session = await db.get("SELECT * FROM cash_sessions WHERE id = ?", [
       result.lastID,
     ]);
+
 
     // FASE 12.3: Registrar auditoría - CASH_OPENED
     await logAudit({

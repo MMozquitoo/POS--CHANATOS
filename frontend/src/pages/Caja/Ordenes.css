@@ -1,0 +1,62 @@
+/* Vista Órdenes (rediseño 2026-10) */
+.ordenes-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.ordenes-select {
+  flex: 0 1 220px;
+  height: 46px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23626262' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ordenes-select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(245, 187, 76, 0.25);
+}
+
+.order-card--skeleton {
+  min-height: 260px;
+  cursor: default;
+  background: linear-gradient(90deg, var(--surface), var(--gray-50), var(--surface));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (max-width: 768px) {
+  .ordenes-filters {
+    padding: 12px;
+  }
+  /* Chips en una sola fila deslizable: los 4 estados caben en una línea sin
+     empujar las tarjetas hacia abajo */
+  .ordenes-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -12px;
+    padding: 0 12px 2px;
+    scrollbar-width: none;
+  }
+  .ordenes-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .ordenes-select {
+    flex: 1 1 100%;
+  }
+}

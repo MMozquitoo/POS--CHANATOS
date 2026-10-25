@@ -29,7 +29,7 @@ import pushRoutes from "./routes/push.js";
 import settingsRoutes from "./routes/settings.js";
 
 // Importar base de datos
-import { initDatabase, getDb } from "./db/database.js";
+import { initDatabase, getDb, DB_PATH } from "./db/database.js";
 import { startWebOrdersPoller } from "./services/webOrdersPoller.js";
 
 // Configuración
@@ -109,7 +109,10 @@ try {
 // FASE F5 (naranja): respaldo automático de la base de datos.
 // VACUUM INTO produce una copia consistente aunque el servidor esté en uso.
 // Un respaldo por día, conserva los últimos 14, corre al arrancar y cada 6 horas.
-const BACKUPS_DIR = join(__dirname, "data", "backups");
+// Al lado de la base EN USO (por defecto backend/data/backups, igual que
+// siempre). Con DB_PATH apuntando a una base de pruebas, sus respaldos no se
+// mezclan con los de la base real.
+const BACKUPS_DIR = join(dirname(DB_PATH), "backups");
 const BACKUPS_TO_KEEP = 14;
 
 async function backupDatabase() {

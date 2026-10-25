@@ -1,0 +1,144 @@
+.identidad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--s-16);
+  align-items: start;
+}
+
+.identidad-card {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.identidad-card h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.identidad-hint {
+  margin: -6px 0 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.field input {
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(245, 187, 76, 0.25);
+}
+
+.identidad-logo {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.identidad-logo img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  border-radius: 22px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+}
+
+.identidad-logo__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.identidad-logo__actions small {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.identidad-ticket {
+  align-self: center;
+  width: min(280px, 100%);
+  padding: 22px 18px 18px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--gray-700);
+  text-align: center;
+  mask: radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) bottom / 16px 100% repeat-x;
+  -webkit-mask: radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) bottom / 16px 100% repeat-x;
+  padding-bottom: 26px;
+}
+
+.identidad-ticket img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 12px;
+  margin-bottom: 4px;
+}
+
+.identidad-ticket strong {
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.identidad-ticket hr {
+  width: 100%;
+  border: none;
+  border-top: 1px dashed var(--gray-200);
+  margin: 10px 0 6px;
+}
+
+.identidad-save {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.identidad-save .btn {
+  width: auto;
+  min-width: 240px;
+}
+
+@media (max-width: 768px) {
+  .identidad-save {
+    position: sticky;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  .identidad-save .btn {
+    width: 100%;
+  }
+}

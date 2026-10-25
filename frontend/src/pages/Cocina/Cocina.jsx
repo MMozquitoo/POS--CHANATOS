@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import Modal from '../../components/Modal';
@@ -7,6 +7,11 @@ import PlatformBadge from '../../components/PlatformBadge';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { playKitchenChime, unlockAudio, notifyDesktop } from '../../utils/kitchenSound';
 import { getBogotaDateString } from '../../utils/timezone.js';
+import KitchenTicket from '../../components/kitchen/KitchenTicket';
+import EmptyState from '../../components/EmptyState';
+import Icon from '../../components/ui/Icon';
+import useChangedIds from '../../hooks/useChangedIds';
+import '../../components/ui/ui.css';
 import './Cocina.css';
 
 const byCreatedAt = (a, b) => new Date(a.created_at) - new Date(b.created_at);
@@ -158,10 +163,11 @@ export default function Cocina() {
     }
   };
 
-  // FASE F7: marcar/desmarcar un plato terminado (solo órdenes EN_PREP)
-  const toggleItemReady = async (item) => {
+  // FASE F7: marcar/desmarcar un plato terminado (solo órdenes EN_PREP).
+  // Por unidad (2026-10): cada toque suma o quita UNA unidad lista.
+  const stepItemReady = async (item, delta) => {
     try {
-      await axios.patch(`/orders/items/${item.id}/ready`, { ready: !item.ready_at });
+      await axios.patch(`/orders/items/${item.id}/ready`, { delta });
       loadOrders();
     } catch (error) {
       console.error('Error marcando plato:', error);
@@ -169,133 +175,57 @@ export default function Cocina() {
     }
   };
 
-  const OrderCard = ({ order, readOnly = false }) => {
-    const elapsedMin = Math.max(0, Math.floor((now - new Date(order.created_at).getTime()) / 60000));
-    const isRecent = (now - new Date(order.created_at).getTime()) < 60000;
-    // Urgencia solo mientras hay trabajo pendiente
-    const urgency = order.status === 'LISTO' ? 'done'
-      : elapsedMin >= 20 ? 'late'
-      : elapsedMin >= 10 ? 'warn'
-      : 'ok';
+  // Resaltado breve de pedidos nuevos o modificados (rediseño 2026-10)
+  const activeList = useMemo(() => [...orders.NUEVO, ...orders.EN_PREP, ...orders.LISTO], [orders]);
+  const changedIds = useChangedIds(loading ? null : activeList);
 
-    const activeItems = order.items?.filter(item => !item.voided_at) || [];
-    const readyCount = activeItems.filter(item => item.ready_at).length;
-    const markable = !readOnly && order.status === 'EN_PREP';
-
-    const getActionButton = () => {
-      if (readOnly) return null;
-      if (order.status === 'NUEVO') {
-        return (
+  // Acciones de siempre por estado (INICIAR / TODO LISTO / devolver / ARCHIVAR)
+  const actionsFor = (order) => {
+    if (order.status === 'NUEVO') {
+      return (
+        <button className="btn btn--primary" onClick={() => updateStatus(order.id, 'EN_PREP')}>
+          Iniciar
+        </button>
+      );
+    }
+    if (order.status === 'EN_PREP') {
+      return (
+        <button className="btn btn--dark" onClick={() => updateStatus(order.id, 'LISTO')}>
+          Todo listo
+        </button>
+      );
+    }
+    if (order.status === 'LISTO') {
+      return (
+        <>
           <button
-            className="action-btn iniciar-btn"
+            className="btn btn--secondary k-icon-btn"
             onClick={() => updateStatus(order.id, 'EN_PREP')}
+            title="Devolver a preparación"
+            aria-label="Devolver a preparación"
           >
-            INICIAR
+            <Icon name="chevronLeft" size={20} strokeWidth={2.4} />
           </button>
-        );
-      } else if (order.status === 'EN_PREP') {
-        return (
-          <button
-            className="action-btn listo-btn"
-            onClick={() => updateStatus(order.id, 'LISTO')}
-          >
-            TODO LISTO
+          <button className="btn btn--secondary" onClick={() => archiveOrder(order.id)}>
+            Archivar
           </button>
-        );
-      } else if (order.status === 'LISTO') {
-        return (
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              className="action-btn devolver-btn"
-              onClick={() => updateStatus(order.id, 'EN_PREP')}
-              title="Devolver a preparación"
-            >
-              ↩
-            </button>
-            <button
-              className="action-btn archivar-btn"
-              onClick={() => archiveOrder(order.id)}
-              style={{ flex: 1 }}
-            >
-              ARCHIVAR
-            </button>
-          </div>
-        );
-      }
-      return null;
-    };
-
-    return (
-      <div className={`order-card-kitchen ${isRecent && order.status !== 'LISTO' ? 'order-card-recent' : ''}`}>
-        {markable && activeItems.length > 1 && (
-          <div className="order-progressbar">
-            <div style={{ width: `${(readyCount / activeItems.length) * 100}%` }} />
-          </div>
-        )}
-        <div className="order-header-kitchen">
-          <div className="order-table-kitchen">
-            {order.table_label || (order.daily_no ? `ORDEN ${order.daily_no}` : order.code)}
-            <PlatformBadge platform={order.delivery_platform} style={{ marginLeft: '0.5rem' }} />
-            {markable && activeItems.length > 1 && (
-              <span className={`order-progress ${readyCount > 0 ? 'started' : ''}`}>
-                {readyCount}/{activeItems.length}
-              </span>
-            )}
-          </div>
-          <div className={`order-elapsed order-elapsed-${urgency}`}>
-            {order.status === 'LISTO'
-              ? new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-              : `${elapsedMin} min`}
-          </div>
-        </div>
-        {order.table_label && (
-          <div className="order-code-kitchen">
-            {order.daily_no ? `Orden ${order.daily_no}` : order.code}
-          </div>
-        )}
-        {order.special_note && (
-          <div className="order-special-note-kitchen">⚠ {order.special_note}</div>
-        )}
-        <div className="order-items-kitchen">
-          {activeItems.map((item, idx) => {
-            const isReady = !!item.ready_at;
-            const content = (
-              <>
-                <span className="item-check">{isReady ? '✓' : ''}</span>
-                <span className="item-qty">{item.qty}x</span>
-                <span className="item-name">{item.name}</span>
-                {item.notes && (
-                  <span className="item-notes">({item.notes})</span>
-                )}
-                {item.special_note && (
-                  <span className="item-special-note">⚠ {item.special_note}</span>
-                )}
-              </>
-            );
-            // FASE F7: en EN_PREP cada plato es un botón (tocar = terminado / deshacer)
-            if (markable) {
-              return (
-                <button
-                  key={item.id ?? idx}
-                  type="button"
-                  className={`order-item-kitchen item-touchable ${isReady ? 'item-ready' : readyCount > 0 ? 'item-pending-hot' : ''}`}
-                  onClick={() => toggleItemReady(item)}
-                >
-                  {content}
-                </button>
-              );
-            }
-            return (
-              <div key={item.id ?? idx} className={`order-item-kitchen ${isReady && order.status === 'LISTO' ? 'item-ready' : ''}`}>
-                {content}
-              </div>
-            );
-          })}
-        </div>
-        {getActionButton()}
-      </div>
-    );
+        </>
+      );
+    }
+    return null;
   };
+
+  const renderTicket = (order, readOnly = false) => (
+    <KitchenTicket
+      key={order.id}
+      order={order}
+      now={now}
+      archived={readOnly}
+      flash={!readOnly && changedIds.has(order.id)}
+      onStepItem={!readOnly && order.status === 'EN_PREP' ? stepItemReady : undefined}
+      actions={readOnly ? null : actionsFor(order)}
+    />
+  );
 
   if (loading) {
     return <div className="loading">Cargando pedidos...</div>;
@@ -304,9 +234,12 @@ export default function Cocina() {
   return (
     <div className="cocina-container">
       <header className="cocina-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <BrandMark size={22} />
-          <h1>Cocina</h1>
+        <div className="cocina-brand">
+          <BrandMark size={34} />
+          <div>
+            <h1>Cocina</h1>
+            <span>{orders.NUEVO.length + orders.EN_PREP.length} pendientes · {orders.LISTO.length} listos</span>
+          </div>
         </div>
         <div className="header-actions">
           <label
@@ -320,11 +253,13 @@ export default function Cocina() {
             </span>
           </label>
           {orders.LISTO.length > 0 && (
-            <button onClick={archiveDayOrders} className="archive-day-btn">
-              ARCHIVAR DÍA
+            <button onClick={archiveDayOrders} className="btn btn--secondary cocina-archive-day">
+              Archivar día
             </button>
           )}
-          <button onClick={logout} className="logout-btn">Salir</button>
+          <button onClick={logout} className="btn btn--ghost cocina-logout" aria-label="Salir">
+            <Icon name="salir" size={20} /> <span className="btn-label">Salir</span>
+          </button>
         </div>
       </header>
 
@@ -354,11 +289,9 @@ export default function Cocina() {
           <h2 className="column-title nuevo">NUEVOS ({orders.NUEVO.length})</h2>
           <div className="orders-column">
             {orders.NUEVO.length === 0 ? (
-              <p className="empty-column">No hay pedidos nuevos</p>
+              <EmptyState compact icon="check" title="Todo al día en cocina" description="Los pedidos nuevos aparecen aquí con un aviso." />
             ) : (
-              orders.NUEVO.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
+              orders.NUEVO.map(order => renderTicket(order))
             )}
           </div>
         </div>
@@ -367,11 +300,9 @@ export default function Cocina() {
           <h2 className="column-title en-prep">EN PREPARACIÓN ({orders.EN_PREP.length})</h2>
           <div className="orders-column">
             {orders.EN_PREP.length === 0 ? (
-              <p className="empty-column">No hay pedidos en preparación</p>
+              <EmptyState compact icon="cocina" title="Nada en preparación" description="Toca Iniciar en un pedido nuevo para empezar." />
             ) : (
-              orders.EN_PREP.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
+              orders.EN_PREP.map(order => renderTicket(order))
             )}
           </div>
         </div>
@@ -380,11 +311,9 @@ export default function Cocina() {
           <h2 className="column-title listo">LISTOS ({orders.LISTO.length})</h2>
           <div className="orders-column">
             {orders.LISTO.length === 0 ? (
-              <p className="empty-column">No hay pedidos listos</p>
+              <EmptyState compact icon="fuego" title="Sin pedidos listos" description="Los platos terminados esperan aquí a que los recojan." />
             ) : (
-              orders.LISTO.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
+              orders.LISTO.map(order => renderTicket(order))
             )}
           </div>
         </div>
@@ -395,9 +324,7 @@ export default function Cocina() {
             {orders.ARCHIVADO.length === 0 ? (
               <p className="empty-column">Nada archivado todavía hoy</p>
             ) : (
-              orders.ARCHIVADO.map(order => (
-                <OrderCard key={order.id} order={order} readOnly />
-              ))
+              orders.ARCHIVADO.map(order => renderTicket(order, true))
             )}
           </div>
         </div>

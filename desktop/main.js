@@ -9,6 +9,39 @@ const fs = require('fs');
 const RES = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'resources');
 const PORT = 3000;
 
+// DATOS FUERA DE LA INSTALACIÓN (2026-10-25): reinstalar el .exe borra toda la
+// carpeta de instalación (uninstaller de electron-builder, rama isUpdated) y
+// antes se llevaba las ventas (resources\backend\data). Ahora la base vive en
+// userData (%APPDATA%\POS Chanatos\datos), que ningún instalador toca, y los
+// respaldos automáticos del backend quedan al lado (dirname(DB_PATH)/backups).
+// La primera vez se migra sola la base vieja; installer.nsh (customInit) la
+// rescata además ANTES de que el desinstalador viejo borre la carpeta.
+const DATA_DIR = path.join(app.getPath('userData'), 'datos');
+const DB_FILE = path.join(DATA_DIR, 'pos_chanatos.db');
+
+function prepararDatos() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const oldDb = path.join(RES, 'backend', 'data', 'pos_chanatos.db');
+    if (!fs.existsSync(DB_FILE) && fs.existsSync(oldDb)) {
+      fs.copyFileSync(oldDb, DB_FILE);
+      const oldBk = path.join(RES, 'backend', 'data', 'backups');
+      const newBk = path.join(DATA_DIR, 'backups');
+      if (fs.existsSync(oldBk)) {
+        fs.mkdirSync(newBk, { recursive: true });
+        for (const f of fs.readdirSync(oldBk)) {
+          try { fs.copyFileSync(path.join(oldBk, f), path.join(newBk, f)); } catch (e) { /* respaldo viejo ilegible: seguir */ }
+        }
+      }
+      console.log('Base de datos migrada a', DB_FILE);
+    }
+  } catch (e) {
+    // Sin DATA_DIR utilizable, el backend usaría su default DENTRO de la
+    // instalación (se perdería al reinstalar): mejor enterarse en el log.
+    console.error('No se pudo preparar la carpeta de datos:', e);
+  }
+}
+
 // Windows agrupa/identifica las notificaciones de la app por este id (debe coincidir
 // con build.appId de package.json). Sin esto, las notificaciones nativas en Windows
 // pueden aparecer atribuidas a Electron en vez de "POS Chanatos", o no mostrar el icono.
@@ -80,10 +113,11 @@ function nodeBinary() {
 }
 
 function startBackend() {
+  prepararDatos();
   const server = path.join(RES, 'backend', 'server.js');
   backend = spawn(nodeBinary(), [server], {
     cwd: path.join(RES, 'backend'),
-    env: { ...process.env, RESOURCES_PATH: RES + path.sep, PORT: String(PORT), NODE_ENV: '' },
+    env: { ...process.env, RESOURCES_PATH: RES + path.sep, PORT: String(PORT), NODE_ENV: '', DB_PATH: DB_FILE },
     stdio: 'ignore',
     windowsHide: true,
   });

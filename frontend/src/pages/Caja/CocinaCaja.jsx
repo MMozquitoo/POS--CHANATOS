@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
@@ -10,144 +10,66 @@ import BrandMark from '../../components/BrandMark';
 import PlatformBadge from '../../components/PlatformBadge';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
+import KitchenTicket, { KitchenItems } from '../../components/kitchen/KitchenTicket';
+import { useOrderWorkspace } from '../../components/orders/OrderWorkspaceHost';
+import PageHeader from '../../components/ui/PageHeader';
+import EmptyState from '../../components/EmptyState';
+import useChangedIds from '../../hooks/useChangedIds';
+import { useNow } from '../../hooks/useLiveOrders';
+import '../../components/ui/ui.css';
+import '../Cocina/Cocina.css';
 
-/* OrderCard extracted outside CocinaCaja to avoid re-creating on every render */
-function OrderCard({ order, selectedOrderId, onSelect, isUpdating, onConfirmStatus, onCobrar }) {
-  const getActionButton = () => {
-    if (order.status === 'NUEVO') {
-      return (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onConfirmStatus(order.id, 'EN_PREP', '¿Enviar esta orden a preparación?');
-          }}
-          disabled={isUpdating}
-          className={isUpdating ? 'btn-secondary' : 'btn-chanatos'}
-          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-        >
-          {isUpdating ? 'Enviando...' : 'Enviar a Preparación'}
-        </button>
-      );
-    } else if (order.status === 'EN_PREP') {
-      return (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onConfirmStatus(order.id, 'LISTO', '¿Marcar esta orden como LISTO?');
-          }}
-          disabled={isUpdating}
-          className={isUpdating ? 'btn-secondary' : 'btn-success'}
-          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
-        >
-          {isUpdating ? 'Marcando...' : 'Marcar Listo'}
-        </button>
-      );
-    } else if (order.status === 'LISTO' && onCobrar) {
-      // Cobro directo desde el tablero de cocina: sin recorrer la app
-      // buscando el pedido (dueño, 2026-08-02)
-      return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onCobrar(order); }}
-          className="btn-chanatos"
-          style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', fontWeight: 800 }}
-        >
-          COBRAR
-        </button>
-      );
-    }
-    return null;
-  };
+const byCreatedAt = (a, b) => String(a.created_at).localeCompare(String(b.created_at));
 
-  // FASE F7: avance plato por plato
-  const activeItems = order.items?.filter(item => !item.voided_at) || [];
-  const readyCount = activeItems.filter(item => item.ready_at).length;
-
+/* OrderCard fuera de CocinaCaja (no se re-crea en cada render). Rediseño
+   2026-10: usa el ticket compartido con la vista del rol Cocina y conserva las
+   acciones de Caja (enviar a preparación, marcar listo, cobrar). */
+function OrderCard({ order, now, flash, selectedOrderId, onSelect, isUpdating, onConfirmStatus, onCobrar }) {
+  let actions = null;
+  if (order.status === 'NUEVO') {
+    actions = (
+      <button
+        onClick={() => onConfirmStatus(order.id, 'EN_PREP', '¿Enviar esta orden a preparación?')}
+        disabled={isUpdating}
+        className="btn btn--primary"
+      >
+        {isUpdating ? 'Enviando…' : 'Enviar a preparación'}
+      </button>
+    );
+  } else if (order.status === 'EN_PREP') {
+    actions = (
+      <button
+        onClick={() => onConfirmStatus(order.id, 'LISTO', '¿Marcar esta orden como lista?')}
+        disabled={isUpdating}
+        className="btn btn--dark"
+      >
+        {isUpdating ? 'Marcando…' : 'Marcar lista'}
+      </button>
+    );
+  } else if (order.status === 'LISTO' && onCobrar) {
+    // Cobro directo desde el tablero de cocina: sin recorrer la app
+    // buscando el pedido (dueño, 2026-08-02)
+    actions = (
+      <button onClick={() => onCobrar(order)} className="btn btn--primary">
+        Cobrar
+      </button>
+    );
+  }
   return (
-    <div
+    <KitchenTicket
+      order={order}
+      now={now}
+      flash={flash}
+      selected={selectedOrderId === order.id}
       onClick={() => onSelect(order)}
-      className="caja-list-item"
-      style={{
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        border: selectedOrderId === order.id ? '3px solid #F5BB4C' : '2px solid #ddd',
-        marginBottom: '1rem'
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <div style={{ fontWeight: 800, fontSize: '1.5rem', color: '#333', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {order.table_label || (order.daily_no ? `ORDEN ${order.daily_no}` : order.code)}
-          <PlatformBadge platform={order.delivery_platform} />
-          {order.status === 'EN_PREP' && activeItems.length > 1 && (
-            <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 700, background: readyCount > 0 ? '#FFF3D6' : '#f0f0f0', color: readyCount > 0 ? '#B8860B' : '#888' }}>
-              {readyCount}/{activeItems.length}
-            </span>
-          )}
-        </div>
-        <div style={{ color: '#666', fontSize: '0.85rem' }}>
-          {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      </div>
-
-      {order.table_label && (
-        <div style={{ color: '#999', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-          {order.daily_no ? `Orden ${order.daily_no}` : order.code}
-        </div>
-      )}
-
-      {order.special_note && (
-        <div style={{ color: '#dc3545', background: '#f8d7da', fontWeight: 700, fontSize: '0.85rem', padding: '4px 10px', borderRadius: '6px', marginBottom: '0.5rem' }}>
-          ⚠ {order.special_note}
-        </div>
-      )}
-
-      {/* Items visibles directamente en la tarjeta (igual que la vista de Cocina
-          real) — antes solo decía "N item(s)" y había que tocar la tarjeta para
-          ver qué era cada uno. */}
-      <div style={{ marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-        {activeItems.length === 0 ? (
-          <div style={{ color: '#999', fontSize: '0.85rem' }}>Sin items</div>
-        ) : activeItems.map((item, idx) => (
-          <div
-            key={item.id ?? idx}
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'baseline',
-              gap: '0.4rem',
-              fontSize: '0.9rem',
-              color: item.ready_at ? '#999' : '#333',
-              textDecoration: item.ready_at ? 'line-through' : 'none',
-            }}
-          >
-            {item.ready_at && <span style={{ color: '#2ecc71', textDecoration: 'none' }}>✓</span>}
-            <span style={{ fontWeight: 700, color: item.ready_at ? '#999' : '#F5BB4C' }}>{item.qty}x</span>
-            <span>{item.name}</span>
-            {item.notes && <span style={{ color: '#888', fontSize: '0.8rem' }}>({item.notes})</span>}
-            {item.special_note && (
-              <span style={{
-                flexBasis: '100%',
-                fontWeight: 800,
-                fontSize: '0.95rem',
-                color: 'var(--red-text)',
-                background: 'var(--red-tint)',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                textDecoration: 'none',
-              }}>
-                ⚠ {item.special_note}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {getActionButton()}
-    </div>
+      actions={actions}
+    />
   );
 }
 
 export default function CocinaCaja({ hideHeader = false }) {
   const navigate = useNavigate();
+  const ws = useOrderWorkspace();
   const { socket } = useAuth();
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
@@ -174,12 +96,11 @@ export default function CocinaCaja({ hideHeader = false }) {
     loadOrders();
 
     if (socket) {
-      socket.on('order:new', (data) => {
+      const onNew = (data) => {
         loadOrders();
         // Sonido + notificación nativa: solo cuando esta vista corre "sola" (ruta
-        // /cocina, hideHeader=false). Cuando está embebida dentro de Centro Total
-        // (hideHeader=true) el aviso ya lo dispara CentroTotal.jsx a nivel de toda
-        // la pantalla, para no duplicarlo aquí.
+        // /cocina, hideHeader=false). Embebida, el aviso lo da la pantalla
+        // que la contiene, para no duplicarlo aquí.
         if (!hideHeader) {
           playKitchenChime();
           const order = data?.order;
@@ -190,39 +111,42 @@ export default function CocinaCaja({ hideHeader = false }) {
             body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
           });
         }
-      });
+      };
+      const onChange = () => loadOrders();
+      socket.on('order:new', onNew);
+      socket.on('order:status-changed', onChange);
+      socket.on('order:archived', onChange);
+      socket.on('order:updated', onChange);
+      socket.on('item:updated', onChange);
+      socket.on('item:voided', onChange);
 
-      socket.on('order:status-changed', () => {
-        loadOrders();
-      });
-
-      socket.on('order:archived', () => {
-        loadOrders();
-      });
-
-      socket.on('order:updated', () => {
-        loadOrders();
-      });
-
+      // Quitar SOLO estos manejadores (sin función, socket.off borraba también
+      // los de otras pantallas montadas — barra, Resumen, etc.)
       return () => {
-        socket.off('order:new');
-        socket.off('order:status-changed');
-        socket.off('order:archived');
-        socket.off('order:updated');
+        socket.off('order:new', onNew);
+        socket.off('order:status-changed', onChange);
+        socket.off('order:archived', onChange);
+        socket.off('order:updated', onChange);
+        socket.off('item:updated', onChange);
+        socket.off('item:voided', onChange);
       };
     }
   }, [socket, hideHeader]);
 
   const loadOrders = async () => {
     try {
-      setLoading(true);
+      // Sin "Cargando..." en cada actualización: el tablero se queda visible
+      // y solo cambian los tickets (antes la pantalla entera parpadeaba con
+      // cada evento de cocina). loading solo cubre la primera carga.
       const res = await axios.get('/orders?kitchen=true');
       const allOrders = res.data.filter(o => o.status !== 'CANCELADO');
 
+      // Más antiguas primero y orden estable: un pedido no cambia de lugar
+      // mientras se trabaja en él
       setOrders({
-        NUEVO: allOrders.filter(o => o.status === 'NUEVO'),
-        EN_PREP: allOrders.filter(o => o.status === 'EN_PREP'),
-        LISTO: allOrders.filter(o => o.status === 'LISTO')
+        NUEVO: allOrders.filter(o => o.status === 'NUEVO').sort(byCreatedAt),
+        EN_PREP: allOrders.filter(o => o.status === 'EN_PREP').sort(byCreatedAt),
+        LISTO: allOrders.filter(o => o.status === 'LISTO').sort(byCreatedAt)
       });
     } catch (error) {
       console.error('Error cargando pedidos:', error);
@@ -276,9 +200,10 @@ export default function CocinaCaja({ hideHeader = false }) {
   };
 
   // FASE F7: marcar/desmarcar un plato terminado desde el detalle (solo EN_PREP)
-  const toggleItemReady = async (item) => {
+  // Por unidad (2026-10): cada toque suma o quita UNA unidad lista
+  const stepItemReady = async (item, delta) => {
     try {
-      const res = await axios.patch(`/orders/items/${item.id}/ready`, { ready: !item.ready_at });
+      const res = await axios.patch(`/orders/items/${item.id}/ready`, { delta });
       // Refrescar el modal con la orden actualizada (incluye auto-avance a LISTO)
       setSelectedOrder(res.data.order);
       loadOrders();
@@ -288,18 +213,15 @@ export default function CocinaCaja({ hideHeader = false }) {
     }
   };
 
+  const now = useNow(30000);
+  const allActive = useMemo(() => [...orders.NUEVO, ...orders.EN_PREP, ...orders.LISTO], [orders]);
+  const changedIds = useChangedIds(loading ? null : allActive);
+
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '100vh',
-        background: '#f8f9fa'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-          <div style={{ fontSize: '1.1rem', color: '#666' }}>Cargando pedidos...</div>
+      <div className="workspace">
+        <div className="workspace__main">
+          {!hideHeader && <PageHeader title="Cocina" subtitle="Cargando pedidos…" />}
         </div>
       </div>
     );
@@ -307,22 +229,14 @@ export default function CocinaCaja({ hideHeader = false }) {
 
   return (
     <>
-    <div className="caja-container cocina-caja-shell" style={{ height: hideHeader ? '100%' : '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="cocina-caja-shell cocina-caja-v3">
       {!hideHeader && (
-        // position:'relative' explícito -- igual que CajaHeader.jsx: este
-        // header vive fuera del área que hace scroll (el tablero de abajo
-        // scrollea aparte), así que "sticky" (el default de .caja-header en
-        // mobile-polish.css) no cumple ninguna función acá, y combinado con
-        // el contenedor padre en 100dvh/overflow:hidden es el mismo bug de
-        // iOS Safari que hacía desaparecer el header en Centro de Control.
-        <header className="caja-header" style={{ flexShrink: 0, position: 'relative' }}>
-          <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <BrandMark size={22} />
-            <h1>COCINA</h1>
-          </div>
-          <div style={{ width: '100px' }}></div>
-        </header>
+        <div className="cocina-caja-head">
+          <PageHeader
+            title="Cocina"
+            subtitle={`${orders.NUEVO.length + orders.EN_PREP.length} en cocina · ${orders.LISTO.length} listos para cobrar`}
+          />
+        </div>
       )}
 
       {/* Selector de sección — solo se ve en móvil (mobile-polish.css), en
@@ -345,104 +259,39 @@ export default function CocinaCaja({ hideHeader = false }) {
         ))}
       </div>
 
-      <div className="cocina-caja-board" style={{
-        flex: 1,
-        minHeight: 0,
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '1rem',
-        padding: '1rem',
-        overflow: 'hidden',
-        background: '#f8f9fa'
-      }}>
-        {/* Columna NUEVO */}
-        <div className={`cocina-caja-column ${mobileSection === 'NUEVO' ? 'cocina-section-active' : ''}`} style={{
-          background: 'white', 
-          borderRadius: '12px', 
-          padding: '1rem', 
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0
-        }}>
-          <h2 style={{ 
-            fontSize: '1.2rem', 
-            fontWeight: 'bold', 
-            marginBottom: '1rem', 
-            paddingBottom: '0.5rem',
-            borderBottom: '3px solid #1971c2',
-            color: '#1971c2'
-          }}>
-            NUEVOS ({orders.NUEVO.length})
-          </h2>
-          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <div className="cocina-caja-board cocina-columns">
+        <div className={`cocina-column ${mobileSection === 'NUEVO' ? 'cocina-section-active' : ''}`}>
+          <h2 className="column-title nuevo">Nuevos ({orders.NUEVO.length})</h2>
+          <div className="orders-column">
             {orders.NUEVO.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos nuevos</p>
+              <EmptyState compact icon="check" title="Todo al día en cocina" description="Los pedidos nuevos aparecen aquí." />
             ) : (
               orders.NUEVO.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
+                <OrderCard key={order.id} order={order} now={now} flash={changedIds.has(order.id)} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => ws.abrirOrden(o)} />
               ))
             )}
           </div>
         </div>
-
-        {/* Columna EN_PREP */}
-        <div className={`cocina-caja-column ${mobileSection === 'EN_PREP' ? 'cocina-section-active' : ''}`} style={{
-          background: 'white', 
-          borderRadius: '12px', 
-          padding: '1rem', 
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0
-        }}>
-          <h2 style={{ 
-            fontSize: '1.2rem', 
-            fontWeight: 'bold', 
-            marginBottom: '1rem', 
-            paddingBottom: '0.5rem',
-            borderBottom: '3px solid #f59f00',
-            color: '#f59f00'
-          }}>
-            EN PREPARACIÓN ({orders.EN_PREP.length})
-          </h2>
-          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <div className={`cocina-column ${mobileSection === 'EN_PREP' ? 'cocina-section-active' : ''}`}>
+          <h2 className="column-title en-prep">En preparación ({orders.EN_PREP.length})</h2>
+          <div className="orders-column">
             {orders.EN_PREP.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos en preparación</p>
+              <EmptyState compact icon="cocina" title="Nada en preparación" description="Envía un pedido nuevo para empezar." />
             ) : (
               orders.EN_PREP.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
+                <OrderCard key={order.id} order={order} now={now} flash={changedIds.has(order.id)} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => ws.abrirOrden(o)} />
               ))
             )}
           </div>
         </div>
-
-        {/* Columna LISTO */}
-        <div className={`cocina-caja-column ${mobileSection === 'LISTO' ? 'cocina-section-active' : ''}`} style={{
-          background: 'white', 
-          borderRadius: '12px', 
-          padding: '1rem', 
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0
-        }}>
-          <h2 style={{ 
-            fontSize: '1.2rem', 
-            fontWeight: 'bold', 
-            marginBottom: '1rem', 
-            paddingBottom: '0.5rem',
-            borderBottom: '3px solid #2b8a3e',
-            color: '#2b8a3e'
-          }}>
-            LISTOS ({orders.LISTO.length})
-          </h2>
-          <div className="cocina-caja-column-list" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <div className={`cocina-column ${mobileSection === 'LISTO' ? 'cocina-section-active' : ''}`}>
+          <h2 className="column-title listo">Listos para cobrar ({orders.LISTO.length})</h2>
+          <div className="orders-column">
             {orders.LISTO.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No hay pedidos listos</p>
+              <EmptyState compact icon="fuego" title="Sin pedidos listos" description="Cuando cocina termine, aparecen aquí para cobrar." />
             ) : (
               orders.LISTO.map(order => (
-                <OrderCard key={order.id} order={order} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => navigate(`/mesa/${o.table_id}?orderId=${o.id}`)} />
+                <OrderCard key={order.id} order={order} now={now} flash={changedIds.has(order.id)} selectedOrderId={selectedOrder?.id} onSelect={setSelectedOrder} isUpdating={updatingStatus.has(order.id)} onConfirmStatus={handleConfirmStatus} onCobrar={(o) => ws.abrirOrden(o)} />
               ))
             )}
           </div>
@@ -519,9 +368,8 @@ export default function CocinaCaja({ hideHeader = false }) {
                 onClick={() => {
                   const o = selectedOrder;
                   setSelectedOrder(null);
-                  if (o.channel === 'VENTANILLA') navigate('/ventanilla?orderId=' + o.id);
-                  else if (o.channel === 'DOMICILIO') navigate('/domicilios?orderId=' + o.id);
-                  else navigate(`/mesa/${o.table_id}`);
+                  // Se modifica en la hoja de trabajo, sin salir de Cocina
+                  ws.abrirOrden(o);
                 }}
               >
                 Modificar orden (agregar o anular items)
@@ -529,75 +377,18 @@ export default function CocinaCaja({ hideHeader = false }) {
             )}
 
             <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 'bold' }}>Items:</h3>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 'bold' }}>Productos</h3>
               {selectedOrder.status === 'EN_PREP' && (
-                <p style={{ color: '#B8860B', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
-                  Toca un plato para marcarlo como terminado. Al completar todos, la orden pasa a LISTO sola.
+                <p style={{ color: 'var(--brand-deep)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
+                  Toca un plato para marcarlo como terminado; si son varios, cada toque marca uno.
+                  Al completar todos, la orden pasa a lista sola.
                 </p>
               )}
-              {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {selectedOrder.items.filter(item => !item.voided_at).map((item, idx) => {
-                    const isReady = !!item.ready_at;
-                    const markable = selectedOrder.status === 'EN_PREP';
-                    return (
-                      <div
-                        key={item.id ?? idx}
-                        onClick={markable ? () => toggleItemReady(item) : undefined}
-                        style={{
-                          padding: '0.75rem',
-                          background: isReady ? '#f4fcf7' : '#f8f9fa',
-                          borderRadius: '6px',
-                          border: isReady ? '1.5px solid #2ecc71' : '1px solid #ddd',
-                          cursor: markable ? 'pointer' : 'default',
-                          display: 'flex',
-                          gap: '0.6rem',
-                          alignItems: 'flex-start'
-                        }}
-                      >
-                        {markable || isReady ? (
-                          <span style={{
-                            width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-                            border: isReady ? '2px solid #2ecc71' : '2px solid #ccc',
-                            background: isReady ? '#2ecc71' : 'white',
-                            color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.8rem', fontWeight: 900, marginTop: '2px'
-                          }}>{isReady ? '✓' : ''}</span>
-                        ) : null}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', textDecoration: isReady ? 'line-through' : 'none', color: isReady ? '#999' : '#333' }}>
-                            <span style={{ color: '#F5BB4C', marginRight: '0.5rem' }}>{item.qty}x</span>
-                            {item.name}
-                          </div>
-                          {item.notes && (
-                            <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                              Notas: {item.notes}
-                            </div>
-                          )}
-                          {item.special_note && (
-                            <div style={{
-                              color: 'var(--red-text)',
-                              background: 'var(--red-tint)',
-                              fontWeight: 800,
-                              fontSize: '0.95rem',
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              marginTop: '0.35rem',
-                            }}>
-                              ⚠ {item.special_note}
-                            </div>
-                          )}
-                          <div style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                            {formatPriceCOP(item.price)} c/u
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p style={{ color: '#999', textAlign: 'center', padding: '1rem' }}>No hay items</p>
-              )}
+              <KitchenItems
+                items={(selectedOrder.items || []).filter((item) => !item.voided_at)}
+                onStep={selectedOrder.status === 'EN_PREP' ? stepItemReady : undefined}
+                dimReady={selectedOrder.status !== 'NUEVO'}
+              />
             </div>
           </div>
         </div>

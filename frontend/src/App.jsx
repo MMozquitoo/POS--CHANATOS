@@ -9,6 +9,24 @@ import ConfigServidor from './pages/ConfigServidor';
 import MeseroRoutes from './pages/Mesero/MeseroRoutes';
 import Cocina from './pages/Cocina/Cocina';
 import CajaRoutes from './pages/Caja/CajaRoutes';
+import { useEffect } from 'react';
+import { setBusiness, loadBusiness } from './hooks/useBusiness';
+import { ToastHost } from './components/ui/Toast';
+import useKeyboardOpen from './hooks/useKeyboardOpen';
+
+// Identidad del negocio en vivo: si otro dispositivo cambia nombre/logo/pie
+// del recibo, este lo aplica sin recargar (y al iniciar sesión la relee).
+function BusinessSync() {
+  const { socket } = useAuth();
+  useEffect(() => {
+    loadBusiness({ force: true });
+    if (!socket) return undefined;
+    const onUpdate = (business) => setBusiness(business);
+    socket.on('settings:business-updated', onUpdate);
+    return () => socket.off('settings:business-updated', onUpdate);
+  }, [socket]);
+  return null;
+}
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
@@ -60,12 +78,15 @@ function AppRoutes() {
 }
 
 function App() {
+  useKeyboardOpen();
   return (
     <ErrorBoundary>
       <ConnectionProvider>
         <ConnectionBanner />
         <UpdateBanner />
         <AuthProvider>
+          <BusinessSync />
+          <ToastHost />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/config-servidor" element={<ConfigServidor />} />

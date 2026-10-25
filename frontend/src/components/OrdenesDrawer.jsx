@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useOrderWorkspace } from './orders/OrderWorkspaceHost';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Modal from './Modal';
@@ -42,13 +43,17 @@ export default function OrdenesDrawer({ open, onClose }) {
     if (open) loadTables();
   }, [open, loadTables]);
 
+  const workspace = useOrderWorkspace();
   const goToTable = (table) => {
     onClose?.();
     // Ventanilla/Domicilios van DIRECTO a armar la orden nueva (flujo 2026-08:
     // "+" siempre crea un pedido; las órdenes vivas se ven en COBRAR/PEDIDOS)
     const type = getSpecialType(table);
-    if (type === 'VENTANILLA') return navigate('/ventanilla');
-    if (type === 'DOMICILIOS') return navigate('/domicilios');
+    if (type === 'VENTANILLA') return workspace ? workspace.abrirEstacion('VENTANILLA') : navigate('/ventanilla');
+    if (type === 'DOMICILIOS') return workspace ? workspace.abrirEstacion('DOMICILIOS') : navigate('/domicilios');
+    // Caja: la mesa se abre en la hoja de trabajo, sin cambiar de pantalla.
+    // Mesero (sin hoja) sigue yendo a su pantalla de pedido.
+    if (workspace) return workspace.abrirMesa(table);
     navigate(`/mesa/${table.id}`);
   };
 

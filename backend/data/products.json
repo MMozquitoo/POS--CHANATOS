@@ -1,5 +1,44 @@
 [
   {
+    "name": "Carne adicional",
+    "category": "ADICIONALES",
+    "price": 6000,
+    "variant": null,
+    "display_order": 0,
+    "is_active": true,
+    "flavors": null,
+    "flavor_prices": null,
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
+  },
+  {
+    "name": "Queso extra",
+    "category": "ADICIONALES",
+    "price": 2000,
+    "variant": null,
+    "display_order": 0,
+    "is_active": true,
+    "flavors": null,
+    "flavor_prices": null,
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
+  },
+  {
+    "name": "Tocineta",
+    "category": "ADICIONALES",
+    "price": 3000,
+    "variant": null,
+    "display_order": 0,
+    "is_active": true,
+    "flavors": null,
+    "flavor_prices": null,
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
+  },
+  {
     "name": "Gaseosa Personal",
     "category": "BEBIDAS",
     "price": 2000,
@@ -8,7 +47,9 @@
     "is_active": true,
     "flavors": "Colombiana, Manzana, Pepsi",
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Jugo Hit",
@@ -19,7 +60,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Mr Tea",
@@ -30,7 +73,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Coca-Cola Personal",
@@ -41,7 +86,9 @@
     "is_active": true,
     "flavors": "Colombiana, Manzana, Pepsi, cero",
     "flavor_prices": null,
-    "flavors_active": "[\"cero\"]"
+    "flavors_active": "[\"cero\"]",
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Gaseosa Litro",
@@ -52,7 +99,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Cerveza Andina",
@@ -63,7 +112,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Cerveza Poker",
@@ -74,7 +125,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Cerveza Heineken",
@@ -85,7 +138,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Corona",
@@ -96,7 +151,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Cerveza Club Colombia",
@@ -107,7 +164,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Filete de Pollo",
@@ -118,7 +177,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Filete de Cerdo",
@@ -129,7 +190,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Baconera",
@@ -140,7 +203,9 @@
     "is_active": false,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Baconera",
@@ -151,7 +216,9 @@
     "is_active": false,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Pepinillos",
@@ -162,7 +229,9 @@
     "is_active": false,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Clásica",
@@ -173,7 +242,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": "Tomate,BBQ,Chipotle",
+    "quitar": ""
   },
   {
     "name": "Hamburguesa Clásica",
@@ -184,7 +255,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -195,7 +268,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Chanata",
@@ -206,7 +281,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -217,7 +294,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Hamburguesa Doble Carne",
@@ -228,7 +307,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Jugo Natural en Agua",
@@ -239,7 +320,9 @@
     "is_active": true,
     "flavors": "Fresa, guanabana, Mora, Lulo, Mango, Maracuya, Coco",
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Jugo Natural en Leche",
@@ -250,7 +333,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Michelada",
@@ -261,7 +346,9 @@
     "is_active": true,
     "flavors": "Poker, Corona, Club Col, Heineken",
     "flavor_prices": "{\"Poker\":8000,\"Corona\":10000,\"Club Col\":9000,\"Heineken\":8996}",
-    "flavors_active": "[\"Poker\",\"Corona\",\"Club Col\",\"Heineken\"]"
+    "flavors_active": "[\"Poker\",\"Corona\",\"Club Col\",\"Heineken\"]",
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Limonada Natural",
@@ -272,7 +359,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Porción de Papas Sencilla",
@@ -283,7 +372,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": "Tomate,Salsa de la casa",
+    "quitar": null
   },
   {
     "name": "Salchipapa Sencilla",
@@ -294,7 +385,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": "Tomate,Salsa de la casa",
+    "quitar": null
   },
   {
     "name": "Papa LoKa",
@@ -305,7 +398,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": "Tomate,Salsa de la casa",
+    "quitar": null
   },
   {
     "name": "Perro Clásico",
@@ -316,7 +411,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Perro Especial",
@@ -327,7 +424,9 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   },
   {
     "name": "Sándwich de Pollo",
@@ -338,6 +437,8 @@
     "is_active": true,
     "flavors": null,
     "flavor_prices": null,
-    "flavors_active": null
+    "flavors_active": null,
+    "salsas": null,
+    "quitar": null
   }
 ]

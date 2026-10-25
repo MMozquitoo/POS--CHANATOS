@@ -87,7 +87,7 @@ function buildDeliveryNote(pedido) {
     fulfillment.type === "delivery"
       ? `Dirección: ${fulfillment.address || "-"}`
       : "Recoge en local";
-  return `📍 ${customer.name || "Cliente web"} | Tel: ${customer.phone || "-"} | ${lugar} | Pago: ${pedido.paymentMethod || "-"} | Notas: ${pedido.notes || "-"}`;
+  return `Cliente: ${customer.name || "Cliente web"} | Tel: ${customer.phone || "-"} | ${lugar} | Pago: ${pedido.paymentMethod || "-"} | Notas: ${pedido.notes || "-"}`;
 }
 
 /**
@@ -155,6 +155,7 @@ async function crearOrdenLocal(pedido, reintentado = false) {
       channel: "VENTANILLA",
       service,
       items,
+      customerName: pedido.customer?.name || null,
       web_order_id: `web-${pedido.id}`,
     }),
   });

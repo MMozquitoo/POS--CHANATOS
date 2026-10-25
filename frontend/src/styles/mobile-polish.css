@@ -392,3 +392,16 @@ button {
     padding: 2px 6px;
   }
 }
+
+/* Teclado abierto (hooks/useKeyboardOpen.js): sin barras inferiores fijas
+   mientras se escribe — en Android suben con el teclado y tapan el campo.
+   Los avisos breves bajan para no quedar flotando sobre el teclado. */
+@media (max-width: 768px) {
+  body.kb-open .caja-bottom-nav,
+  body.kb-open .mesero-bottom-nav {
+    display: none !important;
+  }
+  body.kb-open .toast-host {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}

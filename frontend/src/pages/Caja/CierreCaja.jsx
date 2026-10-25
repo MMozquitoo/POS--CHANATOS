@@ -9,6 +9,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, expenseCategoryLabel } from '../
 import ReporteCierre from '../../components/ReporteCierre.jsx';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader.jsx';
+import ContadorEfectivo, { totalConteo } from '../../components/caja/ContadorEfectivo.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal';
 import { useAlert, useConfirm } from '../../hooks/useModal';
@@ -43,6 +44,14 @@ export default function CierreCaja() {
   const [session, setSession] = useState(null);
   const [summary, setSummary] = useState(null);
   const [closingCash, setClosingCash] = useState('');
+  // Conteo por denominación (2026-10-25): "3 de 50.000, 7 de 20.000…" y el
+  // sistema suma — opción por defecto; "Escribir total" sigue disponible.
+  const [modoConteo, setModoConteo] = useState(true);
+  const [conteo, setConteo] = useState({});
+  const aplicarConteo = (c) => {
+    setConteo(c);
+    setClosingCash(String(totalConteo(c)));
+  };
   const [declaredTransfer, setDeclaredTransfer] = useState('');
   const [closing, setClosing] = useState(false);
   const [closedReport, setClosedReport] = useState(null);
@@ -627,25 +636,48 @@ export default function CierreCaja() {
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Efectivo contado
             </label>
-            <input
-              type="number"
-              value={closingCash}
-              onChange={(e) => setClosingCash(e.target.value)}
-              placeholder="0"
-              min="0"
-              step="100"
-              className="tnum"
-              style={{
-                width: '100%',
-                padding: '0.8rem 1rem',
-                fontSize: '1.5rem',
-                border: '2px solid var(--brand)',
-                borderRadius: 'var(--radius-lg)',
-                textAlign: 'right',
-                fontWeight: 700,
-                boxSizing: 'border-box'
-              }}
-            />
+            <div className="segmented" role="radiogroup" aria-label="Cómo contar el efectivo" style={{ marginBottom: '0.75rem' }}>
+              <button type="button" role="radio" aria-checked={modoConteo} className={`segmented__btn ${modoConteo ? 'is-active' : ''}`} onClick={() => setModoConteo(true)}>
+                Contar billetes
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!modoConteo}
+                className={`segmented__btn ${!modoConteo ? 'is-active' : ''}`}
+                onClick={() => setModoConteo(false)}
+              >
+                Escribir total
+              </button>
+            </div>
+            {modoConteo ? (
+              <>
+                <ContadorEfectivo value={conteo} onChange={aplicarConteo} />
+                <div className="conteo-total">
+                  <span>Total contado</span>
+                  <span className="tnum">{formatPriceCOP(totalConteo(conteo))}</span>
+                </div>
+              </>
+            ) : (
+              <input
+                type="text"
+                inputMode="numeric"
+                value={closingCash}
+                onChange={(e) => setClosingCash(e.target.value)}
+                placeholder="0"
+                className="tnum"
+                style={{
+                  width: '100%',
+                  padding: '0.8rem 1rem',
+                  fontSize: '1.5rem',
+                  border: '2px solid var(--brand)',
+                  borderRadius: 'var(--radius-lg)',
+                  textAlign: 'right',
+                  fontWeight: 700,
+                  boxSizing: 'border-box'
+                }}
+              />
+            )}
           </div>
 
           {closingCash && !isNaN(parseMontoCOP(closingCash)) && (

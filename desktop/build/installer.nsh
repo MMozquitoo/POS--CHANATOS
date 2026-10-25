@@ -1,3 +1,19 @@
+!include "LogicLib.nsh"
+
+!macro customInit
+  ; RESCATE DE LA BASE (2026-10-25): el desinstalador de la versión anterior
+  ; borra toda la carpeta de instalación, y las ventas vivían adentro
+  ; (resources\backend\data). Antes de que eso pase, copiar los datos a
+  ; %APPDATA%\POS Chanatos\datos — el mismo lugar donde la app nueva los busca
+  ; (main.js, DB_PATH). Si ya existen allá, no tocar nada (serían más nuevos).
+  ${IfNot} ${FileExists} "$APPDATA\POS Chanatos\datos\pos_chanatos.db"
+    ${If} ${FileExists} "$LOCALAPPDATA\Programs\POS Chanatos\resources\backend\data\pos_chanatos.db"
+      CreateDirectory "$APPDATA\POS Chanatos\datos"
+      CopyFiles /SILENT "$LOCALAPPDATA\Programs\POS Chanatos\resources\backend\data\*.*" "$APPDATA\POS Chanatos\datos"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 ; Personalizaciones del instalador NSIS (electron-builder)
 
 !macro customInstall

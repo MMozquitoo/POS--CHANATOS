@@ -56,6 +56,9 @@ export function saveProductsToSource(products) {
         flavors: product.flavors || null,
         flavor_prices: product.flavor_prices || null,
         flavors_active: product.flavors_active || null,
+        // null = lista general; "" = no lleva (se conserva tal cual)
+        salsas: product.salsas ?? null,
+        quitar: product.quitar ?? null,
       }));
 
     // Ordenar por categoría y display_order para mantener consistencia

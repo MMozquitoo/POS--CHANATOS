@@ -21,13 +21,13 @@ router.get('/', requireAuth, async (req, res) => {
           };
         }
 
-        // FASE O1: activa = NUEVO, EN_PREP, LISTO; no archivadas
+        // FASE O1: activa = NUEVO, EN_PREP, LISTO. Archivada por cocina sigue
+        // ocupando la mesa hasta cobrarse (CUENTAS ABIERTAS, ver orders.js GET /)
         const activeOrder = await db.get(
           `SELECT id, status, created_at 
            FROM orders 
            WHERE table_id = ? 
              AND paid_at IS NULL 
-             AND archived_at IS NULL 
              AND status IN ('NUEVO', 'EN_PREP', 'LISTO')
            ORDER BY created_at DESC 
            LIMIT 1`,
@@ -68,7 +68,6 @@ router.get('/service-counts', requireAuth, async (req, res) => {
        FROM orders 
        WHERE service = 'VENTANILLA' 
          AND paid_at IS NULL 
-         AND archived_at IS NULL 
          AND status IN ('NUEVO', 'EN_PREP', 'LISTO')`
     );
     const domicilioCount = await db.get(
@@ -76,7 +75,6 @@ router.get('/service-counts', requireAuth, async (req, res) => {
        FROM orders 
        WHERE service = 'DOMICILIO' 
          AND paid_at IS NULL 
-         AND archived_at IS NULL 
          AND status IN ('NUEVO', 'EN_PREP', 'LISTO')`
     );
 

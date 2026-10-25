@@ -36,3 +36,16 @@
 .salsa-chip-all.active {
   border-style: solid;
 }
+
+/* "Quitar" (Sin queso…): rojo suave para que no se confunda con agregar */
+.salsa-chip--quitar {
+  border-color: #F3C9C4;
+  background: #FFF8F7;
+  color: #A23B2E;
+}
+
+.salsa-chip--quitar.active {
+  background: #C0392B;
+  border-color: #C0392B;
+  color: #fff;
+}

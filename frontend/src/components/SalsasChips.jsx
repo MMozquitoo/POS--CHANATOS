@@ -31,10 +31,20 @@ function parseParts(value) {
   return (value || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 
-export default function SalsasChips({ value, onChange }) {
-  const [salsas, setSalsas] = useState(DEFAULT_SALSAS);
+// Lista de un producto (products.salsas / products.quitar, 2026-10):
+// null/undefined → usa la lista general · "" → no lleva ([]) · "A,B" → la suya
+export function parseListaProducto(value) {
+  if (value === null || value === undefined) return null;
+  return String(value).split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+// lista: las salsas propias del producto (array). Sin lista → la general.
+export default function SalsasChips({ value, onChange, lista = null }) {
+  const [generales, setSalsas] = useState(DEFAULT_SALSAS);
+  const salsas = Array.isArray(lista) ? lista : generales;
 
   useEffect(() => {
+    if (Array.isArray(lista)) return undefined;
     let cancelled = false;
     axios.get('/settings/salsas')
       .then(res => {
@@ -44,7 +54,7 @@ export default function SalsasChips({ value, onChange }) {
       })
       .catch(() => {}); // se queda con DEFAULT_SALSAS, nunca truena el pedido
     return () => { cancelled = true; };
-  }, []);
+  }, [Array.isArray(lista)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Con TODAS las salsas puestas, las notas dicen solo "Todas las salsas"
   // (listarlas una por una ocupaba media observación — dueño, 2026-08-02).

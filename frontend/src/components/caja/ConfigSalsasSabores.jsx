@@ -2,17 +2,26 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Modal from '../Modal';
 import { useAlert } from '../../hooks/useModal';
+import { normalizarQuitar } from '../QuitarChips';
+import AplicarOpcionesVarios from './AplicarOpcionesVarios';
 
 // Panel de Menú (Precios) para configurar, sin tocar código:
-// 1) la lista global de salsas que aparece al armar cualquier pedido, y
-// 2) los sabores de varios productos a la vez (ej. todas las gaseosas
+// 1) la lista global de salsas que aparece al armar cualquier pedido,
+// 2) los botones de "Quitar" del panel de producto ("Sin queso"…),
+// 3) salsas / "quitar" propias de varios productos a la vez, y
+// 4) los sabores de varios productos a la vez (ej. todas las gaseosas
 //    personales Postobón comparten "Colombiana, Manzana, Pepsi").
+// (Los ADICIONALES no van acá: son productos de la categoría Adicionales.)
 export default function ConfigSalsasSabores({ open, onClose, onApplied }) {
   const { alertState, showAlert, closeAlert } = useAlert();
 
   const [salsas, setSalsas] = useState([]);
   const [newSalsa, setNewSalsa] = useState('');
   const [savingSalsas, setSavingSalsas] = useState(false);
+
+  const [quitar, setQuitar] = useState([]);
+  const [newQuitar, setNewQuitar] = useState('');
+  const [savingQuitar, setSavingQuitar] = useState(false);
 
   const [products, setProducts] = useState([]);
   const [flavorsList, setFlavorsList] = useState([]);
@@ -27,6 +36,9 @@ export default function ConfigSalsasSabores({ open, onClose, onApplied }) {
     axios.get('/settings/salsas')
       .then(res => setSalsas(Array.isArray(res.data?.salsas) ? res.data.salsas : []))
       .catch(() => setSalsas([]));
+    axios.get('/settings/quitar')
+      .then(res => setQuitar(Array.isArray(res.data?.quitar) ? res.data.quitar : []))
+      .catch(() => setQuitar([]));
     axios.get('/products/admin')
       .then(res => setProducts(Array.isArray(res.data) ? res.data : []))
       .catch(() => setProducts([]));
@@ -47,6 +59,30 @@ export default function ConfigSalsasSabores({ open, onClose, onApplied }) {
   };
 
   const removeSalsa = (s) => setSalsas(salsas.filter(x => x !== s));
+
+  // "tomate" se guarda como "Sin tomate" (cocina lo resalta en rojo)
+  const addQuitar = () => {
+    const v = normalizarQuitar(newQuitar);
+    if (!v) return;
+    if (!quitar.some(q => q.toLowerCase() === v.toLowerCase())) setQuitar([...quitar, v]);
+    setNewQuitar('');
+  };
+
+  const removeQuitar = (q) => setQuitar(quitar.filter(x => x !== q));
+
+  const saveQuitar = async () => {
+    setSavingQuitar(true);
+    try {
+      await axios.put('/settings/quitar', { quitar });
+      await showAlert(quitar.length
+        ? 'Opciones de «Quitar» guardadas. Ya aparecen al armar pedidos.'
+        : 'Sin opciones de «Quitar»: la sección deja de aparecer al armar pedidos.');
+    } catch (err) {
+      await showAlert(err.response?.data?.error || 'Error al guardar las opciones de «Quitar»');
+    } finally {
+      setSavingQuitar(false);
+    }
+  };
 
   const addFlavor = () => {
     const v = newFlavor.trim();
@@ -136,7 +172,7 @@ export default function ConfigSalsasSabores({ open, onClose, onApplied }) {
       <Modal
         open={open}
         onClose={onClose}
-        title="Configurar salsas y sabores"
+        title="Salsas, quitar y sabores"
         actions={<button className="btn-secondary" onClick={onClose}>Cerrar</button>}
       >
         <div style={{ marginBottom: '1.5rem' }}>
@@ -188,6 +224,74 @@ export default function ConfigSalsasSabores({ open, onClose, onApplied }) {
             {savingSalsas ? 'Guardando...' : 'Guardar salsas'}
           </button>
         </div>
+
+        <hr style={{ margin: '1.25rem 0', border: 'none', borderTop: '1px solid #eee' }} />
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h4 style={{ margin: '0 0 0.4rem 0' }}>Quitar</h4>
+          <p style={{ fontSize: '0.85rem', color: '#666', margin: '0 0 0.6rem 0' }}>
+            Botones rápidos al armar un pedido para lo que el cliente no quiere
+            (ej: Sin queso). Cocina los ve resaltados en rojo. Si escribes solo
+            el ingrediente, se guarda como «Sin …».
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+            {quitar.map((q) => (
+              <span
+                key={q}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                  padding: '0.3rem 0.6rem', background: '#FFF8F7',
+                  border: '1.5px solid #F3C9C4', color: '#A23B2E', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 600,
+                }}
+              >
+                {q}
+                <button
+                  type="button"
+                  onClick={() => removeQuitar(q)}
+                  style={{ border: 'none', background: 'none', color: '#dc3545', cursor: 'pointer', fontWeight: 'bold', padding: 0, lineHeight: 1 }}
+                  aria-label={`Eliminar ${q}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {quitar.length === 0 && <span style={{ color: '#999', fontSize: '0.85rem' }}>Sin opciones: la sección no aparece al armar pedidos.</span>}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={newQuitar}
+              onChange={(e) => setNewQuitar(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addQuitar(); } }}
+              placeholder="Nueva opción (ej: Sin tomate)"
+              aria-label="Nueva opción de quitar"
+              style={{ flex: 1, padding: '0.5rem', border: '1px solid #ddd', borderRadius: '6px' }}
+            />
+            <button type="button" className="btn-secondary" onClick={addQuitar}>+ Agregar</button>
+          </div>
+          <button
+            type="button"
+            className="btn-chanatos"
+            onClick={saveQuitar}
+            disabled={savingQuitar}
+            style={{ marginTop: '0.75rem', width: '100%', padding: '0.7rem' }}
+          >
+            {savingQuitar ? 'Guardando...' : 'Guardar opciones de «Quitar»'}
+          </button>
+        </div>
+
+        <hr style={{ margin: '1.25rem 0', border: 'none', borderTop: '1px solid #eee' }} />
+
+        <AplicarOpcionesVarios
+          products={allProducts}
+          generales={{ salsas, quitar }}
+          showAlert={showAlert}
+          onApplied={async () => {
+            const refreshed = await axios.get('/products/admin');
+            setProducts(Array.isArray(refreshed.data) ? refreshed.data : []);
+            onApplied?.();
+          }}
+        />
 
         <hr style={{ margin: '1.25rem 0', border: 'none', borderTop: '1px solid #eee' }} />
 

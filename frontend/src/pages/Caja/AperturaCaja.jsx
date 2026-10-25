@@ -126,12 +126,11 @@ export default function AperturaCaja() {
               Efectivo inicial:
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={initialCash}
               onChange={(e) => setInitialCash(e.target.value)}
               placeholder="0"
-              min="0"
-              step="100"
               required
               disabled={opening || !isOnline}
               style={{

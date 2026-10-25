@@ -125,6 +125,80 @@ async function closeOrderIfPrepaid(db, orderId, io, userId) {
   return true;
 }
 
+// COCINA POR UNIDAD (2026-10): ready_at de la fila = todas sus unidades
+// listas (ready_qty >= qty). Se llama después de cambiar qty o ready_qty.
+async function syncItemReady(db, itemId, ts) {
+  await db.run(
+    `UPDATE order_items
+        SET ready_qty = MIN(MAX(ready_qty, 0), qty),
+            ready_at = CASE WHEN MIN(MAX(ready_qty, 0), qty) >= qty THEN COALESCE(ready_at, ?) ELSE NULL END
+      WHERE id = ?`,
+    [ts, itemId]
+  );
+}
+
+// Orden EN_PREP cuyos platos vivos quedaron todos listos → LISTO sola. Pasa al
+// marcar el último plato, pero también si Caja anula o el mesero baja la
+// cantidad de lo único que faltaba (antes quedaba "todo marcado" en EN_PREP y
+// cocina tenía que tocar "Todo listo" a mano). Emite, audita, cierra prepago y
+// avisa a CAJA. Devuelve { advanced, closed }.
+async function advanceIfAllReady(db, orderId, req, reason = "ALL_ITEMS_READY") {
+  const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+  if (!order || order.status !== "EN_PREP") return { advanced: false, closed: false };
+  const row = await db.get(
+    `SELECT COUNT(*) as vivos, SUM(CASE WHEN ready_at IS NULL THEN 1 ELSE 0 END) as pendientes
+       FROM order_items WHERE order_id = ? AND voided_at IS NULL`,
+    [orderId]
+  );
+  if (!row || !row.vivos || row.pendientes > 0) return { advanced: false, closed: false };
+
+  const ts = toBogotaSQLiteTimestamp(new Date());
+  await db.run(
+    "UPDATE orders SET status = 'LISTO', updated_at = ?, ready_at = COALESCE(ready_at, ?) WHERE id = ?",
+    [ts, ts, orderId]
+  );
+  await logAudit({
+    action: 'ORDER_STATUS_CHANGED',
+    entity_type: 'order',
+    entity_id: orderId,
+    order_id: orderId,
+    user_id: req.user.id,
+    ip: req.ip || req.connection?.remoteAddress || null,
+    summary: `Orden ${order.daily_no || order.code || orderId} LISTA (todos los platos marcados)`,
+    meta: { from: 'EN_PREP', to: 'LISTO', reason }
+  });
+
+  const io = req.app.get("io");
+  const closed = await closeOrderIfPrepaid(db, orderId, io, req.user.id);
+  if (io && !closed) {
+    const updated = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const items = await db.all("SELECT * FROM order_items WHERE order_id = ? AND voided_at IS NULL", [orderId]);
+    io.emit("order:status-changed", { order: { ...updated, items } });
+    io.emit("table:updated", { tableId: order.table_id });
+  }
+
+  // Push a CAJA (celular con pantalla apagada). Best-effort: nunca lanza ni
+  // bloquea. Si se cerró por prepago no hay nada que cobrar: no molestar.
+  if (!closed) {
+    (async () => {
+      try {
+        let pushTableLabel = "Ventanilla/Domicilio";
+        if (order.table_id) {
+          const t = await db.get("SELECT number FROM tables WHERE id = ?", [order.table_id]);
+          if (t) pushTableLabel = `Mesa ${t.number}`;
+        }
+        await sendPushToRole("CAJA", {
+          title: "Orden lista para cobrar",
+          body: `Orden #${order.daily_no || order.code || order.id} — ${pushTableLabel}`,
+        });
+      } catch (pushError) {
+        console.error("⚠️  Error enviando push de orden lista:", pushError.message);
+      }
+    })();
+  }
+  return { advanced: true, closed };
+}
+
 // Plataformas de domicilio soportadas (orders.delivery_platform). Solo Rappi
 // por ahora; agregar otra = sumarla acá y en statusLabels.js del frontend.
 const DELIVERY_PLATFORMS = ["RAPPI"];
@@ -157,6 +231,9 @@ router.post(
       // 2) Validar payload mínimo
     const { tableId, channel, items, service, web_order_id: webOrderId } = req.body;
     const orderSpecialNote = (req.body.specialNote ?? req.body.special_note ?? '').trim() || null;
+    // Nombre del cliente (Ventanilla/Domicilios): campo propio, no dentro de
+    // la nota — así se busca por cliente en Órdenes (dueño, 2026-10-25)
+    const customerName = String(req.body.customerName ?? req.body.customer_name ?? '').trim().slice(0, 60) || null;
     // RAPPI: pedido que llega por la plataforma (ver closeOrderIfPrepaid)
     const rawPlatform = String(req.body.deliveryPlatform ?? req.body.delivery_platform ?? '').trim().toUpperCase();
     if (rawPlatform && !DELIVERY_PLATFORMS.includes(rawPlatform)) {
@@ -378,8 +455,8 @@ router.post(
         const createdAt = toBogotaSQLiteTimestamp(new Date());
 
         result = await db.run(
-          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at, web_order_id, special_note, delivery_platform)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders (code, table_id, channel, service, business_day, daily_no, status, created_by, created_at, updated_at, web_order_id, special_note, delivery_platform, customer_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             code,
             finalTableId || null,
@@ -396,6 +473,7 @@ router.post(
             webOrderId || null,
             orderSpecialNote,
             deliveryPlatform,
+            customerName,
           ]
         );
 
@@ -552,9 +630,18 @@ router.get("/", requireAuth, async (req, res) => {
 
     const { includeDisabled, includeArchived } = req.query;
 
-    // Archivado automático: excluir órdenes archivadas de vistas activas (a menos que includeArchived=1)
+    // Archivado automático: excluir órdenes archivadas de vistas activas (a menos que includeArchived=1).
+    // CUENTAS ABIERTAS (2026-10): "archivado" solo limpia la pantalla de COCINA
+    // (botón Archivar / archivar el día). Para todos los demás, una orden sin
+    // cobrar sigue a la vista aunque esté archivada — antes desaparecía de
+    // Mesas/Órdenes mientras el servidor seguía contando la mesa como ocupada
+    // ("Ya existe una orden activa" sin poder verla ni cobrarla).
     if (includeArchived !== "1" && includeArchived !== "true") {
-      query += " AND o.archived_at IS NULL";
+      if (kitchen === "true" || req.user.role === "COCINA") {
+        query += " AND o.archived_at IS NULL";
+      } else {
+        query += ` AND (o.archived_at IS NULL OR (o.paid_at IS NULL AND o.status IN ('NUEVO', 'EN_PREP', 'LISTO')))`;
+      }
     }
 
     // Cocina: solo ver pedidos no cancelados
@@ -612,6 +699,24 @@ router.get("/", requireAuth, async (req, res) => {
         itemsByOrder[item.order_id].push(item);
       });
       filteredOrders.forEach(order => { order.items = itemsByOrder[order.id] || []; });
+
+      // Pagado y saldo por orden, con el MISMO cálculo que GET /:id: las vistas
+      // de Mesas y Órdenes muestran abonos/saldo sin pedir cada orden aparte
+      const paidRows = await db.all(
+        `SELECT order_id, COALESCE(SUM(amount), 0) as paid
+         FROM payments WHERE voided_at IS NULL AND order_id IN (${placeholders})
+         GROUP BY order_id`,
+        orderIds
+      );
+      const paidByOrder = Object.fromEntries(paidRows.map((r) => [r.order_id, r.paid]));
+      filteredOrders.forEach(order => {
+        const itemsTotal = order.items
+          .filter((it) => !it.voided_at)
+          .reduce((s, it) => s + (it.qty || 0) * (it.price || 0), 0);
+        order.itemsTotal = itemsTotal;
+        order.paidAmount = paidByOrder[order.id] || 0;
+        order.saldo = Math.max(0, itemsTotal - (order.discount_amount || 0) - order.paidAmount);
+      });
     } else {
       filteredOrders.forEach(order => { order.items = []; });
     }
@@ -643,11 +748,11 @@ router.get("/service/:service", requireAuth, async (req, res) => {
     
     const params = [service];
 
-    // Si only_open=true, solo órdenes activas (items pendientes, no archivadas).
-    // FASE O1: operativa = no archivado; activa = NUEVO, EN_PREP, LISTO.
+    // Si only_open=true, solo órdenes activas (items pendientes).
+    // FASE O1: activa = NUEVO, EN_PREP, LISTO. Archivada por cocina sigue
+    // abierta para Caja (ver CUENTAS ABIERTAS en GET /).
     if (onlyOpen) {
       query += `
-        AND o.archived_at IS NULL
         AND o.status IN ('NUEVO', 'EN_PREP', 'LISTO')
         AND o.id IN (
           SELECT DISTINCT oi.order_id
@@ -751,7 +856,6 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
         LEFT JOIN users u ON o.created_by = u.id
         WHERE o.table_id = ?
           AND o.paid_at IS NULL
-          AND o.archived_at IS NULL
           AND o.status IN ('NUEVO', 'EN_PREP', 'LISTO')
         ORDER BY o.created_at DESC
         LIMIT 1
@@ -793,11 +897,11 @@ router.get("/table/:tableId", requireAuth, async (req, res) => {
     
     const params = [tableId];
 
-    // Si only_open=true, solo órdenes activas (items pendientes, no archivadas).
-    // FASE O1: operativa = no archivado; activa = NUEVO, EN_PREP, LISTO.
+    // Si only_open=true, solo órdenes activas (items pendientes).
+    // FASE O1: activa = NUEVO, EN_PREP, LISTO. Archivada por cocina sigue
+    // abierta para Caja (ver CUENTAS ABIERTAS en GET /).
     if (onlyOpen) {
       query += `
-        AND o.archived_at IS NULL
         AND o.status IN ('NUEVO', 'EN_PREP', 'LISTO')
         AND o.id IN (
           SELECT DISTINCT oi.order_id
@@ -899,7 +1003,6 @@ router.get("/ready-to-pay", requireAuth, async (req, res) => {
           OR (o.service IN ('VENTANILLA', 'DOMICILIO') AND o.status IN ('NUEVO', 'EN_PREP'))
         )
         AND o.paid_at IS NULL
-        AND o.archived_at IS NULL
         AND o.id IN (
           SELECT DISTINCT oi.order_id
           FROM order_items oi
@@ -994,6 +1097,12 @@ router.get("/:id", requireAuth, async (req, res) => {
 
     // Pagos válidos y saldo real: el riel de cobro necesita saber si la orden
     // ya quedó pagada por adelantado (para no ofrecer cobrarla otra vez)
+    // Pagos válidos de la orden (para el recibo final de una cuenta dividida:
+    // "Efectivo $16.000 + Efectivo $14.000", 2026-10-25)
+    const pagos = await db.all(
+      "SELECT id, method, amount, tip_amount, created_at FROM payments WHERE order_id = ? AND voided_at IS NULL ORDER BY id",
+      [req.params.id]
+    );
     const paidRow = await db.get(
       "SELECT COALESCE(SUM(amount), 0) as paid FROM payments WHERE order_id = ? AND voided_at IS NULL",
       [order.id]
@@ -1002,7 +1111,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     const paidAmount = paidRow?.paid || 0;
     const saldo = Math.max(0, totalItems - (order.discount_amount || 0) - paidAmount);
 
-    res.json({ ...order, items, paidAmount, saldo });
+    res.json({ ...order, items, paidAmount, saldo, payments: pagos });
   } catch (error) {
     console.error("Error obteniendo pedido:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -1088,16 +1197,19 @@ router.patch(
       const oldStatus = order.status;
       const statusTimestamp = toBogotaSQLiteTimestamp(new Date());
 
-      // Actualizar estado (usando zona horaria America/Bogota)
+      // Actualizar estado (usando zona horaria America/Bogota). Volver a
+      // NUEVO/EN_PREP desarchiva: cocina tiene que verla otra vez.
       await db.run(
-        "UPDATE orders SET status = ?, updated_at = ? WHERE id = ?",
-        [status, statusTimestamp, req.params.id]
+        `UPDATE orders SET status = ?, updated_at = ?,
+           archived_at = CASE WHEN ? IN ('NUEVO', 'EN_PREP') THEN NULL ELSE archived_at END
+         WHERE id = ?`,
+        [status, statusTimestamp, status, req.params.id]
       );
 
       // FASE F7: al marcar la orden LISTO, todos los platos quedan marcados como terminados
       if (status === "LISTO") {
         await db.run(
-          "UPDATE order_items SET ready_at = ? WHERE order_id = ? AND voided_at IS NULL AND ready_at IS NULL",
+          "UPDATE order_items SET ready_at = COALESCE(ready_at, ?), ready_qty = qty WHERE order_id = ? AND voided_at IS NULL",
           [statusTimestamp, req.params.id]
         );
         // FASE F10: primera vez LISTA = tiempo de preparación (pedido → mesa)
@@ -1551,6 +1663,12 @@ router.post("/:id/items", requireAuth, requireRole("CAJA", "MESERO"), async (req
           [toBogotaSQLiteTimestamp(new Date()), orderId]
         );
       }
+      // Si cocina ya la había archivado (limpió su pantalla), lo nuevo tiene
+      // que volver a aparecerle: antes quedaba EN_PREP + archivada y cocina
+      // nunca veía los productos agregados.
+      if (order.archived_at) {
+        await db.run("UPDATE orders SET archived_at = NULL WHERE id = ?", [orderId]);
+      }
 
       await db.run("COMMIT");
     } catch (txError) {
@@ -1666,6 +1784,9 @@ router.delete("/items/:id", requireAuth, requireRole("CAJA"), async (req, res) =
       "UPDATE order_items SET voided_at = ? WHERE id = ?",
       [toBogotaSQLiteTimestamp(new Date()), itemId]
     );
+
+    // Si lo eliminado era lo único que cocina tenía pendiente → LISTO sola
+    await advanceIfAllReady(db, item.order_id, req, "ITEM_REMOVED");
 
     const updatedItem = await db.get("SELECT * FROM order_items WHERE id = ?", [itemId]);
     const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [item.order_id]);
@@ -1824,6 +1945,14 @@ router.patch("/items/:id", requireAuth, requireRole("CAJA", "MESERO"), async (re
       `UPDATE order_items SET ${updates.join(", ")} WHERE id = ?`,
       params
     );
+
+    // COCINA POR UNIDAD: con la cantidad cambiada, las unidades ya listas se
+    // ajustan (5 listas y bajan a 4 → 4/4 completa; subir de 2/2 a 3 → 2/3,
+    // vuelve a faltar una). Si era lo único que faltaba, la orden pasa a LISTO.
+    if (qty !== undefined) {
+      await syncItemReady(db, itemId, toBogotaSQLiteTimestamp(new Date()));
+      await advanceIfAllReady(db, item.order_id, req, "QTY_CHANGED");
+    }
 
     const updatedItem = await db.get("SELECT * FROM order_items WHERE id = ?", [itemId]);
 
@@ -2015,6 +2144,9 @@ router.post("/items/:id/void", requireAuth, requireRole("CAJA"), async (req, res
       "UPDATE order_items SET voided_at = ?, voided_by = ?, void_reason = ? WHERE id = ?",
       [timestamp, req.user.id, reason.trim(), itemId]
     );
+
+    // Si lo anulado era lo único que cocina tenía pendiente → LISTO sola
+    await advanceIfAllReady(db, item.order_id, req, "ITEM_VOIDED");
 
     // Obtener nombre del usuario para la respuesta
     const userInfo = await db.get("SELECT name FROM users WHERE id = ?", [req.user.id]);
@@ -2379,11 +2511,25 @@ router.patch("/:id/delivery-platform", requireAuth, requireRole("MESERO", "CAJA"
 
 // PATCH /api/orders/items/:id/ready - Marcar/desmarcar plato terminado (FASE F7)
 // Cocina plato por plato: cuando todos los items quedan listos, la orden pasa a LISTO sola.
+// POR UNIDAD (2026-10): "5× Hamburguesa" se marca de a una.
+//   { delta: 1 | -1 }  suma o quita UNA unidad lista (lo que manda cocina al tocar)
+//   { ready: true }    la fila completa (todas sus unidades) — también clientes viejos
+//   { ready: false }   la fila vuelve a cero
+// delta en vez de un número absoluto: dos pantallas de cocina tocando a la vez
+// suman bien (las escrituras van en cola, ver server.js).
 router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), async (req, res) => {
   try {
     const db = getDb();
     const itemId = parseInt(req.params.id);
-    const ready = req.body.ready !== false; // default: marcar como listo
+    const body = req.body || {};
+
+    let delta = null;
+    if (body.delta !== undefined) {
+      delta = parseInt(body.delta);
+      if (delta !== 1 && delta !== -1) {
+        return res.status(400).json({ error: "delta debe ser 1 o -1" });
+      }
+    }
 
     const item = await db.get("SELECT * FROM order_items WHERE id = ?", [itemId]);
     if (!item) {
@@ -2401,45 +2547,22 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
       });
     }
 
+    const qty = Math.max(1, item.qty || 1);
+    const actual = item.ready_at ? qty : Math.min(Math.max(item.ready_qty || 0, 0), qty);
+    const nuevo = delta !== null
+      ? Math.min(Math.max(actual + delta, 0), qty)
+      : (body.ready !== false ? qty : 0);
+
     const timestamp = toBogotaSQLiteTimestamp(new Date());
-    await db.run(
-      "UPDATE order_items SET ready_at = ? WHERE id = ?",
-      [ready ? timestamp : null, itemId]
-    );
+    await db.run("UPDATE order_items SET ready_qty = ? WHERE id = ?", [nuevo, itemId]);
+    await syncItemReady(db, itemId, timestamp);
+    const ready = nuevo >= qty;
 
     // ¿Quedaron todos los platos listos? → la orden pasa a LISTO sola
-    let orderAdvanced = false;
-    if (ready) {
-      const pendientes = await db.get(
-        "SELECT COUNT(*) as c FROM order_items WHERE order_id = ? AND voided_at IS NULL AND ready_at IS NULL",
-        [item.order_id]
-      );
-      if (pendientes.c === 0) {
-        await db.run(
-          "UPDATE orders SET status = 'LISTO', updated_at = ?, ready_at = COALESCE(ready_at, ?) WHERE id = ?",
-          [timestamp, timestamp, item.order_id]
-        );
-        orderAdvanced = true;
-
-        await logAudit({
-          action: 'ORDER_STATUS_CHANGED',
-          entity_type: 'order',
-          entity_id: item.order_id,
-          order_id: item.order_id,
-          user_id: req.user.id,
-          ip: req.ip || req.connection?.remoteAddress || null,
-          summary: `Orden ${order.daily_no || order.code || item.order_id} LISTA (todos los platos marcados)`,
-          meta: { from: 'EN_PREP', to: 'LISTO', reason: 'ALL_ITEMS_READY' }
-        });
-      }
-    }
-
-    // PAGO ADELANTADO: si al completar los platos la orden ya estaba pagada
-    // (ventanilla/domicilio que pagó al pedir), se cierra sola acá.
-    let cerradaPorPrepago = false;
-    if (orderAdvanced) {
-      cerradaPorPrepago = await closeOrderIfPrepaid(db, item.order_id, req.app.get("io"), req.user.id);
-    }
+    // (advanceIfAllReady también cierra el prepago y avisa a CAJA)
+    const { advanced: orderAdvanced } = ready
+      ? await advanceIfAllReady(db, item.order_id, req)
+      : { advanced: false };
 
     const updatedOrder = await db.get("SELECT * FROM orders WHERE id = ?", [item.order_id]);
     const allItems = await db.all(
@@ -2449,38 +2572,15 @@ router.patch("/items/:id/ready", requireAuth, requireRole("COCINA", "CAJA"), asy
 
     const io = req.app.get("io");
     if (io) {
-      io.emit("item:updated", { itemId, orderId: item.order_id, ready });
+      io.emit("item:updated", { itemId, orderId: item.order_id, ready, readyQty: nuevo });
       io.emit("order:updated", { order: { ...updatedOrder, items: allItems } });
-      if (orderAdvanced) {
-        io.emit("order:status-changed", { order: { ...updatedOrder, items: allItems } });
-      }
-    }
-
-    // Notificación push a CAJA cuando la orden queda LISTA para cobrar
-    // (celular con pantalla apagada). Best-effort: nunca lanza ni bloquea.
-    // Si se cerró por prepago no hay nada que cobrar: no molestar.
-    if (orderAdvanced && !cerradaPorPrepago) {
-      (async () => {
-        try {
-          let pushTableLabel = "Ventanilla/Domicilio";
-          if (updatedOrder.table_id) {
-            const t = await db.get("SELECT number FROM tables WHERE id = ?", [updatedOrder.table_id]);
-            if (t) pushTableLabel = `Mesa ${t.number}`;
-          }
-          await sendPushToRole("CAJA", {
-            title: "Orden lista para cobrar",
-            body: `Orden #${updatedOrder.daily_no || updatedOrder.code || updatedOrder.id} — ${pushTableLabel}`,
-          });
-        } catch (pushError) {
-          console.error("⚠️  Error enviando push de orden lista:", pushError.message);
-        }
-      })();
     }
 
     res.json({
       ok: true,
       itemId,
       ready,
+      readyQty: nuevo,
       orderAdvanced,
       order: { ...updatedOrder, items: allItems },
     });

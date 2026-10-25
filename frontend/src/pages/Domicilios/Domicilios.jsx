@@ -14,17 +14,23 @@ import OrderNoteModal from '../../components/OrderNoteModal.jsx';
 import PlatformBadge from '../../components/PlatformBadge.jsx';
 import '../Mesero/Mesero.css';
 import '../Caja/Caja.css';
+import { toast } from '../../components/ui/Toast';
+import useSalirConBorrador from '../../hooks/useSalirConBorrador';
 
 function getBackRoute(location, role) {
   const from = location?.state?.from;
   if (from && typeof from === 'string') return from;
-  return role === 'CAJA' ? '/centro-total' : '/';
+  return role === 'CAJA' ? '/ordenes' : '/';
 }
 
 // Flujo 2026-08 (dueño): igual que Ventanilla — SOLO armar el pedido nuevo,
 // más el campo de datos del cliente (nombre/dirección/tel). Las órdenes vivas
 // se ven en COBRAR (Caja) o PEDIDOS (Mesero); ?orderId= abre el detalle.
-export default function Domicilios() {
+// embedded (2026-10): Caja la abre dentro de la hoja de trabajo
+// (OrderWorkspace) para armar el pedido sin cambiar de pantalla. Sin
+// encabezado propio; "Volver" → onClose; al crear (Caja) pasa la hoja al cobro
+// de esa orden con onOpenOrder en vez de navegar.
+export default function Domicilios({ embedded = false, onClose, onOpenOrder, registerCloseGuard } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -41,8 +47,13 @@ export default function Domicilios() {
   // 2026-09).
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
   const [customerNote, setCustomerNote] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [productsByCategory, setProductsByCategory] = useState({});
   const [newOrderItems, setNewOrderItems] = useState([]);
+  const { confirmarSalida, salirModal } = useSalirConBorrador(newOrderItems.length);
+  useEffect(() => {
+    registerCloseGuard?.(confirmarSalida);
+  }, [registerCloseGuard, confirmarSalida]);
   const [showMerge, setShowMerge] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   // Nota para cocina de LA ORDEN (independiente de un producto puntual y de
@@ -110,7 +121,7 @@ export default function Domicilios() {
   // ?orderId= (ej. "Modificar orden" desde Cocina) abre esa orden directo
   const [searchParams] = useSearchParams();
   useEffect(() => {
-    const oid = searchParams.get('orderId');
+    const oid = embedded ? null : searchParams.get('orderId');
     if (oid) selectOrder(Number(oid));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -155,10 +166,12 @@ export default function Domicilios() {
         items: itemsWithNotes,
         specialNote: orderNoteDraft.trim() || undefined,
         deliveryPlatform: eraRappi ? 'RAPPI' : undefined,
+        customerName: customerName.trim() || undefined,
       });
 
       setNewOrderItems([]);
       setCustomerNote('');
+      setCustomerName('');
       setOrderNoteDraft('');
       setIsRappi(false);
 
@@ -166,21 +179,22 @@ export default function Domicilios() {
       // se cierra sola al quedar lista.
       if (eraRappi) {
         await loadOrders();
-        showAlert('Pedido de Rappi enviado a cocina. Se cierra solo cuando esté listo; Rappi paga después.');
+        toast('Pedido Rappi enviado · se cierra solo al quedar listo', { duration: 3500 });
         return;
       }
 
       // CAJA cobra al despachar (pago adelantado) — directo al riel de cobro.
       // MESERO: pantalla limpia para el siguiente pedido.
       if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
-        // from: /centro-total → "Volver" cae en el cuadro de mesas, no en el
+        // from: /ordenes → "Volver" cae en el cuadro de mesas, no en el
         // panel de armar pedido (dueño, 2026-08-04)
-        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/centro-total' } });
+        if (embedded && onOpenOrder) onOpenOrder(res.data.order);
+        else navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/ordenes' } });
         return;
       }
 
       await loadOrders();
-      showAlert('Pedido enviado a cocina');
+      toast('Pedido enviado');
     } catch (error) {
       console.error('Error creando pedido:', error);
       showAlert(error.response?.data?.error || 'Error al crear pedido');
@@ -196,10 +210,13 @@ export default function Domicilios() {
         await loadOrderItems(orderId);
       }
       await loadOrders();
-      showAlert('Items agregados correctamente');
+      toast('Pedido actualizado');
+      return true;
     } catch (error) {
       console.error('Error agregando items:', error);
       showAlert(error.response?.data?.error || 'Error al agregar items');
+      // false: el borrador se conserva para reintentar
+      return false;
     }
   };
 
@@ -283,10 +300,12 @@ export default function Domicilios() {
 
   return (
     <div className="ventanilla-container caja-bottom-nav-spacer mesero-bottom-nav-spacer">
-      <header className="ventanilla-header">
-        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
-        <h1>DOMICILIOS</h1>
-      </header>
+      {!embedded && (
+        <header className="ventanilla-header">
+          <button onClick={async () => { if (await confirmarSalida()) navigate(backTo, { replace: true }); }} className="back-btn">← Volver</button>
+          <h1>DOMICILIOS</h1>
+        </header>
+      )}
 
       <div className="ventanilla-content">
         {selectedOrderId && selectedOrder && (
@@ -327,7 +346,7 @@ export default function Domicilios() {
                       fontWeight: 600, fontSize: '0.85rem',
                     }}
                   >
-                    {selectedOrder.special_note ? `⚠ Nota para cocina: ${selectedOrder.special_note}` : '+ Nota para cocina'}
+                    {selectedOrder.special_note ? `Nota de toda la orden: ${selectedOrder.special_note}` : '+ Nota de toda la orden (para cocina)'}
                   </button>
                 )}
               </div>
@@ -387,7 +406,7 @@ export default function Domicilios() {
                         {canEdit && <span style={{ color: '#1971c2', marginLeft: '0.4rem' }}>editar</span>}
                       </div>
                       {item.special_note && (
-                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545' }}>⚠ {item.special_note}</div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545' }}>Nota: {item.special_note}</div>
                       )}
                     </button>
                     {canEdit && isCaja && (
@@ -436,12 +455,20 @@ export default function Domicilios() {
           <div className="new-order-form" style={{ marginTop: selectedOrderId ? '1.25rem' : 0 }}>
             {!selectedOrderId && (
               <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label>Nota cliente / dirección</label>
+                <label>Nombre del cliente</label>
+                <input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Ej: Pedro (para buscarlo en Órdenes)"
+                  maxLength={60}
+                  style={{ width: '100%', padding: '0.6rem', fontSize: '1rem', marginBottom: '0.75rem' }}
+                />
+                <label>Dirección y teléfono</label>
                 <input
                   value={customerNote}
                   onChange={(e) => setCustomerNote(e.target.value)}
-                  placeholder="Nombre + dirección + tel"
-                  style={{ width: '100%', padding: '0.5rem', fontSize: '1rem' }}
+                  placeholder="Dirección + tel"
+                  style={{ width: '100%', padding: '0.6rem', fontSize: '1rem' }}
                 />
               </div>
             )}
@@ -484,11 +511,11 @@ export default function Domicilios() {
                   fontWeight: 600, fontSize: '0.9rem',
                 }}
               >
-                {orderNoteDraft ? `⚠ Nota para cocina: ${orderNoteDraft}` : '+ Nota para cocina (no de un producto)'}
+                {orderNoteDraft ? `Nota de toda la orden: ${orderNoteDraft}` : '+ Nota de toda la orden (para cocina)'}
               </button>
             )}
 
-            <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
+            <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} draftItems={newOrderItems} />
 
             {newOrderItems.length > 0 && (
               <div className="new-order-list" style={{ marginTop: '1rem' }}>
@@ -506,7 +533,7 @@ export default function Domicilios() {
                       </div>
                       {it.notes && <div style={{ fontSize: '0.9rem', color: '#666' }}>{it.notes}</div>}
                       {it.specialNote && (
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>⚠ {it.specialNote}</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>Nota: {it.specialNote}</div>
                       )}
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -526,8 +553,8 @@ export default function Domicilios() {
                   disabled={!selectedOrderId && creatingOrder}
                   onClick={async () => {
                     if (selectedOrderId) {
-                      await addItemsToOrder(selectedOrderId, newOrderItems);
-                      setNewOrderItems([]);
+                      // Solo se vacía el borrador si el servidor lo guardó
+                      if (await addItemsToOrder(selectedOrderId, newOrderItems)) setNewOrderItems([]);
                     } else {
                       await createNewOrder();
                     }
@@ -614,6 +641,7 @@ export default function Domicilios() {
         allowAdicionales
         allowQty
       />
+      {salirModal}
     </div>
   );
 }

@@ -576,3 +576,171 @@
   color: var(--gray-700);
   min-width: 48px;
 }
+
+/* ============================================================
+   Rediseño 2026-10: mismo lenguaje que Caja (fondo cálido,
+   encabezado en tarjeta, columnas como carriles con tickets
+   compartidos — components/kitchen/KitchenTicket).
+   ============================================================ */
+.cocina-container {
+  background: var(--bg);
+}
+
+.cocina-header {
+  margin: 12px 12px 0;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  top: 12px;
+}
+
+.cocina-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cocina-brand h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.cocina-brand span {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.cocina-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cocina-columns {
+  height: calc(100dvh - 96px);
+  padding: 12px;
+  gap: 12px;
+}
+
+.cocina-column {
+  background: transparent;
+  padding: 4px 2px 12px;
+  border-radius: 0;
+}
+
+.column-title {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.orders-column {
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .cocina-header {
+    margin: 0;
+    border-radius: 0;
+    border-width: 0 0 1px;
+    box-shadow: none;
+    top: 0;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  }
+  .cocina-brand h1 {
+    font-size: 20px;
+  }
+  .cocina-columns {
+    height: auto;
+  }
+  .column-title {
+    position: static;
+  }
+}
+
+/* Cocina de CAJA (CocinaCaja.jsx) con el mismo tablero — 3 columnas */
+.cocina-caja-v3 {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.cocina-caja-head {
+  padding: 12px 12px 0;
+}
+
+.cocina-caja-v3 .cocina-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: calc(100dvh - 108px);
+  background: transparent;
+}
+
+@media (max-width: 768px) {
+  .cocina-caja-head {
+    padding: 0 12px;
+  }
+  .cocina-caja-v3 .cocina-columns {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+  .cocina-caja-v3 .cocina-caja-mobile-tabs {
+    position: sticky;
+    top: 60px;
+    z-index: 5;
+    background: var(--bg);
+    border-bottom: none;
+    padding: 10px 12px 4px;
+  }
+  .cocina-caja-v3 .cocina-caja-mobile-tab {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--gray-700);
+    font-size: 13px;
+  }
+  .cocina-caja-v3 .cocina-caja-mobile-tab.active {
+    background: var(--text) !important;
+    border-color: var(--text) !important;
+    color: #fff;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Las pestañas de arriba ya dicen la sección y el conteo */
+  .cocina-column .column-title {
+    display: none;
+  }
+  .cocina-brand span {
+    display: none;
+  }
+  .cocina-brand img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+  .cocina-header .btn {
+    min-height: 46px;
+    padding: 0 12px;
+  }
+  .sound-toggle-label {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .cocina-logout .btn-label {
+    display: none;
+  }
+  .cocina-archive-day {
+    font-size: 13px !important;
+  }
+}

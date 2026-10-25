@@ -2,15 +2,52 @@
    fondo degradado suave de marca. Rediseño visual fase 1 (2026-08). */
 
 .login-container {
+  position: relative;
+  overflow: hidden;
   min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #FFFDF7 0%, var(--brand-tint) 55%, #FBE9C4 100%);
+  background: #FBF8F0;
   padding: 1rem;
 }
 
+.login-blob {
+  position: absolute;
+  background: radial-gradient(circle at 35% 30%, #FFD27A 0%, #F5BB4C 50%, #E9A92F 100%);
+  border-radius: 43% 57% 61% 39% / 44% 41% 59% 56%;
+  pointer-events: none;
+}
+
+.login-blob--a {
+  width: min(70vmin, 560px);
+  height: min(70vmin, 560px);
+  top: max(-30vmin, -240px);
+  right: max(-26vmin, -210px);
+  opacity: 0.9;
+  animation: login-blob-in 700ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.login-blob--b {
+  width: min(34vmin, 260px);
+  height: min(34vmin, 260px);
+  bottom: max(-14vmin, -110px);
+  left: max(-12vmin, -96px);
+  opacity: 0.45;
+  border-radius: 57% 43% 39% 61% / 41% 54% 46% 59%;
+  animation: login-blob-in 700ms cubic-bezier(0.32, 0.72, 0, 1) 120ms both;
+}
+
+@keyframes login-blob-in {
+  from { transform: scale(0.6) rotate(-14deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob { animation: none; }
+}
+
 .login-box {
+  position: relative;
   width: 100%;
   max-width: 340px;
   display: flex;
@@ -20,19 +57,29 @@
 }
 
 .login-logo {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 14px;
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  border-radius: 26px;
+  box-shadow: 0 2px 6px rgba(25, 25, 25, 0.08), 0 18px 40px rgba(184, 134, 11, 0.28);
+  margin-bottom: 16px;
 }
 
-.login-box h1 {
+.login-box h1.login-brand {
   color: var(--gray-900);
-  font-size: var(--text-22);
-  font-weight: 700;
-  letter-spacing: var(--tracking-title);
-  margin: 0 0 2px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.login-kicker {
+  margin: 2px 0 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brand-deep);
 }
 
 .login-subtitle {

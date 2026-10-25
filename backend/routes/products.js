@@ -65,7 +65,7 @@ router.get("/", requireAuth, async (req, res) => {
     const { category } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, display_order, flavors, flavor_prices, flavors_active
+      SELECT id, name, category, price, variant, display_order, flavors, flavor_prices, flavors_active, salsas, quitar
       FROM products
       WHERE is_active = 1
     `;
@@ -94,6 +94,8 @@ router.get("/", requireAuth, async (req, res) => {
         flavors: product.flavors,
         flavor_prices: product.flavor_prices,
         flavors_active: product.flavors_active,
+        salsas: product.salsas,
+        quitar: product.quitar,
         displayName: product.variant
           ? `${product.name} - ${product.variant}`
           : product.name,
@@ -166,7 +168,7 @@ router.get("/admin", requireAuth, requireRole("CAJA"), async (req, res) => {
     const { category, search } = req.query;
 
     let query = `
-      SELECT id, name, category, price, variant, is_active, display_order, flavors, flavor_prices, flavors_active, created_at
+      SELECT id, name, category, price, variant, is_active, display_order, flavors, flavor_prices, flavors_active, salsas, quitar, created_at
       FROM products
       WHERE 1=1
     `;
@@ -214,7 +216,7 @@ router.get("/admin/categories", requireAuth, requireRole("CAJA"), async (req, re
 // POST /api/products - Crear nuevo producto
 router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
-    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices, salsas, quitar } = req.body;
     const db = getDb();
 
     // Validaciones
@@ -268,6 +270,15 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       ]
     );
 
+    // Salsas / quitar propias (si no vienen, queda NULL = lista general)
+    if (salsas !== undefined || quitar !== undefined) {
+      await db.run("UPDATE products SET salsas = ?, quitar = ? WHERE id = ?", [
+        salsas === undefined ? null : opcionesValue(salsas),
+        quitar === undefined ? null : opcionesValue(quitar),
+        result.lastID,
+      ]);
+    }
+
     // Obtener producto creado
     const newProduct = await db.get("SELECT * FROM products WHERE id = ?", [result.lastID]);
 
@@ -291,6 +302,47 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 });
 
 // PATCH /api/products/:id - Editar producto
+// SALSAS / QUITAR POR PRODUCTO (2026-10). Valor guardado:
+//   null → lista general · "" → no lleva · "A,B" → su propia lista.
+// Acepta null, un array o un texto separado por comas.
+function opcionesValue(value) {
+  if (value === null) return null;
+  const lista = Array.isArray(value) ? value : String(value).split(",");
+  return lista.map((s) => String(s).replace(/,/g, " ").trim()).filter(Boolean).slice(0, 30).join(",");
+}
+
+// PATCH /api/products/options/bulk - la misma lista de salsas o de "quitar"
+// para varios productos a la vez (ej. todas las hamburguesas).
+// { productIds, field: 'salsas' | 'quitar', value: null | [] | ["Tomate", ...] }
+router.patch("/options/bulk", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const { productIds, field, value } = req.body;
+    if (!["salsas", "quitar"].includes(field)) {
+      return res.status(400).json({ error: "Campo inválido" });
+    }
+    const ids = (Array.isArray(productIds) ? productIds : []).map((id) => parseInt(id)).filter((id) => !isNaN(id));
+    if (ids.length === 0) {
+      return res.status(400).json({ error: "Selecciona al menos un producto" });
+    }
+    if (value === undefined) {
+      return res.status(400).json({ error: "Falta la lista" });
+    }
+    const db = getDb();
+    const placeholders = ids.map(() => "?").join(",");
+    await db.run(`UPDATE products SET ${field} = ? WHERE id IN (${placeholders})`, [opcionesValue(value), ...ids]);
+    try {
+      const allProducts = await db.all("SELECT * FROM products ORDER BY category, display_order, name");
+      saveProductsToSource(allProducts);
+    } catch (error) {
+      console.error("⚠️  Error sincronizando con products.json:", error);
+    }
+    res.json({ updated: ids.length });
+  } catch (error) {
+    console.error("Error actualizando opciones en lote:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 // PATCH /api/products/flavors/bulk - aplicar la misma lista de sabores a varios
 // productos de una vez (ej. todas las gaseosas personales Postobón), en vez de
 // editar producto por producto.
@@ -395,7 +447,7 @@ router.patch("/:id/flavors-availability", requireAuth, requireRole("CAJA", "MESE
 router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices } = req.body;
+    const { name, category, price, variant, display_order, is_active, flavors, flavor_prices, salsas, quitar } = req.body;
     const db = getDb();
 
     // Verificar que el producto existe
@@ -482,6 +534,16 @@ router.patch("/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
     if (is_active !== undefined) {
       updates.push("is_active = ?");
       params.push(is_active === true || is_active === 1 ? 1 : 0);
+    }
+
+    if (salsas !== undefined) {
+      updates.push("salsas = ?");
+      params.push(opcionesValue(salsas));
+    }
+
+    if (quitar !== undefined) {
+      updates.push("quitar = ?");
+      params.push(opcionesValue(quitar));
     }
 
     if (updates.length === 0) {

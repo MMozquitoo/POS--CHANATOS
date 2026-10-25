@@ -4,8 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { getApiBaseUrl } from '../utils/api';
 import { verifyServer, discoverServer } from '../utils/discovery';
 import './Login.css';
+import useBusiness, { logoSrc } from '../hooks/useBusiness';
 
 export default function Login() {
+  const business = useBusiness();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [blocked, setBlocked] = useState(false);
@@ -128,9 +130,14 @@ export default function Login() {
 
   return (
     <div className="login-container">
+      {/* Forma orgánica de la marca (la misma de la confirmación de pago),
+          discreta en dos esquinas — rediseño 2026-10 */}
+      <span className="login-blob login-blob--a" aria-hidden="true" />
+      <span className="login-blob login-blob--b" aria-hidden="true" />
       <div className="login-box">
-        <img src="/icon-192.png" alt="" className="login-logo" />
-        <h1>POS Chanatos</h1>
+        <img src={logoSrc(business)} alt="" className="login-logo" />
+        <h1 className="login-brand">{business.business_name}</h1>
+        <p className="login-kicker">Punto de venta</p>
         <p className="login-subtitle">Ingresa tu PIN</p>
 
         <div className={`pin-dots ${error ? 'shake' : ''}`}>

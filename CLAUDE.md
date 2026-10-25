@@ -61,7 +61,20 @@ backend/
                          #   llegar a LISTO (PAGADA+archivada+inventario). MESA sigue exigiendo LISTO.
                          #   valida montos contra el saldo REAL; pago parcial NO libera la mesa;
                          #   inventario se descuenta solo al quedar PAGADA; anular pago: bloqueado si
-                         #   su caja ya cerró, repone inventario y devuelve items a pendiente
+                         #   su caja ya cerró, repone inventario y devuelve items a pendiente.
+                         #   AUDITORÍA COBROS (2026-10): order_items.payment_id vincula cada item con
+                         #   el pago que lo cubrió (items → ese pago; cierre por monto/prepago → NULL =
+                         #   "cubiertos por monto", los paga el conjunto). Anular un pago libera sus
+                         #   items y, si lo que queda pagado ya no alcanza, también los cubiertos por
+                         #   monto (antes, anular la transferencia de un efectivo+transferencia dejaba
+                         #   los items pagados con saldo y la mesa sin poder cobrarse). INVENTARIO: un
+                         #   item descuenta al quedar pagado (por items al pagarse; por monto/prepago
+                         #   solo los que seguían sin pagar al cerrar) y repone exactamente los items
+                         #   que una anulación devuelve a pendientes.
+                         #   Mezcla de flujos: items primero y el resto por monto SÍ; abono por monto
+                         #   primero y luego items NO (409 con el saldo) — cobraba cada item completo
+                         #   sin descontar el abono (sobrecobro reproducido). Al dividir una fila por
+                         #   cantidad se copia también special_note.
     cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash,
                          #   declared_transfer, declared_card opcional}. (OJO: /cash/session/open NO
                          #   existe). Arqueo excluye pagos anulados e incluye propinas en efectivo en
@@ -76,7 +89,11 @@ backend/
                          #   RAPPI (2026-10): method='RAPPI' se excluye de total_sales, del efectivo
                          #   esperado, del "total" y de las ventas teóricas de /session/:id/summary
                          #   (van aparte en `rappi` {count,total} y en cash_sessions.total_rappi /
-                         #   snapshot.totals.total_rappi). El CHECK de payments.method se reconstruyó
+                         #   snapshot.totals.total_rappi). Para cuadrar el depósito SEMANAL de Rappi:
+                         #   Reportes → sección "Rappi" y hoja "Rappi" del Excel (summary.rappi
+                         #   {total,count,byDay}, directo de payments sin caja — un pedido Rappi
+                         #   cerrado con la caja cerrada queda con cash_session_id NULL a propósito:
+                         #   esa plata no es de ninguna caja). El CHECK de payments.method se reconstruyó
                          #   en database.js para admitir 'RAPPI' (SQLite no edita CHECKs: tabla nueva,
                          #   copia conservando ids, rename, índices recreados).
                          #   manual-transactions: category opcional (ver expenseCategories.js) +
@@ -197,10 +214,12 @@ frontend/
                          #   ocultar la barra de direcciones. Si una pantalla nueva arma su propio
                          #   header con className="caja-header" en vez de este componente, hay que
                          #   poner position:'relative' a mano (CocinaCaja.jsx se olvidó una vez).
-      caja/BottomNav.jsx # Barra inferior fija (<768px): COCINA/COBRAR/"+"/RESUMEN/MENÚ. "+"
-                         #   abre OrdenesDrawer, MENÚ abre caja/MenuDrawer.jsx.
-      caja/MenuDrawer.jsx # Reusa las opciones de MasCaja.jsx (Reportes, Menú/Precios, Historial,
-                         #   Auditoría) + Cierre de caja + acceso a Órdenes abiertas.
+      caja/BottomNav.jsx # Barra inferior fija (≤768px): RESUMEN/MESAS/"+"/ÓRDENES/MENÚ (rediseño
+                         #   2026-10; "COBRAR" pasó a Órdenes → filtro "Listas para cobrar"). "+"
+                         #   abre OrdenesDrawer, MENÚ abre caja/MenuDrawer.jsx. Secciones salen de
+                         #   shell/cajaNav.js (la misma fuente que la barra lateral).
+      caja/MenuDrawer.jsx # Cocina + Reportes (lo que no cabe en la barra) + "Nueva orden" + la
+                         #   misma lista ADMIN_NAV de la barra lateral + Salir.
       mesero/BottomNav.jsx # PEDIDOS/"+"/MENÚ, acento azul #1971c2. "+" abre OrdenesDrawer
                          #   (compartido con Caja), MENÚ abre mesero/MenuDrawer.jsx.
       mesero/MenuDrawer.jsx # Sabores del menú (→ Sabores.jsx) + Salir.
@@ -228,11 +247,14 @@ frontend/
                          #   usa orden completa; usa ProductPicker para agregar items, tanto en
                          #   orden existente como al crear orden nueva en mesa especial 9/10),
                          #   CobrarPedidos (split/propina/descuento/recibo), CocinaCaja (vista
-                         #   cocina de caja, también plato por plato, tabs en móvil), CentroTotal
-                         #   ("Centro de Control": tabs MESAS/COCINA/LISTO en desktop, ocultas
-                         #   <768px porque BottomNav ya cubre lo mismo), DashboardCaja ("Resumen"),
-                         #   Reportes, CajaRoutes monta BottomNav/OrdenesDrawer/MenuDrawer +
-                         #   catch-all → /centro
+                         #   cocina de caja, también plato por plato, tabs en móvil), Mesas.jsx
+                         #   (/mesas, plano + panel) y Ordenes.jsx (/ordenes, tarjetas + panel)
+                         #   — reemplazan a CentroTotal ("Centro de Control") y MesasAbiertas,
+                         #   cuyas rutas redirigen (/centro-total, /cobrar); DashboardCaja
+                         #   ("Resumen del turno"), Reportes, MasCaja (/mas = portada de
+                         #   Administración), IdentidadNegocio (/identidad). CajaRoutes envuelve
+                         #   todo en shell/CajaShell + BottomNav/OrdenesDrawer/MenuDrawer +
+                         #   catch-all → /centro. Ver "Rediseño 2026-10" abajo.
                          #
                          #   CONTADURÍA (2026-08) — dos niveles de gasto, no confundir:
                          #   1) Insumos CONTROLADOS (carne/pulpas, pan, papa...): Ingredientes.jsx
@@ -324,6 +346,177 @@ scripts/publicar-actualizacion.sh # "Botón Publicar" desde la Mac: compila el f
                          #   remota" abajo. Requiere gh autenticado.
 ```
 
+## PARA CLAUDE EN EL PC DEL LOCAL — aplicar la actualización 2026-10-25
+
+Si estás corriendo en el PC Windows del restaurante (o guiando a alguien ahí), esta
+actualización ya está publicada en GitHub y aprobada por el dueño. Aplícala así, EN ORDEN,
+y al terminar borra esta sección y haz commit de ese borrado.
+
+1. **Respaldo primero (obligatorio esta vez):** en el POS → Administración → Aplicación →
+   DESCARGAR DATOS (EXCEL). Guardar el archivo fuera del PC (USB o correo). Es la red de
+   seguridad del paso 3.
+2. **Actualización remota:** Administración → Aplicación → BUSCAR ACTUALIZACIONES (o el icono
+   "Actualizar POS Chanatos" del escritorio). Baja el release "latest" y reinicia el servidor;
+   las migraciones de la base corren solas al arrancar.
+3. **Instalador nuevo (Instalar-POS-Chanatos.exe, el dueño lo tiene):** instalarlo encima.
+   Este instalador saca la base de datos de la carpeta de instalación hacia
+   `%APPDATA%\POS Chanatos\datos\pos_chanatos.db` (customInit de installer.nsh la rescata
+   ANTES de que el desinstalador viejo borre la carpeta, y main.js la migra si hiciera falta).
+   **Verificar después de instalar:** que ese archivo exista y que el POS muestre las ventas
+   de siempre (Historial). Si no están: restaurar el Excel del paso 1 (Aplicación → RESTAURAR
+   DATOS).
+4. **Órdenes fantasma:** con las reglas nuevas, pedidos viejos archivados sin cobrar pueden
+   reaparecer en Órdenes como "Hace N días". Cancelarlos una vez (motivo: "orden vieja sin
+   cobrar") o cobrarlos si fueron reales. La mesa queda libre.
+5. **Celulares:** instalar el APK nuevo en cada uno (el dueño lo tiene:
+   POS-Chanatos-rediseno-2026-10-25.apk). La actualización remota NO llega a las APK. Las PWA
+   del navegador se actualizan solas al recargar.
+6. **Prueba rápida:** crear un pedido en una mesa → verlo en Cocina → marcarlo listo →
+   cobrarlo → recibo. Revisar que "Cierre de caja" aparece abajo en la barra lateral.
+
+Qué trae (resumen para el equipo): navegación nueva de Caja (Resumen/Mesas/Órdenes/Cocina/
+Reportes + Administración), cobro y edición en una hoja sin cambiar de pantalla, cocina marca
+por unidad ("3/5"), salsas y "Quitar" por producto, cliente en Ventanilla/Domicilios, sonido
+de orden lista en Caja, cierre contando billetes, sección Rappi en Reportes, recibo corregido
+(cuenta completa) con WhatsApp, y las ventas del PC protegidas contra reinstalaciones.
+
+## Rediseño 2026-10 (contenedor de Caja, identidad, movimiento)
+
+Referencias en `docs/referencias-diseno/` (01 Resumen, 02 estructura, 03 movimiento del
+recibo, 04 plano de mesas, 05 órdenes). Las referencias dan la estructura; la identidad
+es Chanatos (mostaza, carbón, fondos cálidos, la forma orgánica de PagoExitoso).
+
+- **Contenedor:** `components/shell/CajaShell.jsx` + `shell.css` — barra lateral fija
+  (>768px; 769–1099 contraída a iconos) con Resumen/Mesas/Órdenes/Cocina/Reportes y
+  "Administración" agrupada. `shell/cajaNav.js` (MAIN_NAV, ADMIN_NAV, sectionFor) es la
+  ÚNICA lista de secciones: la usan la barra lateral, caja/BottomNav, caja/MenuDrawer y
+  MasCaja. Pantalla nueva = agregarla ahí. Los encabezados viejos (CajaHeader,
+  .detalle-mesa-header, .ventanilla-header) toman forma de tarjeta por CSS en shell.css.
+- **Piezas compartidas (`components/ui/`)**: PageHeader (símbolo de marca solo en
+  celular), SidePanel (≥1280 columna fija 360px; 769–1279 flotante con velo; ≤768 hoja
+  desde abajo; SidePanelIdle reserva el lugar en escritorio ancho), StatusPill/PlaceTag,
+  Toast (`toast('Pedido enviado')` — SOLO después de que el servidor confirmó; errores
+  siguen con showAlert bloqueante), EmptyState (forma mostaza + mensaje específico),
+  Icon. `components/orders/` (OrderCard, OrderDetail, OrderActions, accionesOrden.js) y
+  `components/kitchen/KitchenTicket.jsx` (lo usan Cocina.jsx Y CocinaCaja.jsx).
+  OJO: macOS no distingue mayúsculas — `OrderActions.jsx` y un `orderActions.js` chocan.
+- **Iconos:** `ui/Icon.jsx` = trazos de Lucide + animaciones de Lucide Animated (MIT,
+  github.com/pqoqubbw/icons) portadas a CSS (`icon-motion.css`), sin la dependencia
+  `motion`. Animan con la prop `play` (al tocar/seleccionar/confirmar), nunca con hover.
+  NavIcons.jsx delega en Icon. Nada de emojis. Afinadas a pedido del dueño (2026-10): la
+  bici de Domicilios sale por la derecha y vuelve a entrar (el SVG la recorta: `.icon-domicilio
+  { overflow: hidden }`), la olla de Cocina se mece de lado a lado con la tapa detrás.
+- **Tarjetas que se elevan** (referencia "Admin Dashboard V7", `whileHover y:-5` de
+  framer-motion hecho en CSS, ui.css): .kpi, .order-card, .mesa-tile, .admin-card suben 4 px
+  con mouse (`@media (hover:hover) and (pointer:fine)`), se hunden al tocar en pantallas
+  táctiles; la seleccionada conserva su aro. Los tickets de cocina NO se mueven.
+- **Stock bajo fuera del Resumen** (2026-10-25): el inventario va a vivir en otra plataforma
+  (`/Users/cristian/Developer/chanatos-plataforma-dev`); no invertir en Ingredientes/Recetas del
+  POS sin preguntar. Se quitó también de Reportes; sigue en Menú → Ingredientes.
+- **Datos en vivo:** `hooks/useLiveOrders.js` (órdenes activas + mesas, recarga agrupada
+  por socket, nunca vacía la pantalla, `changedIds` para el resaltado de ~800 ms),
+  `useChangedIds.js`, `useNow`. Los handlers de socket SIEMPRE con función nombrada en
+  `socket.off(ev, fn)` — `socket.off(ev)` borra los de otras pantallas (bug real).
+- **Backend agregado:** GET /orders trae `itemsTotal`, `paidAmount`, `saldo` por orden
+  (mismo cálculo que GET /:id); GET /cash/session/:id/activity (ventas por hora, más
+  vendidos y actividad reciente de la sesión, sin Rappi — mismo criterio que "Total
+  cobrado"); GET /settings/business (público) y PUT (CAJA) = Identidad del negocio
+  (business_name, business_logo data URL ≤250 KB, receipt_footer, business_nit/address/
+  phone — vacíos por defecto: el recibo NO muestra datos inventados), emite
+  `settings:business-updated`. `hooks/useBusiness.js` la cachea; BrandMark, Login,
+  CajaShell y Recibo la leen. Respaldos automáticos: `dirname(DB_PATH)/backups`.
+- **Tokens:** grises cálidos en las mismas variables `--gray-*` (50 fondo #F5F5F2, 100
+  borde #E8E8E3, 600 texto secundario #626262, 900 texto #191919) + `--bg/--surface/
+  --text/--text-2/--border`, `--radius-card` 22, `--radius-control` 14, `--s-8..32` y
+  duraciones `--dur-press/select/panel/enter/flash/receipt` (prefers-reduced-motion las
+  lleva a 1ms). Colores de estado iguales en todo el POS: nuevo azul, en preparación
+  naranja, listo verde, libre neutro; Ventanilla mostaza, Domicilios lila.
+- **Borrador de productos:** ProductPicker recibe `draftItems` y muestra cantidad e
+  importe sin enviar; "Añadido al pedido" al sumar al borrador, "Pedido actualizado" /
+  "Pedido enviado" tras el servidor. Las 4 pantallas vacían el borrador SOLO si el
+  guardado respondió bien (antes Caja/Ventanilla/Domicilios lo perdían al fallar).
+- **Cocina por unidad:** `order_items.ready_qty` = unidades listas de la fila ("5×
+  Hamburguesa" → 3/5); `ready_at` sigue significando "fila completa" (ready_qty >= qty).
+  PATCH /orders/items/:id/ready acepta `{delta: 1|-1}` (lo que manda cocina: dos pantallas
+  a la vez suman bien) y `{ready: true|false}` (fila entera, clientes viejos).
+  `syncItemReady` / `advanceIfAllReady` (orders.js): cambiar la cantidad, eliminar o anular
+  lo único que faltaba pasa la orden a LISTO sola (antes quedaba "todo marcado" en EN_PREP).
+  Cobrar parte de una fila (/payments/items con qty) reparte las unidades listas entre las
+  dos filas. UI: `KitchenItems` (exportado de KitchenTicket, también en el detalle de
+  CocinaCaja): tocar = una más, línea completa = quita una, "−" para corregir.
+- **Hoja de trabajo (`components/orders/OrderWorkspace.jsx`):** Cobrar / Agregar
+  productos / Revisar desde Órdenes y Mesas abren DetalleMesa con `embedded` dentro de
+  una hoja, sin cambiar de página (Órdenes guarda `?abierta=<id>`). Mismo cobro, sin
+  segunda versión de la lógica; al cerrar el recibo de una orden pagada la hoja se cierra
+  sola. OJO: la hoja no puede quedar con `transform` (atrapa los fixed de recibo/modales).
+  Tarjetas y panel de Órdenes encabezan con el LUGAR (Mesa 4 / Ventanilla), el número
+  de comanda va chico (en el local se ubica la orden por el lugar). En preparación, el
+  panel ofrece "Marcar lista" (PATCH status LISTO, pide un segundo toque — `confirmLabel`
+  en accionesOrden.js; `onCard:false` la deja fuera de la tarjeta) y cada producto muestra
+  "3 de 5 listas en cocina".
+- **Panel de producto (ItemOptionsSheet):** con cantidad ≥ 2 (modo add) "Todas iguales /
+  Cada una distinta": cada unidad tiene sus opciones y al agregar se juntan las iguales
+  (`onSubmit({... split})`, ProductPicker agrega una línea por combinación). Se quitó
+  "Observación" (editaba a mano el mismo texto de salsas/adicionales/sabor); queda UNA nota
+  del producto (special_note) + `QuitarChips` ("Sin queso"…, tokens en notes como las
+  salsas; cocina los resalta). La lista de "Quitar" se edita en Menú → "Salsas, quitar y
+  sabores" (GET/PUT /settings/quitar, clave `quitar`; vacía = la sección no aparece;
+  "tomate" se guarda como "Sin tomate"). La nota de TODA la orden es el botón
+  "+ Nota de toda la orden (para cocina)" de las 4 pantallas.
+- **Salsas / "Quitar" POR PRODUCTO:** products.salsas y products.quitar (NULL = lista
+  general, "" = no lleva, "A,B" = propias). Menú → Editar producto (`caja/OpcionesProductoField`)
+  y "Salsas, quitar y sabores" → aplicar a varios / categoría entera (`caja/AplicarOpcionesVarios`,
+  PATCH /products/options/bulk). ItemOptionsSheet pasa `lista` a SalsasChips/QuitarChips; una
+  lista propia manda aunque la categoría no lleve salsas.
+- **Hoja de trabajo compartida:** `orders/OrderWorkspaceHost` (envuelve CajaRoutes) →
+  `useOrderWorkspace().abrirOrden(order)` / `.abrirMesa(table)`. Lo usan Mesas (también
+  "Iniciar orden"), CocinaCaja (Cobrar / Modificar) y el "+" (OrdenesDrawer, solo Caja; el
+  mesero sigue yendo a su pantalla). Órdenes conserva su hoja propia (`?abierta=` en la URL).
+  `abrirEstacion('VENTANILLA'|'DOMICILIOS')`: Ventanilla.jsx / Domicilios.jsx con `embedded`
+  (sin encabezado; al crear, Caja pasa la hoja al cobro de esa orden con onOpenOrder). Las
+  rutas /ventanilla y /domicilios siguen para el mesero y links viejos.
+- **Borrador protegido:** `hooks/useSalirConBorrador` — "Volver" (4 pantallas) y la X de la hoja
+  preguntan "Hay productos sin enviar" (Seguir armando / Salir sin enviar). "‹ Categorías"
+  (ProductPicker) es sticky bajo el encabezado (`--pp-sticky-top`). OJO: un `overflow-x:
+  hidden` en un contenedor rompe los sticky de adentro — usar `clip`.
+- **Cobro reordenado (2026-10-25):** DetalleMesa bajó de ~3.360 a ~2.820 líneas sin cambiar
+  comportamiento. `pages/Caja/cobro/recibo.js` = ÚNICO armador del recibo final
+  (tableLabelOf, quedoPagada, armarRecibo) — los 4 flujos (cobrar todo, abono en efectivo,
+  dividir por producto, dividir por monto) pasan por `mostrarReciboFinal` en DetalleMesa; antes
+  cada uno armaba el suyo y por eso el recibo de una cuenta dividida salía solo por el último
+  pago. `pages/Caja/cobro/RielCobro.jsx` = columna derecha (total, métodos, propina, COBRAR,
+  Dividir cuenta) extraída tal cual, SOLO presentación: el estado y payActiveOrder siguen en
+  DetalleMesa. Verificado contra capturas antes/después y la batería e2e completa.
+- **Cierre contando billetes** (`caja/ContadorEfectivo`, 2026-10-25): el efectivo contado
+  del cierre arranca en "Contar billetes" (denominaciones COP, suma sola); "Escribir total"
+  sigue disponible y conserva lo contado.
+- **Sonido en Caja** (`hooks/useSonidoCaja` + listener en CajaShell): chime al quedar LISTA
+  una orden (order:status-changed), en cualquier pantalla de Caja; notificación de Windows si
+  la app de escritorio está minimizada. Toggle en la barra lateral y en caja/MenuDrawer
+  (localStorage `caja_sonido`). El push nativo sigue desactivado (crasheaba el APK).
+- **Nombre del cliente** (orders.customer_name, 2026-10-25): opcional al crear en Ventanilla/
+  Domicilios (POST /orders customerName; el poller web manda pedido.customer.name). Se ve en
+  OrderCard/OrderDetail/KitchenTicket/hoja y se busca en Órdenes. Las mesas no lo usan.
+- **WhatsApp en el recibo** ("Enviar por WhatsApp", Recibo.jsx): comparte el recibo como
+  TEXTO vía wa.me — sin dependencias, funciona en APK/PWA/PC. Los controles de impresión
+  siguen ocultos (SHOW_PRINT_CONTROLS); la barra `recibo-acciones` (WhatsApp + Imprimir) es
+  la única visible y no sale al imprimir.
+- **Caja del día** (`shell/CajaDelDiaButton`, `CIERRE_NAV` en cajaNav.js): "Cierre de caja"
+  salió de Administración — botón carbón fijo abajo en la barra lateral (mostaza y "Abrir caja"
+  si está cerrada, usa useCajaAbierta), primero en caja/MenuDrawer y botón oscuro con nombre en
+  el Resumen. Se usa todos los días (dueño, 2026-10-25).
+- **Compras, inventario y contabilidad OCULTOS en el POS** (2026-10-25; van a vivir en
+  chanatos-plataforma-dev): "Compras y gastos" fuera de Administración (/compras → /mas;
+  Compras.jsx, RegistrarCompra, Ingredientes y GastosGenerales se conservan), botón "Receta" fuera
+  de Menú, "Consumo de insumos" y "Contaduría" fuera de Reportes (pantalla y Excel). Las rutas del
+  servidor (/reports/pnl, recipes, inventory-movements, manual-transactions) siguen. El "Registrar
+  gasto de caja" del Cierre de caja SÍ queda: lo necesita el conteo del efectivo. Las secciones
+  CONTADURÍA (2026-08) de este archivo describen lo que hay detrás, ya no lo que se ve.
+- **Barra lateral fija:** body/#root usan `overflow-x: clip` (no hidden): hidden convertía
+  #root en contenedor con scroll y el `position: sticky` de la barra se iba con la página.
+- **Teclado abierto:** `hooks/useKeyboardOpen.js` pone `body.kb-open` mientras se escribe
+  y mobile-polish.css esconde las barras inferiores (en Android tapaban el campo).
+
 ## Comandos
 
 ```bash
@@ -359,7 +552,12 @@ launchctl disable   gui/$(id -u)/com.chanatos.pos-servidor                      
 
 Hay un harness en el scratchpad de sesiones anteriores; recrearlo es barato:
 navegador chromium de Playwright + script que hace login por API (POST /api/auth/pin),
-mete el token en localStorage y captura pantallas (390px teléfono / 1920px desktop).
+mete el token en localStorage y captura pantallas. Anchos de referencia del rediseño
+2026-10: 320, 390, 768 (aún celular: BottomNav ≤768), 1024 (barra lateral contraída)
+y 1440. **Pruebas con datos: base SEPARADA** — copiar la BD con
+`sqlite3 backend/data/pos_chanatos.db "VACUUM INTO '<scratch>/pos_test.db'"` y arrancar
+`DB_PATH=<scratch>/pos_test.db node server.js` (los respaldos automáticos quedan junto a
+esa base). Nunca crear ventas de prueba en la base habitual de la Mac.
 **Regla: cambio de UI = captura antes de entregar.** El ErrorBoundary muestra el
 detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
 
@@ -381,6 +579,18 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
   cierre de caja ni en el "Total cobrado" del Resumen (se muestra aparte como "Rappi, paga
   después"), pero SÍ cuenta como venta en Reportes/Contaduría. En DetalleMesa el único método
   ofrecido para una orden Rappi es "Rappi".
+- **Caja abierta / cerrada (2026-10):** los pedidos se toman SIEMPRE, con o sin caja (mesero,
+  caja, cocina). Sin caja abierta NO se cobra (payments.js 400), no se anulan pagos viejos sin
+  sesión, y la página de pedidos web no deja pedir (webOrdersPoller.js le reporta `isOpen`).
+  Se puede abrir con $ 0. Mesas/Órdenes muestran `ui/CajaCerradaAviso` (hook
+  `useCajaAbierta`, sockets cash:session-opened/closed). CUENTAS ABIERTAS: abrir caja archiva
+  SOLO las PAGADA; las cuentas sin cobrar pasan a la caja nueva (antes se archivaba todo y un
+  pedido tomado con la caja cerrada desaparecía de cocina y de Caja dejando la mesa bloqueada
+  — pasó en la base de la Mac el 2026-08-06 y el 2026-10-21). `archived_at` = solo "limpio de
+  la pantalla de COCINA": GET /orders (no cocina), /tables, /orders/table/:id?active=1 y la
+  bandeja de cobro muestran toda orden con paid_at NULL y estado activo aunque esté archivada;
+  agregar productos o volver a NUEVO/EN_PREP la desarchiva (si no, cocina no veía lo nuevo);
+  el cierre de caja cuenta también las LISTO archivadas sin cobrar.
 - **Timestamps SIEMPRE explícitos en hora Bogotá** (`toBogotaSQLiteTimestamp`) — el DEFAULT CURRENT_TIMESTAMP de SQLite es UTC y ya causó un bug de +5h. Nunca confiar en el default.
 - **Contaduría (2026-08):** dos niveles de gasto que NO se mezclan (ver Estructura → Caja/ para el detalle de pantallas). Insumos controlados (carne, pan, papa...) llevan receta + descuento de stock automático al vender. Todo lo demás (verduras, servicios, arriendo, nómina) es un monto suelto por categoría en Gastos generales, sin inventario. El arqueo de tarjeta (`declared_card`) existe en el backend pero está oculto en la UI hasta que el local tenga datáfono.
 
@@ -421,9 +631,13 @@ Flujo sin reinstalar a mano: se corrige en la Mac, se publica a GitHub, el PC de
 
 ## Respaldo y reinstalación (importante)
 
-La base de datos vive DENTRO de la carpeta de instalación (`resources\backend\data\`), y el
-desinstalador de electron-builder hace `RMDir /r $INSTDIR` (plantilla `uninstaller.nsh`, rama
-`isUpdated`). **Reinstalar el .exe encima borra las ventas.** Por eso, antes de reinstalar:
+DATOS FUERA DE LA INSTALACIÓN (2026-10-25): la base vive en `%APPDATA%\POS Chanatos\datos\`
+(main.js pasa DB_PATH al backend; los respaldos automáticos quedan al lado). Reinstalar el .exe
+YA NO borra las ventas: installer.nsh (customInit) rescata la base vieja de
+`resources\backend\data\` ANTES de que el desinstalador anterior borre $INSTDIR, y main.js
+(prepararDatos) migra si hiciera falta. OJO: esto rige desde el .exe con este cambio — la
+PRIMERA actualización desde una versión vieja aún debe hacerse con respaldo (el rescate del
+instalador lo cubre, pero es la única red). Procedimiento con respaldo, recomendado igual:
 
 1. En el POS: OPCIONES → APLICACIÓN → **DESCARGAR DATOS (EXCEL)** (o COPIA DE SEGURIDAD COMPLETA
    para el `.db` exacto). Guardar el archivo fuera del PC (USB o correo).
@@ -432,12 +646,16 @@ desinstalador de electron-builder hace `RMDir /r $INSTDIR` (plantilla `uninstall
 
 El round-trip está verificado como exacto (mismos datos y timestamps; solo cambia el orden de las
 columnas cuando la BD vieja tenía columnas agregadas con ALTER TABLE). El import es transaccional:
-si el archivo viene mal, los datos quedan como estaban. Pendiente: mover la carpeta de datos fuera
-de `$INSTDIR` para que reinstalar deje de ser destructivo.
+si el archivo viene mal, los datos quedan como estaban.
 
 ## Pendientes conocidos (decisión del dueño)
 
-- Impresora térmica de cocina (no hay impresora aún)
+- Impresora térmica de cocina (no hay impresora aún). Mientras tanto están OCULTOS (2026-10-25)
+  "Impresora" de Administración (/impresora redirige a /mas) y el botón "Imprimir en térmica"
+  del recibo (`IMPRESORA_TERMICA_LISTA` en Recibo.jsx): la app de escritorio actual NO expone
+  posElectron.getPrinters/printReceipt (preload.js solo tiene notify y zoom), así que fallaban.
+  Activarla = agregar esas funciones en desktop/preload.js + main.js (reinstalar el .exe con
+  respaldo previo; el botón de actualizar no cambia la app de escritorio).
 - Facturación electrónica DIAN (no están registrados aún)
 - Usuarios por empleado (PIN individual), ficha de clientes para domicilios, resumen remoto del dueño
 - Datáfono: el dueño evalúa Bold/Wompi (persona natural con RUT); el método TARJETA ya existe en el POS,

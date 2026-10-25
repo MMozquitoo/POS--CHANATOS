@@ -13,6 +13,8 @@ const __dirname = dirname(__filename);
 
 const DB_PATH =
   process.env.DB_PATH || join(__dirname, "../data/pos_chanatos.db");
+// server.js guarda los respaldos automáticos al lado de ESTA base
+export { DB_PATH };
 
 // Asegurar que existe el directorio data
 const dataDir = join(__dirname, "../data");
@@ -902,6 +904,72 @@ export const initDatabase = async () => {
     }
   } catch (platformError) {
     console.error("⚠️  Error agregando columnas de Rappi:", platformError);
+  }
+
+  // AUDITORÍA COBROS (2026-10): order_items.payment_id = con qué pago quedó
+  // pagado el item. Antes no había vínculo: al anular el pago de UNA persona
+  // en una cuenta dividida por items, sus items seguían con paid_at y no se
+  // podían volver a cobrar por items (solo por monto, a ciegas). Chequeo
+  // incondicional.
+  try {
+    const itemsColsPayment = await database.all("PRAGMA table_info(order_items)");
+    if (!itemsColsPayment.some((c) => c.name === "payment_id")) {
+      console.log("  ➕ Agregando payment_id a order_items...");
+      await database.run("ALTER TABLE order_items ADD COLUMN payment_id INTEGER");
+      console.log("  ✅ Campo payment_id agregado a order_items");
+    }
+  } catch (itemPaymentError) {
+    console.error("⚠️  Error agregando payment_id a order_items:", itemPaymentError);
+  }
+
+  // NOMBRE DEL CLIENTE (2026-10-25): orders.customer_name, para Ventanilla y
+  // Domicilios ("el pedido de Pedro") y para buscarlo en Órdenes. Opcional;
+  // las mesas no lo usan. Chequeo incondicional.
+  try {
+    const ordersColsCliente = await database.all("PRAGMA table_info(orders)");
+    if (!ordersColsCliente.some((c) => c.name === "customer_name")) {
+      console.log("  ➕ Agregando customer_name a orders...");
+      await database.run("ALTER TABLE orders ADD COLUMN customer_name TEXT");
+      console.log("  ✅ Campo customer_name agregado a orders");
+    }
+  } catch (clienteError) {
+    console.error("⚠️  Error agregando customer_name a orders:", clienteError);
+  }
+
+  // SALSAS Y "QUITAR" POR PRODUCTO (2026-10): las hamburguesas no llevan las
+  // mismas salsas que las papas. products.salsas / products.quitar:
+  //   NULL  → usa la lista general (settings 'salsas' / 'quitar') — por defecto
+  //   ''    → este producto no lleva (la sección no aparece)
+  //   CSV   → su propia lista
+  // Chequeo incondicional.
+  try {
+    const productsColsOpts = await database.all("PRAGMA table_info(products)");
+    for (const col of ["salsas", "quitar"]) {
+      if (!productsColsOpts.some((c) => c.name === col)) {
+        console.log(`  ➕ Agregando ${col} a products...`);
+        await database.run(`ALTER TABLE products ADD COLUMN ${col} TEXT`);
+        console.log(`  ✅ Campo ${col} agregado a products`);
+      }
+    }
+  } catch (productOptsError) {
+    console.error("⚠️  Error agregando salsas/quitar a products:", productOptsError);
+  }
+
+  // COCINA POR UNIDAD (2026-10): order_items.ready_qty = cuántas unidades de
+  // la fila ya salieron ("5× Hamburguesa" → 3/5). ready_at sigue siendo "la
+  // fila completa" (ready_qty >= qty), así el resto del POS no cambia. Al
+  // agregar la columna, las filas que ya estaban listas quedan completas.
+  // Chequeo incondicional.
+  try {
+    const itemsColsReadyQty = await database.all("PRAGMA table_info(order_items)");
+    if (!itemsColsReadyQty.some((c) => c.name === "ready_qty")) {
+      console.log("  ➕ Agregando ready_qty a order_items...");
+      await database.run("ALTER TABLE order_items ADD COLUMN ready_qty INTEGER NOT NULL DEFAULT 0");
+      await database.run("UPDATE order_items SET ready_qty = qty WHERE ready_at IS NOT NULL");
+      console.log("  ✅ Campo ready_qty agregado a order_items");
+    }
+  } catch (readyQtyError) {
+    console.error("⚠️  Error agregando ready_qty a order_items:", readyQtyError);
   }
 
   // El CHECK de payments.method era fijo (EFECTIVO/TARJETA/TRANSFERENCIA):

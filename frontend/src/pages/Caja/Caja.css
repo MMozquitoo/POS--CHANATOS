@@ -2649,3 +2649,96 @@
     overflow-y: visible !important;
   }
 }
+
+/* Rappi en Reportes (cuadre del depósito semanal) */
+.rep-rappi {
+  border: 1.5px solid #FFD3C2;
+  background: #FFF9F6;
+}
+
+.rep-rappi-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--gray-600);
+}
+
+/* Conteo de efectivo por denominación (cierre de caja, 2026-10-25) */
+.conteo-efectivo {
+  display: flex;
+  flex-direction: column;
+}
+
+.conteo-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--gray-100);
+}
+
+.conteo-fila:last-child { border-bottom: none; }
+
+.conteo-denom {
+  width: 86px;
+  flex-shrink: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.conteo-fila.is-contada .conteo-denom { color: var(--gray-900); font-weight: 700; }
+
+.conteo-controles {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.conteo-controles button {
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.conteo-controles button:disabled { opacity: 0.35; cursor: default; }
+.conteo-controles button:active:not(:disabled) { transform: scale(0.94); }
+
+.conteo-controles input {
+  width: 64px;
+  height: 46px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+}
+
+.conteo-fila.is-contada .conteo-controles input { border-color: var(--brand); background: #FFFBF0; }
+
+.conteo-subtotal {
+  flex: 1;
+  text-align: right;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.conteo-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding: 0.8rem 1rem;
+  border: 2px solid var(--brand);
+  border-radius: var(--radius-lg);
+  font-weight: 800;
+  background: #FFFBF0;
+}
+
+.conteo-total .tnum { font-size: 1.5rem; }

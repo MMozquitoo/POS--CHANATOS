@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnection } from '../../contexts/ConnectionContext';
 import { useReconnectRefresh } from '../../hooks/useReconnectRefresh.js';
@@ -7,9 +7,15 @@ import axios from 'axios';
 import './Caja.css';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { formatBogotaDateTime } from '../../utils/timezone.js';
-import CajaHeader from '../../components/CajaHeader.jsx';
 import OpenCashModal from '../../components/caja/OpenCashModal.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import AnimatedNumber from '../../components/AnimatedNumber.jsx';
+import PageHeader from '../../components/ui/PageHeader';
+import Icon from '../../components/ui/Icon';
+import { paymentMethodLabel } from '../../utils/statusLabels';
+import { clockLabel } from '../../utils/orderView';
+import '../../components/ui/ui.css';
+import './DashboardCaja.css';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm, usePrompt } from '../../hooks/useModal';
 
@@ -34,42 +40,67 @@ export default function DashboardCaja() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showOpenModal, setShowOpenModal] = useState(false);
+  // "Abrir caja" desde el aviso de Mesas/Órdenes llega con state.abrirCaja
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.abrirCaja) setShowOpenModal(true);
+  }, [location.state]);
   const [openingCash, setOpeningCash] = useState(false);
-  const [lowStock, setLowStock] = useState([]);
+  // Bloques del rediseño 2026-10 (ventas por hora, más vendidos, actividad):
+  // GET /cash/session/:id/activity, con el mismo criterio del Total cobrado
+  const [activity, setActivity] = useState(null);
+  const [selectedHour, setSelectedHour] = useState(null);
 
-  const loadLowStock = async () => {
-    try {
-      const res = await axios.get('/inventory/low-stock');
-      setLowStock(res.data || []);
-    } catch (error) {
-      console.error('Error cargando stock bajo:', error);
-    }
-  };
+  // Sesión actual en un ref: los manejadores del socket se registran una sola
+  // vez y con el estado `session` quedaban viendo la sesión del primer render
+  // (null) — un pago nuevo no refrescaba el Resumen hasta recargar.
+  const sessionIdRef = useRef(null);
 
   useEffect(() => {
     loadSession();
-    loadSummary();
-    loadLowStock();
 
     if (socket) {
-      socket.on('payment:created', () => {
-        loadSummary();
-      });
-
-      socket.on('cash:session-opened', () => {
-        loadSession();
-        loadSummary();
-      });
-
-      socket.on('cash:session-closed', () => {
+      // Varios eventos seguidos (pago dividido = varios payment:created) → una
+      // sola recarga. Lo que ya está en pantalla se queda mientras tanto.
+      // Un cobro emite payment:created y enseguida order:status-changed: cada
+      // tipo agrupa sus eventos por separado (con un solo temporizador, el
+      // segundo cancelaba la recarga de las cifras y el total no cambiaba).
+      let pagoTimer;
+      let ordenTimer;
+      const onPago = () => {
+        clearTimeout(pagoTimer);
+        pagoTimer = setTimeout(() => {
+          loadSummary();
+          loadActivity();
+        }, 150);
+      };
+      const onOrden = () => {
+        clearTimeout(ordenTimer);
+        ordenTimer = setTimeout(() => loadActivity(), 250);
+      };
+      const onAbierta = () => loadSession();
+      const onCerrada = () => {
         loadSession();
         setSummary(null);
-      });
+      };
+      socket.on('payment:created', onPago);
+      socket.on('payment:voided', onPago);
+      socket.on('order:new', onOrden);
+      socket.on('order:status-changed', onOrden);
+      socket.on('cash:session-opened', onAbierta);
+      socket.on('cash:session-closed', onCerrada);
 
+      // Quitar SOLO estos manejadores: socket.off('evento') sin función
+      // borraba también los de otras pantallas montadas
       return () => {
-        socket.off('payment:created');
-        socket.off('cash:session-opened');
-        socket.off('cash:session-closed');
+        socket.off('payment:created', onPago);
+        clearTimeout(pagoTimer);
+        clearTimeout(ordenTimer);
+        socket.off('payment:voided', onPago);
+        socket.off('order:new', onOrden);
+        socket.off('order:status-changed', onOrden);
+        socket.off('cash:session-opened', onAbierta);
+        socket.off('cash:session-closed', onCerrada);
       };
     }
   }, [socket]);
@@ -78,11 +109,14 @@ export default function DashboardCaja() {
     try {
       const res = await axios.get('/cash/session/active');
       if (res.data.active && res.data.session) {
+        sessionIdRef.current = res.data.session.id;
         setSession(res.data.session);
-        await loadSummary(res.data.session.id);
+        await Promise.all([loadSummary(res.data.session.id), loadActivity(res.data.session.id)]);
       } else {
+        sessionIdRef.current = null;
         setSession(null);
         setSummary(null);
+        setActivity(null);
       }
     } catch (error) {
       console.error('Error cargando sesión:', error);
@@ -92,10 +126,7 @@ export default function DashboardCaja() {
     }
   };
 
-  const loadSummary = async (sessionId) => {
-    if (!sessionId && session) {
-      sessionId = session.id;
-    }
+  const loadSummary = async (sessionId = sessionIdRef.current) => {
     if (!sessionId) return;
 
     try {
@@ -103,6 +134,16 @@ export default function DashboardCaja() {
       setSummary(res.data);
     } catch (error) {
       console.error('Error cargando resumen:', error);
+    }
+  };
+
+  const loadActivity = async (sessionId = sessionIdRef.current) => {
+    if (!sessionId) return;
+    try {
+      const res = await axios.get(`/cash/session/${sessionId}/activity`);
+      setActivity(res.data);
+    } catch (error) {
+      console.error('Error cargando actividad del turno:', error);
     }
   };
 
@@ -157,13 +198,18 @@ export default function DashboardCaja() {
 
   if (loading) {
     return (
-      <div className="caja-container" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div>Cargando información...</div>
+      <div className="workspace resumen-page">
+        <div className="workspace__main">
+          <PageHeader title="Resumen del turno" subtitle="Cargando…" />
+          <div className="kpi-row" aria-busy="true">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="kpi kpi--skeleton" />)}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Calcular valores para el bloque informativo
+  // Calcular valores para el bloque informativo (mismo cálculo de siempre)
   const initialCash = session?.initial_cash || 0;
   const totalSales = summary?.theoreticalSales || 0;
   const pendingSales = summary?.theoreticalSalesPending || 0;
@@ -177,195 +223,232 @@ export default function DashboardCaja() {
     ? session.closing_cash - expectedCash 
     : null;
 
+  // Ventas por hora: las últimas 12 horas con cobros de este turno
+  const hours = (activity?.byHour || []).slice(-12);
+  const multiDay = new Set(hours.map((h) => h.hour_key.slice(0, 10))).size > 1;
+  const maxHour = Math.max(1, ...hours.map((h) => h.total));
+  const peakKey = hours.reduce((best, h) => (!best || h.total > best.total ? h : best), null)?.hour_key;
+  const focusKey = selectedHour && hours.some((h) => h.hour_key === selectedHour) ? selectedHour : peakKey;
+  const hourLabel = (h) => {
+    const label = `${Number(h.hour)}h`;
+    if (!multiDay) return label;
+    const [, m, d] = h.hour_key.slice(0, 10).split('-');
+    return `${Number(d)}/${Number(m)} ${label}`;
+  };
+  const top = activity?.topProducts || [];
+  const maxTop = Math.max(1, ...top.map((t) => t.qty));
+  const recent = activity?.recent || [];
+
+  const lugar = (e) => {
+    const n = Number(e.table_number);
+    if (n === 9 || e.service === 'VENTANILLA') return 'Ventanilla';
+    if (n === 10 || e.service === 'DOMICILIO') return e.delivery_platform === 'RAPPI' ? 'Domicilio Rappi' : 'Domicilio';
+    return n ? `Mesa ${n}` : '';
+  };
+  const EVENT = {
+    PAGO: { icon: 'cobrar', tone: 'pago', title: (e) => (e.method === 'RAPPI' ? 'Rappi registrado' : 'Pago recibido') },
+    ANULACION: { icon: 'anular', tone: 'anulado', title: () => 'Pago anulado' },
+    ORDEN_NUEVA: { icon: 'ordenes', tone: 'nueva', title: () => 'Orden nueva' },
+    ORDEN_LISTA: { icon: 'cocina', tone: 'lista', title: () => 'Orden lista' },
+  };
+
   return (
-    <div className="caja-container" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <CajaHeader
-        title="CAJA"
-        subtitle="Dashboard"
-        rightButton={{ label: "OPCIONES", to: "/mas" }}
-      />
+    <div className="workspace resumen-page">
+      <div className="workspace__main">
+        <PageHeader
+          title="Resumen del turno"
+          subtitle={
+            session ? (
+              <>
+                <span className="resumen-status"><span className="live-dot" aria-hidden="true" />Caja abierta desde {formatBogotaDateTime(session.opened_at)}</span>
+                <span className="tnum">Base {formatPriceCOP(initialCash)}</span>
+                {isOnline && isRefreshingOnReconnect && <span className="sub-muted">Actualizando…</span>}
+              </>
+            ) : (
+              <span className="resumen-status"><span className="live-dot live-dot--off" aria-hidden="true" />Caja cerrada</span>
+            )
+          }
+          actions={
+            session && (
+              <button type="button" className="btn btn--dark resumen-cierre" onClick={() => navigate('/cierre')}>
+                <Icon name="caja" size={18} /> Cierre de caja
+              </button>
+            )
+          }
+        />
 
-      {/* FASE F10: alerta de stock bajo (estado con icono y texto, no solo color) */}
-      {lowStock.length > 0 && (
-        <div style={{
-          padding: '0.6rem 1rem',
-          background: '#FFF3D6',
-          borderBottom: '1.5px solid #E0B84E',
-          color: '#7a5d00',
-          fontSize: '0.85rem',
-          lineHeight: 1.5
-        }}>
-          <strong>Stock bajo ({lowStock.length}):</strong>{' '}
-          {lowStock.slice(0, 5).map(i => `${i.ingredient_name} (${i.stock_qty} ${i.unit})`).join(' · ')}
-          {lowStock.length > 5 && ` · y ${lowStock.length - 5} más`}
-        </div>
-      )}
+        {/* "Stock bajo" ya no va en el Resumen (dueño, 2026-10-25): nadie registra
+            compras en el POS, así que mostraba ceros y negativos sin sentido. El
+            inventario va a vivir en la otra plataforma (chanatos-plataforma-dev);
+            el dato sigue en Menú → Ingredientes y en GET /inventory/low-stock. */}
 
-
-      {/* PASO 14.4: Mensaje cuando se está refrescando tras reconectar */}
-      {isOnline && isRefreshingOnReconnect && (
-        <div style={{
-          padding: '0.5rem 1rem',
-          background: '#d4edda',
-          border: '1px solid #28a745',
-          textAlign: 'center',
-          fontSize: '0.85rem',
-          color: '#155724',
-          fontWeight: 'bold'
-        }}>
-          Actualizando datos...
-        </div>
-      )}
-
-      <div className="caja-bottom-nav-spacer" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#f8f9fa' }}>
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        {/* Bloque informativo: Sesión de Caja Abierta (SOLO INFO, sin botones) */}
         {session ? (
-          <div style={{ marginBottom: '1.5rem' }}>
-            {/* Encabezado de la sesión */}
-            <div style={{
-              background: 'white',
-              borderRadius: 'var(--radius-xl)',
-              padding: '1.1rem 1.25rem',
-              marginBottom: '0.75rem',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-              flexWrap: 'wrap'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Apertura
-                </div>
-                <div style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--gray-900)', marginTop: 2 }}>
-                  {formatBogotaDateTime(session.opened_at)}
-                </div>
-                <div className="tnum" style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginTop: 2 }}>
-                  Monto inicial: {formatPriceCOP(initialCash)}
-                </div>
+          <>
+            {/* Cifras del turno: mismos números de siempre. "Total cobrado" es
+                el protagonista (lo que debería haber en caja); teóricas =
+                lo vendido en mesas/órdenes (decisión del negocio). */}
+            <section className="kpi-row" aria-label="Cifras del turno">
+              <div className="kpi kpi--hero">
+                <span className="kpi-blob" aria-hidden="true" />
+                <span className="kpi-label">Total cobrado</span>
+                <AnimatedNumber value={totalCash + totalCard + totalTransfer} className="kpi-value" />
+                <span className="kpi-hint">Efectivo, transferencias{totalCard > 0 ? ' y tarjeta' : ''}</span>
               </div>
-              <span style={{
-                background: 'var(--green-tint)',
-                color: 'var(--green-text)',
-                padding: '0.35rem 0.9rem',
-                borderRadius: '999px',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                whiteSpace: 'nowrap'
-              }}>
-                Caja abierta
-              </span>
-            </div>
+              <div className="kpi kpi--brand">
+                <span className="kpi-label">Ventas teóricas</span>
+                <AnimatedNumber value={totalSales} className="kpi-value" />
+                <span className="kpi-hint">
+                  {pendingSales > 0 ? `Incluye ${formatPriceCOP(pendingSales)} por cobrar` : 'Todo lo vendido está cobrado'}
+                </span>
+              </div>
+              <div className="kpi">
+                <span className="kpi-label"><Icon name="caja" size={16} /> Efectivo</span>
+                <AnimatedNumber value={totalCash} className="kpi-value" />
+                <span className="kpi-hint">{summary?.byMethod?.find(m => m.method === 'EFECTIVO')?.count || 0} pagos</span>
+              </div>
+              <div className="kpi">
+                <span className="kpi-label"><Icon name="arrowUpRight" size={16} /> Transferencias</span>
+                <AnimatedNumber value={totalTransfer} className="kpi-value" />
+                <span className="kpi-hint">{summary?.byMethod?.find(m => m.method === 'TRANSFERENCIA')?.count || 0} pagos</span>
+              </div>
+            </section>
 
-            {/* Stat tiles estilo widgets iOS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
-              {[
-                { label: 'Ventas teóricas', value: totalSales, color: 'var(--brand-deep)', hint: pendingSales > 0 ? `Incluye ${formatPriceCOP(pendingSales)} pendiente por cobrar` : null },
-                { label: 'Total cobrado', value: totalCash + totalCard + totalTransfer, color: 'var(--green-text)' },
-                { label: 'Efectivo', value: totalCash, color: 'var(--gray-900)' },
-                { label: 'Transferencias', value: totalTransfer, color: 'var(--gray-900)' },
-                ...(totalRappi > 0 ? [{ label: 'Rappi (por cobrar)', value: totalRappi, color: '#C2330F', hint: 'Rappi paga después; no entra en lo de hoy' }] : []),
-                ...(diffCash !== null ? [{
-                  label: 'Diferencia',
-                  value: diffCash,
-                  color: diffCash === 0 ? 'var(--green-text)' : diffCash > 0 ? 'var(--orange-text)' : 'var(--red-text)'
-                }] : []),
-              ].map(({ label, value, color, hint }) => (
-                <div key={label} style={{
-                  background: 'white',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '0.9rem 1rem',
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600, marginBottom: '0.2rem' }}>
-                    {label}
+            {(totalRappi > 0 || totalCard > 0 || diffCash !== null) && (
+              <section className="kpi-extra" aria-label="Aparte del total">
+                {totalRappi > 0 && (
+                  <div className="kpi-chip kpi-chip--rappi">
+                    <span>Rappi · paga después</span>
+                    <strong className="tnum">{formatPriceCOP(totalRappi)}</strong>
+                    <small>No entra en el total cobrado</small>
                   </div>
-                  <div className="tnum" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color, lineHeight: 1.15 }}>
-                    {formatPriceCOP(value)}
+                )}
+                {totalCard > 0 && (
+                  <div className="kpi-chip">
+                    <span>Tarjeta</span>
+                    <strong className="tnum">{formatPriceCOP(totalCard)}</strong>
                   </div>
-                  {hint && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)', marginTop: '0.2rem' }}>
-                      {hint}
-                    </div>
-                  )}
+                )}
+                {diffCash !== null && (
+                  <div className={`kpi-chip ${diffCash === 0 ? 'kpi-chip--ok' : diffCash > 0 ? 'kpi-chip--warn' : 'kpi-chip--bad'}`}>
+                    <span>Diferencia de caja</span>
+                    <strong className="tnum">{formatPriceCOP(diffCash)}</strong>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="resumen-grid">
+              <div className="surface block block--chart">
+                <header className="block-head">
+                  <div>
+                    <h2>Ventas por hora</h2>
+                    <p>Cobrado en este turno, sin Rappi</p>
+                  </div>
+                </header>
+                {hours.length === 0 ? (
+                  <EmptyState compact icon="reportes" title="Aún no hay cobros" description="Las barras aparecen con el primer pago del turno." />
+                ) : (
+                  <div className="hour-chart" role="list">
+                    {hours.map((h) => {
+                      const focus = h.hour_key === focusKey;
+                      return (
+                        <button
+                          key={h.hour_key}
+                          type="button"
+                          role="listitem"
+                          className={`hour-bar ${focus ? 'is-focus' : ''}`}
+                          onClick={() => setSelectedHour(h.hour_key)}
+                          aria-label={`${hourLabel(h)}: ${formatPriceCOP(h.total)} en ${h.count} pagos`}
+                        >
+                          {focus && (
+                            <span className="hour-tip tnum">
+                              {formatPriceCOP(h.total)}
+                              <small>{h.count} {h.count === 1 ? 'pago' : 'pagos'}</small>
+                            </span>
+                          )}
+                          <span className="hour-track">
+                            <span className="hour-fill" style={{ height: `${Math.max(4, (h.total / maxHour) * 100)}%` }} />
+                          </span>
+                          <span className="hour-label">{hourLabel(h)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="surface block block--top">
+                <header className="block-head">
+                  <div>
+                    <h2>Más vendidos</h2>
+                    <p>Unidades cobradas en el turno</p>
+                  </div>
+                </header>
+                {top.length === 0 ? (
+                  <EmptyState compact icon="fuego" title="Sin ventas todavía" description="Aquí verás los productos que más salen." />
+                ) : (
+                  <ol className="top-list">
+                    {top.map((t, i) => (
+                      <li key={t.name}>
+                        <span className={`top-rank ${i === 0 ? 'is-first' : ''}`}>{i + 1}</span>
+                        <span className="top-main">
+                          <span className="top-name">{t.name}</span>
+                          <span className="top-bar"><span style={{ width: `${(t.qty / maxTop) * 100}%` }} /></span>
+                        </span>
+                        <span className="top-qty tnum">{t.qty}<small> und</small></span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </section>
+
+            <section className="surface block block--activity">
+              <header className="block-head">
+                <div>
+                  <h2>Actividad reciente</h2>
+                  <p>Pagos, anulaciones y órdenes de este turno</p>
                 </div>
-              ))}
-            </div>
-          </div>
+              </header>
+              {recent.length === 0 ? (
+                <EmptyState compact icon="clock" title="Sin movimientos todavía" description="Cada orden y cada pago aparecen aquí al instante." />
+              ) : (
+                <ul className="activity-list">
+                  {recent.map((e) => {
+                    const meta = EVENT[e.type] || EVENT.ORDEN_NUEVA;
+                    return (
+                      <li key={`${e.type}-${e.payment_id || e.order_id}-${e.at}`} className={`activity activity--${meta.tone}`}>
+                        <span className="activity-icon"><Icon name={meta.icon} size={18} /></span>
+                        <span className="activity-main">
+                          <span className="activity-title">{meta.title(e)}{lugar(e) ? ` · ${lugar(e)}` : ''}</span>
+                          <span className="activity-meta">
+                            Orden {e.daily_no ?? e.order_id} · {clockLabel(e.at)}
+                            {e.method && ` · ${paymentMethodLabel(e.method)}`}
+                          </span>
+                        </span>
+                        {e.amount != null && (
+                          <span className={`activity-amount tnum ${e.type === 'ANULACION' ? 'is-void' : ''}`}>
+                            {e.type === 'ANULACION' ? '−' : ''}{formatPriceCOP(e.amount)}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </>
         ) : (
-          <div style={{ marginBottom: '2rem' }}>
+          <div className="surface">
             <EmptyState
+              icon="caja"
               title="No hay una caja abierta"
-              description="Para comenzar a cobrar, primero debes abrir la caja."
-              actionLabel="ABRIR CAJA"
+              description="Para comenzar a cobrar, primero abre la caja con la base del día."
+              actionLabel="Abrir caja"
               onAction={() => setShowOpenModal(true)}
             />
           </div>
         )}
-
-        {/* FASE M15: en móvil la barra inferior (BottomNav) ya lleva a cocina,
-            cobrar y menú/salir — este bloque quedaba duplicando exactamente
-            esos mismos destinos. Se oculta solo en móvil vía CSS
-            (.dashboard-caja-launcher); en desktop, sin BottomNav, sigue
-            siendo la única forma de navegar desde acá. */}
-        <div className="dashboard-caja-launcher">
-        {/* 3 Botones principales */}
-        <div style={{ display: 'grid', gap: '1.5rem' }}>
-          <button
-            onClick={() => navigate('/centro-total')}
-            className="caja-main-action btn-chanatos"
-          >
-            CENTRO DE CONTROL
-          </button>
-
-          <button
-            onClick={() => {
-              if (!session) {
-                showAlert('Debes abrir caja antes de continuar');
-                return;
-              }
-              navigate('/cobrar');
-            }}
-            disabled={!session}
-            className="caja-main-action btn-success"
-          >
-            COBRAR PEDIDOS
-          </button>
-
-          <button
-            onClick={() => navigate('/cierre')}
-            disabled={!session}
-            className="caja-main-action btn-danger"
-          >
-            CIERRE DE CAJA
-          </button>
-        </div>
-
-        {/* Botón SALIR (FASE 13.4) */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          padding: '1rem',
-          background: '#f8f9fa',
-          borderTop: '1px solid #ddd',
-          marginTop: '1rem'
-        }}>
-          <button
-            onClick={async () => {
-              if (await showConfirm('¿Cerrar sesión?')) {
-                logout();
-              }
-            }}
-            className="btn-danger"
-            style={{ padding: '0.75rem 2rem' }}
-          >
-            SALIR
-          </button>
-        </div>
-        </div>
-        </div>
       </div>
 
       {/* FASE 17.2: Modal para abrir caja */}

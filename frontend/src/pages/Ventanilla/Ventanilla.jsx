@@ -13,18 +13,24 @@ import { getAdicionales } from '../../components/AdicionalesChips.jsx';
 import OrderNoteModal from '../../components/OrderNoteModal.jsx';
 import '../Mesero/Mesero.css';
 import '../Caja/Caja.css';
+import { toast } from '../../components/ui/Toast';
+import useSalirConBorrador from '../../hooks/useSalirConBorrador';
 
 function getBackRoute(location, role) {
   const from = location?.state?.from;
   if (from && typeof from === 'string') return from;
-  return role === 'CAJA' ? '/centro-total' : '/';
+  return role === 'CAJA' ? '/ordenes' : '/';
 }
 
 // Flujo 2026-08 (dueño): esta pantalla es SOLO para armar el pedido nuevo —
 // sin botón NUEVA ORDEN ni lista de órdenes. Las órdenes vivas se ven en
 // COBRAR (Caja) o en PEDIDOS (Mesero). Con ?orderId= (ej. "Modificar orden"
 // desde Cocina) se abre el detalle de esa orden para agregar items.
-export default function Ventanilla() {
+// embedded (2026-10): Caja la abre dentro de la hoja de trabajo
+// (OrderWorkspace) para armar el pedido sin cambiar de pantalla. Sin
+// encabezado propio; "Volver" → onClose; al crear (Caja) pasa la hoja al cobro
+// de esa orden con onOpenOrder en vez de navegar.
+export default function Ventanilla({ embedded = false, onClose, onOpenOrder, registerCloseGuard } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -42,6 +48,11 @@ export default function Ventanilla() {
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
   const [productsByCategory, setProductsByCategory] = useState({});
   const [newOrderItems, setNewOrderItems] = useState([]);
+  const [customerName, setCustomerName] = useState('');
+  const { confirmarSalida, salirModal } = useSalirConBorrador(newOrderItems.length);
+  useEffect(() => {
+    registerCloseGuard?.(confirmarSalida);
+  }, [registerCloseGuard, confirmarSalida]);
   const [showMerge, setShowMerge] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   // Nota de LA ORDEN (independiente de un producto puntual)
@@ -103,7 +114,7 @@ export default function Ventanilla() {
   // orden directo — sin obligar a re-seleccionarla de la lista (dueño, 2026-08).
   const [searchParams] = useSearchParams();
   useEffect(() => {
-    const oid = searchParams.get('orderId');
+    const oid = embedded ? null : searchParams.get('orderId');
     if (oid) selectOrder(Number(oid));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -140,23 +151,26 @@ export default function Ventanilla() {
         service: 'VENTANILLA',
         items: newOrderItems,
         specialNote: orderNoteDraft.trim() || undefined,
+        customerName: customerName.trim() || undefined,
       });
 
       setNewOrderItems([]);
+      setCustomerName('');
       setOrderNoteDraft('');
 
       // CAJA: el cliente paga al pedir (pago adelantado) — directo al riel de
       // cobro de esa orden. MESERO no cobra: pantalla limpia para el siguiente
       // cliente (sus órdenes las ve en PEDIDOS).
       if (user?.role === 'CAJA' && res.data?.order?.id && res.data?.order?.table_id) {
-        // from: /centro-total → al terminar el pedido, "Volver" cae en el cuadro
+        // from: /ordenes → al terminar el pedido, "Volver" cae en el cuadro
         // de mesas, no otra vez en el panel de armar pedido (dueño, 2026-08-04)
-        navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/centro-total' } });
+        if (embedded && onOpenOrder) onOpenOrder(res.data.order);
+        else navigate(`/mesa/${res.data.order.table_id}?orderId=${res.data.order.id}`, { state: { from: '/ordenes' } });
         return;
       }
 
       await loadOrders();
-      showAlert('Pedido enviado a cocina');
+      toast('Pedido enviado');
     } catch (error) {
       console.error('Error creando pedido:', error);
       showAlert(error.response?.data?.error || 'Error al crear pedido');
@@ -172,10 +186,13 @@ export default function Ventanilla() {
         await loadOrderItems(orderId);
       }
       await loadOrders();
-      showAlert('Items agregados correctamente');
+      toast('Pedido actualizado');
+      return true;
     } catch (error) {
       console.error('Error agregando items:', error);
       showAlert(error.response?.data?.error || 'Error al agregar items');
+      // false: el borrador se conserva para reintentar
+      return false;
     }
   };
 
@@ -236,10 +253,12 @@ export default function Ventanilla() {
 
   return (
     <div className="ventanilla-container caja-bottom-nav-spacer mesero-bottom-nav-spacer">
-      <header className="ventanilla-header">
-        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">← Volver</button>
-        <h1>VENTANILLA</h1>
-      </header>
+      {!embedded && (
+        <header className="ventanilla-header">
+          <button onClick={async () => { if (await confirmarSalida()) navigate(backTo, { replace: true }); }} className="back-btn">← Volver</button>
+          <h1>VENTANILLA</h1>
+        </header>
+      )}
 
       <div className="ventanilla-content">
         {selectedOrderId && selectedOrder && (
@@ -265,7 +284,7 @@ export default function Ventanilla() {
                       fontWeight: 600, fontSize: '0.85rem',
                     }}
                   >
-                    {selectedOrder.special_note ? `⚠ Nota para cocina: ${selectedOrder.special_note}` : '+ Nota para cocina'}
+                    {selectedOrder.special_note ? `Nota de toda la orden: ${selectedOrder.special_note}` : '+ Nota de toda la orden (para cocina)'}
                   </button>
                 )}
               </div>
@@ -325,7 +344,7 @@ export default function Ventanilla() {
                         {canEdit && <span style={{ color: '#1971c2', marginLeft: '0.4rem' }}>editar</span>}
                       </div>
                       {item.special_note && (
-                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545' }}>⚠ {item.special_note}</div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc3545' }}>Nota: {item.special_note}</div>
                       )}
                     </button>
                     {canEdit && isCaja && (
@@ -373,6 +392,18 @@ export default function Ventanilla() {
         {(!selectedOrderId || canEdit) && (
           <div className="new-order-form" style={{ marginTop: selectedOrderId ? '1.25rem' : 0 }}>
             {!selectedOrderId && (
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Nombre del cliente (opcional)</label>
+                <input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Ej: Pedro (para llamarlo y buscarlo en Órdenes)"
+                  maxLength={60}
+                  style={{ width: '100%', padding: '0.6rem', fontSize: '1rem' }}
+                />
+              </div>
+            )}
+            {!selectedOrderId && (
               <button
                 type="button"
                 onClick={() => setShowOrderNoteModal(true)}
@@ -385,10 +416,10 @@ export default function Ventanilla() {
                   fontWeight: 600, fontSize: '0.9rem',
                 }}
               >
-                {orderNoteDraft ? `⚠ Nota para cocina: ${orderNoteDraft}` : '+ Nota para cocina (no de un producto)'}
+                {orderNoteDraft ? `Nota de toda la orden: ${orderNoteDraft}` : '+ Nota de toda la orden (para cocina)'}
               </button>
             )}
-            <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} />
+            <ProductPicker productsByCategory={productsByCategory} onAdd={addNewOrderItem} draftItems={newOrderItems} />
 
             {newOrderItems.length > 0 && (
               <div className="new-order-list" style={{ marginTop: '1rem' }}>
@@ -406,7 +437,7 @@ export default function Ventanilla() {
                       </div>
                       {it.notes && <div style={{ fontSize: '0.9rem', color: '#666' }}>{it.notes}</div>}
                       {it.specialNote && (
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>⚠ {it.specialNote}</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c0392b' }}>Nota: {it.specialNote}</div>
                       )}
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -426,8 +457,8 @@ export default function Ventanilla() {
                   disabled={!selectedOrderId && creatingOrder}
                   onClick={async () => {
                     if (selectedOrderId) {
-                      await addItemsToOrder(selectedOrderId, newOrderItems);
-                      setNewOrderItems([]);
+                      // Solo se vacía el borrador si el servidor lo guardó
+                      if (await addItemsToOrder(selectedOrderId, newOrderItems)) setNewOrderItems([]);
                     } else {
                       await createNewOrder();
                     }
@@ -514,6 +545,7 @@ export default function Ventanilla() {
         allowAdicionales
         allowQty
       />
+      {salirModal}
     </div>
   );
 }

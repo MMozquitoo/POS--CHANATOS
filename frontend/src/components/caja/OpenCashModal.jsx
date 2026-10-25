@@ -75,11 +75,11 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
         onClick={(e) => e.stopPropagation()}
       >
         <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', textAlign: 'center', color: '#333' }}>
-          ABRIR CAJA
+          Abrir caja
         </h2>
         
         <p style={{ color: '#666', marginBottom: '1.5rem', textAlign: 'center' }}>
-          Ingresa el efectivo inicial para abrir caja.
+          Ingresa el efectivo con el que arranca la caja. Si no hay base, escribe 0.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -94,12 +94,11 @@ export default function OpenCashModal({ isOpen, onClose, onConfirm, loading = fa
               Efectivo inicial: *
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={initialCash}
               onChange={(e) => setInitialCash(e.target.value)}
               placeholder="0"
-              min="0"
-              step="100"
               required
               disabled={loading || !isOnline}
               autoFocus

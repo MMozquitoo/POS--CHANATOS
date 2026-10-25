@@ -25,16 +25,21 @@
   --brand-hover: #E5AB3C;
 
   /* ---- Grises (escala iOS systemGray) ---- */
-  --gray-50: #F2F2F7;   /* fondo agrupado */
-  --gray-100: #E5E5EA;  /* separadores, rellenos */
-  --gray-200: #D1D1D6;
-  --gray-300: #C7C7CC;
-  --gray-400: #AEAEB2;
-  --gray-500: #8E8E93;  /* texto secundario */
-  --gray-600: #6E6E73;
-  --gray-700: #48484A;
-  --gray-800: #2C2C2E;
-  --gray-900: #1C1C1E;  /* texto principal, casi negro iOS */
+  /* Grises CÁLIDOS (rediseño 2026-10, referencias de docs/referencias-diseno):
+     misma escala y mismos nombres que la v2 (todo el POS la usa), corrida a
+     un gris cálido para que fondo, bordes y texto armen con la mostaza.
+     50 = fondo de la app, 100 = bordes/separadores, 600 = texto secundario,
+     900 = texto principal. */
+  --gray-50: #F5F5F2;   /* fondo de la app / rellenos suaves */
+  --gray-100: #E8E8E3;  /* bordes, separadores */
+  --gray-200: #D8D8D2;
+  --gray-300: #C6C6BF;
+  --gray-400: #A6A69F;
+  --gray-500: #7B7B75;  /* texto terciario */
+  --gray-600: #626262;  /* texto secundario */
+  --gray-700: #474744;
+  --gray-800: #2B2B29;
+  --gray-900: #191919;  /* texto principal */
 
   /* ---- Semánticos (viva = rellenos/pills; -text = texto sobre blanco, AA) ---- */
   --green: #34C759;
@@ -91,6 +96,34 @@
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2rem;
+
+  /* ---- Rediseño 2026-10: semánticos de superficie ---- */
+  --bg: var(--gray-50);
+  --surface: #FFFFFF;
+  --text: var(--gray-900);
+  --text-2: var(--gray-600);
+  --border: var(--gray-100);
+  --radius-card: 22px;      /* tarjetas 20–24 */
+  --radius-control: 14px;   /* campos y botones 12–16 */
+  --shadow-card: 0 1px 2px rgba(25, 25, 25, 0.04), 0 6px 20px rgba(25, 25, 25, 0.05);
+  --shadow-float: 0 2px 8px rgba(25, 25, 25, 0.06), 0 18px 48px rgba(25, 25, 25, 0.14);
+
+  /* Escala de espaciado 8 · 12 · 16 · 24 · 32 */
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-24: 24px;
+  --s-32: 32px;
+
+  /* ---- Movimiento (un solo sistema; ver docs del encargo) ----
+     Solo transform/opacity. prefers-reduced-motion los anula (abajo). */
+  --dur-press: 120ms;    /* pulsación de botones (100–140) */
+  --dur-select: 160ms;   /* cambio de selección (140–180) */
+  --dur-panel: 250ms;    /* apertura de panel lateral (220–280) */
+  --dur-enter: 190ms;    /* entrada de producto (160–220) */
+  --dur-flash: 800ms;    /* resaltado de pedido actualizado */
+  --dur-receipt: 380ms;  /* despliegue del recibo (300–450) */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
 }
 
@@ -243,4 +276,22 @@
   gap: var(--space-sm);
   justify-content: flex-end;
   margin-top: var(--space-lg);
+}
+
+
+/* ============================================================
+   Movimiento: respeta prefers-reduced-motion en TODO el POS.
+   Las animaciones nuevas usan las duraciones de :root; con
+   movimiento reducido quedan casi instantáneas (no se quitan los
+   estados: un panel igual aparece, solo que sin desplazarse).
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 1ms;
+    --dur-select: 1ms;
+    --dur-panel: 1ms;
+    --dur-enter: 1ms;
+    --dur-flash: 1ms;
+    --dur-receipt: 1ms;
+  }
 }

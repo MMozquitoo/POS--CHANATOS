@@ -329,6 +329,36 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
     }
 
+    // AUDITORÍA COBROS (2026-10): si la orden ya recibió un pago parcial POR
+    // MONTO (no atado a items), cobrar ahora por items sobrecobra: cada item
+    // se cobra a precio completo sin descontar lo ya recibido (reproducido:
+    // orden de 30.000 con abono de 10.000 terminaba cobrando 40.000). Regla:
+    // items primero y el resto por monto SÍ; monto primero y luego items NO.
+    for (const oid of affectedOrderIdsSet) {
+      const pagadoRow = await db.get(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE order_id = ? AND voided_at IS NULL",
+        [oid]
+      );
+      const itemsPagadosRow = await db.get(
+        "SELECT COALESCE(SUM(qty * price), 0) as total FROM order_items WHERE order_id = ? AND voided_at IS NULL AND paid_at IS NOT NULL",
+        [oid]
+      );
+      const abonoSinItems = (pagadoRow?.total || 0) - (itemsPagadosRow?.total || 0);
+      if (abonoSinItems > 1) {
+        const totalRow = await db.get(
+          "SELECT COALESCE(SUM(qty * price), 0) as total FROM order_items WHERE order_id = ? AND voided_at IS NULL",
+          [oid]
+        );
+        const saldo = Math.max(0, (totalRow?.total || 0) - (pagadoRow?.total || 0));
+        return res.status(409).json({
+          error: `Esta orden ya tiene un abono por monto de ${Math.round(abonoSinItems)}. Cobra el saldo (${Math.round(saldo)}) por monto o pago dividido, no por items.`,
+          abono: abonoSinItems,
+          saldoPendiente: saldo,
+          errorId
+        });
+      }
+    }
+
     // Calcular totalDb = SUM(payQty*price) desde DB (payQty = cantidad a cobrar;
     // puede ser menor a qty si se pidió pagar solo una parte de la fila)
     const totalDb = items.reduce((sum, it) => {
@@ -366,15 +396,28 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
 
       if (payQty < it.qty) {
         const remainingQty = it.qty - payQty;
-        const remainingUpdate = await db.run("UPDATE order_items SET qty = ? WHERE id = ?", [remainingQty, it.id]);
+        // COCINA POR UNIDAD: las unidades ya listas se reparten entre las dos
+        // filas (5 con 3 listas, se pagan 2 → la pagada 2/2 y la otra 1/3),
+        // así cocina sigue viendo cuántas faltan. ready_at = fila completa.
+        const fila = await db.get("SELECT ready_qty, ready_at FROM order_items WHERE id = ?", [it.id]);
+        const listas = fila?.ready_at ? it.qty : Math.min(Math.max(fila?.ready_qty || 0, 0), it.qty);
+        const listasPagadas = Math.min(listas, payQty);
+        const listasRestantes = listas - listasPagadas;
+        const remainingUpdate = await db.run(
+          `UPDATE order_items SET qty = ?, ready_qty = ?,
+             ready_at = CASE WHEN ? >= ? THEN COALESCE(ready_at, ?) ELSE NULL END
+           WHERE id = ?`,
+          [remainingQty, listasRestantes, listasRestantes, remainingQty, timestamp, it.id]
+        );
         if (!remainingUpdate || remainingUpdate.changes === 0) {
           throw new Error(`No se pudo dividir la fila ${it.id} (actualizar cantidad restante)`);
         }
         const splitResult = await db.run(
-          `INSERT INTO order_items (order_id, name, qty, price, notes, product_id, is_custom, ready_at, created_at)
-           SELECT order_id, name, ?, price, notes, product_id, is_custom, ready_at, created_at
+          `INSERT INTO order_items (order_id, name, qty, price, notes, special_note, product_id, is_custom, ready_qty, ready_at, created_at)
+           SELECT order_id, name, ?, price, notes, special_note, product_id, is_custom, ?,
+                  CASE WHEN ? >= ? THEN COALESCE(?, ready_at, ?) ELSE NULL END, created_at
            FROM order_items WHERE id = ?`,
-          [payQty, it.id]
+          [payQty, listasPagadas, listasPagadas, payQty, fila?.ready_at || null, timestamp, it.id]
         );
         if (!splitResult || !splitResult.lastID) {
           throw new Error(`No se pudo crear la fila dividida a partir del item ${it.id}`);
@@ -452,6 +495,16 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
 
       if (process.env.NODE_ENV === 'development') {
         console.log(`✅ Pago insertado con ID: ${paymentResult.lastID}`);
+      }
+
+      // Vincular los items cobrados a este pago: al anularlo, SOLO esos items
+      // vuelven a pendientes (ver POST /:id/void)
+      const rowIdsDeEstePago = orderItems.map((it) => it.paidRowId).filter(Boolean);
+      if (rowIdsDeEstePago.length) {
+        await db.run(
+          `UPDATE order_items SET payment_id = ? WHERE id IN (${rowIdsDeEstePago.map(() => '?').join(',')})`,
+          [paymentResult.lastID, ...rowIdsDeEstePago]
+        );
       }
       
       const payment = await db.get(
@@ -820,10 +873,14 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       }
 
       if (cierraOrden) {
-        // Marcar items como pagados y cerrar la orden
+        // Marcar items como pagados y cerrar la orden. Quedan con payment_id
+        // NULL = "cubiertos por monto": los paga el conjunto de pagos, no uno
+        // solo. Antes se ataban al primer pago y, al anular OTRO pago del
+        // cobro (ej. la transferencia de un efectivo+transferencia), quedaban
+        // pagados con saldo pendiente y la mesa no se podía volver a cobrar.
         for (const item of orderItems) {
           if (!item.paid_at) {
-            await db.run("UPDATE order_items SET paid_at = ? WHERE id = ?", [timestamp, item.id]);
+            await db.run("UPDATE order_items SET paid_at = ?, payment_id = NULL WHERE id = ?", [timestamp, item.id]);
           }
         }
         await db.run(
@@ -845,9 +902,13 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     // Descontar inventario SOLO cuando la orden queda cerrada (PAGADA); en
     // prepago se descuenta al cerrarse en LISTO (closeOrderIfPrepaid)
+    // Solo los items que este cobro dejó pagados: los ya cobrados por items
+    // (POST /payments/items) descontaron su inventario al pagarse — antes se
+    // descontaban dos veces (mismo criterio que closeOrderIfPrepaid).
     if (cierraOrden) {
       try {
-        await deductInventoryFromOrderItems(db, orderItems, req.user.id);
+        const itemsSinDescontar = orderItems.filter((it) => !it.paid_at);
+        if (itemsSinDescontar.length) await deductInventoryFromOrderItems(db, itemsSinDescontar, req.user.id);
       } catch (inventoryError) {
         // FASE F5: el fallo no bloquea el pago, pero queda en auditoría
         console.error("⚠️  Error descontando inventario (no bloquea el pago):", inventoryError);
@@ -1190,13 +1251,31 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     let statusUpdatedTo = null;
     const order = await db.get("SELECT * FROM orders WHERE id = ?", [payment.order_id]);
+    // Lo que hay que cubrir de verdad (con descuento); tolerancia de 1 peso
+    const totalACubrir = Math.max(0, totalOrden - (order?.discount_amount || 0));
+    const quedaCubierta = totalPagadoNum > 0 && totalPagadoNum >= totalACubrir - 1;
 
-    // FASE F5: sin pagos válidos, los items vuelven a estar pendientes de cobro.
-    // SIEMPRE que el saldo pagado llegue a cero — no solo si la orden seguía
-    // PAGADA: al anular el segundo de dos pagos la orden ya estaba en LISTO y
-    // los items quedaban con paid_at para siempre (auditoría 2026-08-03).
-    if (totalPagadoNum <= 0) {
-      await db.run("UPDATE order_items SET paid_at = NULL WHERE order_id = ? AND voided_at IS NULL", [payment.order_id]);
+    // Qué items vuelven a pendientes (AUDITORÍA COBROS 2026-10):
+    // - sin pagos válidos → todos (FASE F5: SIEMPRE que el saldo llegue a cero,
+    //   no solo si la orden seguía PAGADA — auditoría 2026-08-03)
+    // - los atados a ESTE pago (cuenta dividida por items: al anular el pago de
+    //   UNA persona, solo SUS items vuelven a pendientes)
+    // - si lo que queda pagado ya no alcanza para los items que siguen
+    //   marcados, también los "cubiertos por monto" (payment_id NULL): ese
+    //   saldo dejó de estar pagado. Los cobrados por items con su pago vigente
+    //   se quedan como están.
+    const subtotal = (list) => list.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0);
+    const propios = orderItems.filter((it) => it.paid_at && (totalPagadoNum <= 0 || it.payment_id === paymentId));
+    const siguenPagados = orderItems.filter((it) => it.paid_at && !propios.includes(it));
+    const montoNoAlcanza = subtotal(siguenPagados) - (order?.discount_amount || 0) > totalPagadoNum + 1;
+    const itemsALiberar = montoNoAlcanza
+      ? [...propios, ...siguenPagados.filter((it) => it.payment_id == null)]
+      : propios;
+    if (itemsALiberar.length) {
+      await db.run(
+        `UPDATE order_items SET paid_at = NULL, payment_id = NULL WHERE id IN (${itemsALiberar.map(() => '?').join(',')})`,
+        itemsALiberar.map((it) => it.id)
+      );
     }
 
     // Archivado automático: recalcular estado y archivar/desarchivar según corresponda
@@ -1205,33 +1284,37 @@ router.post("/:id/void", requireAuth, requireRole("CAJA"), async (req, res) => {
       await db.run("UPDATE orders SET status = 'LISTO', paid_at = NULL, archived_at = NULL WHERE id = ?", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
       console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago anulado)`);
-    } else if (totalPagadoNum > 0 && totalPagadoNum >= totalOrden) {
+    } else if (quedaCubierta) {
       // Si hay pagos suficientes, marcar como PAGADA y archivar (si no estaba archivada)
       if (order && order.status !== 'PAGADA') {
         // Cambiar de LISTO/NUEVO/EN_PREP a PAGADA y archivar
         await db.run("UPDATE orders SET status = 'PAGADA', paid_at = ?, archived_at = ? WHERE id = ?", [timestamp, timestamp, payment.order_id]);
         statusUpdatedTo = 'PAGADA';
-        console.log(`✅ Orden ${payment.order_id} marcada como PAGADA y archivada (total pagado: ${totalPagadoNum} >= ${totalOrden})`);
+        console.log(`✅ Orden ${payment.order_id} marcada como PAGADA y archivada (total pagado: ${totalPagadoNum} >= ${totalACubrir})`);
       } else if (order && order.status === 'PAGADA' && !order.archived_at) {
         // Si ya estaba PAGADA pero no archivada, archivar ahora
         await db.run("UPDATE orders SET archived_at = ? WHERE id = ?", [timestamp, payment.order_id]);
         console.log(`✅ Orden ${payment.order_id} ya estaba PAGADA, ahora archivada`);
       }
       // Si ya estaba PAGADA y archivada, no hacer nada
-    } else if (totalPagadoNum > 0 && totalPagadoNum < totalOrden && order && order.status === 'PAGADA') {
+    } else if (totalPagadoNum > 0 && order && order.status === 'PAGADA') {
       // Si había pagos suficientes pero ahora no, cambiar a LISTO y desarchivar.
       // paid_at también se limpia: con paid_at puesto la orden quedaba invisible
       // en la bandeja de cobro (ready-to-pay filtra paid_at IS NULL) — auditoría 2026-08-03
       await db.run("UPDATE orders SET status = 'LISTO', paid_at = NULL, archived_at = NULL WHERE id = ?", [payment.order_id]);
       statusUpdatedTo = 'LISTO';
-      console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago parcial anulado: ${totalPagadoNum} < ${totalOrden})`);
+      console.log(`✅ Orden ${payment.order_id} vuelve a LISTO y se desarchiva (pago parcial anulado: ${totalPagadoNum} < ${totalACubrir})`);
     }
 
-    // FASE F5: si la orden deja de estar PAGADA, reponer el inventario descontado al cobrar
-    if (order?.status === 'PAGADA' && statusUpdatedTo === 'LISTO') {
+    // Reponer el inventario de EXACTAMENTE los items que volvieron a pendientes:
+    // un item descuenta stock cuando queda pagado (por items al pagarse, por
+    // monto/prepago al cerrar la orden), así que lo repone cuando deja de
+    // estarlo. Antes solo se reponía si la orden había estado PAGADA — anular
+    // el pago por items de una cuenta a medio cobrar no devolvía nada.
+    if (itemsALiberar.length) {
       try {
-        await restoreInventoryFromOrderItems(db, orderItems, req.user.id, payment.order_id);
-        console.log(`✅ Inventario repuesto por anulación de pago (orden ${payment.order_id})`);
+        await restoreInventoryFromOrderItems(db, itemsALiberar, req.user.id, payment.order_id);
+        console.log(`✅ Inventario repuesto por anulación de pago (orden ${payment.order_id}, ${itemsALiberar.length} items)`);
       } catch (restoreError) {
         console.error("⚠️  Error reponiendo inventario tras anulación:", restoreError);
         await logAudit({

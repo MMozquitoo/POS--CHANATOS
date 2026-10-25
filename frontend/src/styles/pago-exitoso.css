@@ -1,0 +1,235 @@
+/* PagoExitoso — confirmación de cobro. z-index 2500: encima del recibo
+   (2000) y debajo de los modales de marca (3000, ver chanatos-theme.css). */
+.pago-ok {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #161513;
+  cursor: pointer;
+  animation: pago-ok-bg 160ms ease-out both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Forma orgánica (no un círculo perfecto ni un cuadro) que crece desde el
+   centro y gira lento mientras está en pantalla */
+.pago-ok-blob {
+  position: absolute;
+  width: 120vmax;
+  height: 120vmax;
+  background: radial-gradient(circle at 35% 30%, #FFD27A 0%, #F5BB4C 45%, #E9A92F 100%);
+  border-radius: 43% 57% 61% 39% / 44% 41% 59% 56%;
+  transform: scale(0) rotate(-20deg);
+  animation:
+    pago-ok-blob-in 460ms cubic-bezier(0.32, 0.72, 0, 1) 30ms forwards,
+    pago-ok-blob-spin 6s linear 30ms infinite;
+}
+
+.pago-ok-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 16px;
+  color: #1A1408;
+  text-align: center;
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1), opacity 170ms ease-out;
+}
+
+.pago-ok-word {
+  display: flex;
+  gap: 0.08em;
+  font-size: clamp(15px, 3.6vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em; /* compensa el tracking del último carácter */
+}
+
+/* Cada letra sube desde abajo de su propia caja (push by letter) */
+.pago-ok-letter {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.pago-ok-letter > span {
+  display: inline-block;
+  transform: translateY(110%);
+  animation: pago-ok-letter 340ms cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+  animation-delay: calc(140ms + var(--i) * 25ms);
+}
+
+.pago-ok-amount {
+  font-size: clamp(48px, 15vw, 104px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  opacity: 0;
+  animation: pago-ok-fade-up 300ms cubic-bezier(0.2, 0.9, 0.25, 1) 90ms forwards;
+}
+
+.pago-ok-method {
+  font-size: clamp(14px, 3.4vw, 17px);
+  font-weight: 600;
+  opacity: 0;
+  animation: pago-ok-fade-up 260ms ease-out 260ms forwards;
+  color: rgba(26, 20, 8, 0.7);
+}
+
+.pago-ok-change {
+  margin-top: 0.4rem;
+  padding: 0.55rem 1.3rem;
+  border-radius: 999px;
+  background: #161513;
+  color: #FFF8E7;
+  font-size: clamp(17px, 4.4vw, 22px);
+  font-weight: 800;
+  opacity: 0;
+  animation: pago-ok-fade-up 260ms ease-out 300ms forwards;
+}
+
+/* Salida: el contenido se recoge y el fondo se desvanece hacia el recibo */
+.pago-ok--leaving {
+  animation: pago-ok-out 200ms ease-in forwards;
+}
+
+.pago-ok--leaving .pago-ok-content {
+  transform: scale(0.9) translateY(-12px);
+  opacity: 0;
+}
+
+@keyframes pago-ok-bg {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pago-ok-blob-in {
+  to { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes pago-ok-blob-spin {
+  to { rotate: 360deg; }
+}
+
+@keyframes pago-ok-letter {
+  to { transform: translateY(0); }
+}
+
+@keyframes pago-ok-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pago-ok-out {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pago-ok-blob {
+    animation: none;
+    transform: none;
+  }
+  .pago-ok-letter > span,
+  .pago-ok-amount,
+  .pago-ok-method,
+  .pago-ok-change {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Vuelto en el recibo (Recibo.jsx): queda fijo después de la confirmación */
+.recibo-vuelto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 999px;
+  background: #161513;
+  color: #FFF8E7;
+}
+
+.recibo-vuelto span {
+  font-size: 15px;
+  font-weight: 600;
+  color: #F5BB4C;
+}
+
+.recibo-vuelto strong {
+  font-size: clamp(24px, 7vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   Despliegue del recibo (rediseño 2026-10, referencia de movimiento
+   docs/referencias-diseno/03): el comprobante llega plegado y se abre
+   hacia arriba — la mitad superior gira sobre el pliegue mientras el
+   papel sube — hasta dejar ver el detalle y el total. ~380 ms, solo
+   transform/opacity. Mientras «PAGADO» está encima queda plegado.
+   ============================================================ */
+.recibo-paper {
+  transform-origin: 50% 100%;
+}
+
+.recibo-paper.is-folded {
+  opacity: 0;
+  transform: perspective(900px) rotateX(-78deg) translateY(36px) scaleY(0.5);
+}
+
+.recibo-paper.is-unfolding {
+  animation: recibo-unfold var(--dur-receipt, 380ms) cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+/* El total y el vuelto llegan un instante después, ya con el papel abierto */
+.recibo-paper.is-unfolding .receipt-total {
+  animation: recibo-total-in 240ms var(--ease-out, ease-out) 260ms both;
+}
+
+.recibo-vuelto {
+  animation: recibo-total-in 240ms var(--ease-out, ease-out) 300ms both;
+}
+
+@keyframes recibo-unfold {
+  0% {
+    opacity: 0;
+    transform: perspective(900px) rotateX(-78deg) translateY(36px) scaleY(0.5);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes recibo-total-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media print {
+  .recibo-paper,
+  .recibo-paper.is-folded,
+  .recibo-paper.is-unfolding,
+  .recibo-paper .receipt-total {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recibo-paper.is-unfolding,
+  .recibo-paper.is-unfolding .receipt-total,
+  .recibo-vuelto {
+    animation: none;
+  }
+}

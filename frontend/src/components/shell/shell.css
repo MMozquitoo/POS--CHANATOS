@@ -1,0 +1,377 @@
+/* ============================================================
+   CajaShell — contenedor común de Caja (rediseño 2026-10)
+   ≥1100px  barra lateral completa (232px)
+   769–1099 barra contraída a iconos (84px), conserva el símbolo
+   ≤768px   sin barra: manda caja/BottomNav (mismo breakpoint)
+   ============================================================ */
+.shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.shell-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.shell-sidebar {
+  position: sticky;
+  top: 12px;
+  flex-shrink: 0;
+  width: 232px;
+  height: calc(100dvh - 24px);
+  margin: 12px 0 12px 12px;
+  padding: 18px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow-card);
+  overflow-y: auto;
+  z-index: 900;
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 8px 18px;
+}
+
+.shell-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.shell-brand-text strong {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-brand-text span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shell-nav--secondary {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.shell-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--gray-700);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-select) var(--ease-out),
+    color var(--dur-select) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.shell-link:hover {
+  background: var(--gray-50);
+  color: var(--text);
+}
+
+.shell-link:active {
+  transform: scale(0.97);
+}
+
+/* Activa: mostaza suave, icono oscuro e indicador lateral */
+.shell-link.is-active {
+  background: #FCEFCF;
+  color: var(--text);
+}
+
+.shell-link.is-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 4px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 0 4px 4px 0;
+  background: var(--brand);
+  animation: shell-indicator var(--dur-select) var(--ease-out);
+}
+
+@keyframes shell-indicator {
+  from { transform: scaleY(0.3); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.shell-link-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-chevron {
+  color: var(--gray-500);
+  transition: transform var(--dur-select) var(--ease-out);
+}
+
+.shell-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.shell-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 4px 10px;
+  animation: shell-sub-in var(--dur-select) var(--ease-out);
+}
+
+@keyframes shell-sub-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.shell-sublink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--dur-select) var(--ease-out), color var(--dur-select) var(--ease-out);
+}
+
+.shell-sublink:hover {
+  background: var(--gray-50);
+  color: var(--text);
+}
+
+.shell-sublink.is-active {
+  background: #FCEFCF;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.shell-logout {
+  margin-top: auto;
+  color: var(--text-2);
+}
+
+/* ---- Contraída a iconos ---- */
+@media (min-width: 769px) and (max-width: 1099px) {
+  .shell-sidebar {
+    width: 76px;
+    padding: 14px 10px 10px;
+    align-items: stretch;
+  }
+  .shell-brand {
+    justify-content: center;
+    padding: 2px 0 14px;
+  }
+  .shell-brand-text,
+  .shell-link-label,
+  .shell-chevron {
+    display: none;
+  }
+  .shell-link,
+  .shell-sublink {
+    justify-content: center;
+    padding: 0;
+  }
+  .shell-link.is-active::before {
+    left: -10px;
+  }
+  .shell-subnav {
+    padding-left: 0;
+  }
+}
+
+/* ---- Celular: sin barra lateral ---- */
+@media (max-width: 768px) {
+  .shell {
+    display: block;
+  }
+  .shell-sidebar {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   Pantallas existentes dentro del contenedor (escritorio): sus
+   encabezados propios toman la forma de tarjeta del rediseño.
+   Solo estilo — ninguna lógica de esas pantallas cambia. Los
+   !important ganan a los estilos en línea de CajaHeader.
+   ------------------------------------------------------------ */
+@media (min-width: 769px) {
+  .shell-content .caja-header,
+  .shell-content .detalle-mesa-header,
+  .shell-content .ventanilla-header {
+    margin: 12px 12px 0 !important;
+    min-height: 72px;
+    padding: 12px 18px !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--shadow-card) !important;
+    top: 12px !important;
+  }
+
+  .shell-content .caja-header h1,
+  .shell-content .detalle-mesa-header h1,
+  .shell-content .ventanilla-header h1 {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    color: var(--text) !important;
+    text-transform: none;
+  }
+
+  .shell-content .back-btn {
+    min-height: 44px;
+    padding: 0 14px !important;
+    border-radius: 999px !important;
+    background: var(--gray-50) !important;
+    color: var(--text) !important;
+    font-weight: 600 !important;
+    border: none !important;
+  }
+
+  /* El símbolo y el rol ya están en la barra lateral */
+  .shell-content .caja-header img,
+  .shell-content .caja-header .role-badge {
+    display: none !important;
+  }
+
+  .shell-content .caja-container,
+  .shell-content .detalle-mesa-container {
+    background: transparent !important;
+  }
+}
+
+/* ---- Caja del día (abrir / cerrar) — se usa todos los días ----
+   Carbón con el icono en mostaza: lo único oscuro de la barra, se encuentra
+   sin buscar. Va abajo, encima de Salir (margin-top:auto lo empuja). */
+.caja-dia {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 16px;
+  background: #191919;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-select) var(--ease-out);
+}
+
+.caja-dia:active { transform: scale(0.97); }
+.caja-dia:hover { background: #2B2B29; }
+.caja-dia.is-active { box-shadow: 0 0 0 3px rgba(245, 187, 76, 0.55); }
+
+.caja-dia__icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #F5BB4C;
+  color: #191919;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.caja-dia__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.caja-dia__text strong {
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.caja-dia__text small {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Caja cerrada: mostaza entero, para que se note que hay que abrirla */
+.caja-dia.is-cerrada {
+  background: #F5BB4C;
+  color: #191919;
+}
+.caja-dia.is-cerrada .caja-dia__icon { background: #191919; color: #F5BB4C; }
+.caja-dia.is-cerrada .caja-dia__text small { color: rgba(25, 25, 25, 0.65); }
+.caja-dia.is-cerrada:hover { background: #F0B23A; }
+
+.caja-dia--sidebar {
+  margin-top: auto;
+  margin-bottom: 6px;
+}
+
+/* Con "Caja del día" empujando hacia abajo, Salir ya no necesita el auto */
+.caja-dia--sidebar + .shell-logout { margin-top: 0; }
+
+.caja-dia--row { min-height: 64px; border-radius: 18px; }
+.caja-dia__chevron { opacity: 0.7; }
+
+/* Barra contraída a iconos: solo el cuadro con el icono */
+@media (min-width: 769px) and (max-width: 1099px) {
+  .caja-dia--sidebar {
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .caja-dia--sidebar .caja-dia__text { display: none; }
+}
+
+.shell-sonido.is-off {
+  color: var(--gray-400);
+}

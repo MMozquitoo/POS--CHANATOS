@@ -4,6 +4,8 @@ import { paymentMethodLabel } from '../utils/statusLabels.js';
 import { formatBogotaDateTime } from '../utils/timezone.js';
 import ModalHost from './ModalHost';
 import BrandMark from './BrandMark';
+import PagoExitoso from './PagoExitoso.jsx';
+import useBusiness from '../hooks/useBusiness';
 import { useAlert, useConfirm, usePrompt } from '../hooks/useModal';
 
 // Impresión/PDF ocultos por ahora (no hay impresora en el local y el dueño no
@@ -11,11 +13,25 @@ import { useAlert, useConfirm, usePrompt } from '../hooks/useModal';
 // Historial de pagos. Cuando llegue la impresora térmica, poner en true.
 const SHOW_PRINT_CONTROLS = false;
 
-export default function Recibo({ order, payment, items, onClose, onPrint, changeAmount }) {
+// celebrate: true SOLO justo después de cobrar (DetalleMesa) — muestra la
+// confirmación animada (PagoExitoso) encima antes de dejar ver el recibo. Al
+// reabrir un recibo desde Historial no se pasa.
+
+// Impresión directa en térmica (sin diálogo): oculta hasta que el local tenga
+// impresora (dueño, 2026-10-25). La app de escritorio actual NO expone
+// posElectron.getPrinters/printReceipt — el botón fallaba con un aviso de error
+// antes de abrir el diálogo normal. Para activarla: agregar esas funciones en
+// desktop/preload.js + main.js (requiere reinstalar el .exe, la actualización
+// remota no toca la app de escritorio), volver a mostrar /impresora en
+// cajaNav.js y poner esto en true.
+const IMPRESORA_TERMICA_LISTA = false;
+export default function Recibo({ order, payment, items, onClose, onPrint, changeAmount, celebrate = false }) {
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
   const { promptState, showPrompt, setPromptValue, acceptPrompt, cancelPrompt } = usePrompt();
   // ALL hooks must be declared before any conditional returns
+  const [showIntro, setShowIntro] = useState(celebrate);
+  const business = useBusiness();
   // Estado para formato de impresión (default: 80mm)
   const [printFormat, setPrintFormat] = useState(() => {
     const saved = localStorage.getItem('reciboPrintFormat');
@@ -83,6 +99,45 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
 
   const handleSavePDF = () => {
     showAlert('Para guardar como PDF:\n\n1. Haz clic en "Imprimir"\n2. En el diálogo de impresión, elige "Guardar como PDF"\n3. Selecciona la ubicación y guarda');
+  };
+
+  // Compartir el recibo por WhatsApp como TEXTO (dueño, 2026-10-25): sin
+  // instalar nada y funciona igual en APK, PWA y PC — el link wa.me abre
+  // WhatsApp con el recibo listo para elegir el chat. Útil en domicilios.
+  const textoRecibo = () => {
+    const lineas = [];
+    lineas.push(`*${(business.business_name || 'Chanatos').toUpperCase()}*`);
+    if (order?.table_label) lineas.push(order.table_label);
+    const num = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || '');
+    if (num) lineas.push(`${num}${order?.customer_name ? ` · ${order.customer_name}` : ''}`);
+    lineas.push('');
+    groupedItems.forEach((it) => {
+      lineas.push(`${it.qty}x ${it.name} — ${formatPriceCOP(it.subtotal)}`);
+    });
+    lineas.push('');
+    if ((order?.discount_amount || 0) > 0) {
+      lineas.push(`Subtotal: ${formatPriceCOP(total)}`);
+      lineas.push(`Descuento: -${formatPriceCOP(order.discount_amount)}`);
+    }
+    lineas.push(`*Total: ${formatPriceCOP(Math.max(0, total - (order?.discount_amount || 0)))}*`);
+    if ((payment?.tip_amount || 0) > 0) lineas.push(`Propina: ${formatPriceCOP(payment.tip_amount)}`);
+    if ((order?.payments?.length || 0) > 1) {
+      lineas.push('Pagos:');
+      order.payments.forEach((p) => lineas.push(`- ${paymentMethodLabel(p.method)}: ${formatPriceCOP(p.amount)}`));
+    } else if (payment?.method) {
+      lineas.push(`Pago: ${paymentMethodLabel(payment.method)}`);
+    }
+    if (business.receipt_footer) {
+      lineas.push('');
+      lineas.push(business.receipt_footer);
+    }
+    return lineas.join('\n');
+  };
+
+  const handleWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(textoRecibo())}`;
+    window.open(url, '_blank', 'noopener');
+    if (onPrint) onPrint();
   };
 
   const handleThermalPrint = async () => {
@@ -173,6 +228,18 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
       zIndex: 2000,
       padding: '1rem'
     }}>
+      {showIntro && (
+        <PagoExitoso
+          // El TOTAL de la cuenta, no el del último pago (dueño, 2026-10-25):
+          // con cuenta dividida ($16.000 + $14.000) decía "PAGADO $14.000".
+          // Este aviso solo sale cuando la cuenta quedó pagada completa, así
+          // que muestra lo mismo que el TOTAL del recibo.
+          amount={Math.max(0, total - (order?.discount_amount || 0)) || toNumber(payment.amount)}
+          change={toNumber(changeAmount)}
+          method={(order?.payments?.length || 0) > 1 ? 'Cuenta completa' : paymentMethodLabel(payment.method)}
+          onDone={() => setShowIntro(false)}
+        />
+      )}
       <div className="recibo-content" style={{
         background: 'white',
         padding: '2rem',
@@ -264,7 +331,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
 
           {/* Botones de acción */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {isElectron && (printFormat === '80mm' || printFormat === '58mm') && (
+            {IMPRESORA_TERMICA_LISTA && isElectron && (printFormat === '80mm' || printFormat === '58mm') && (
               <button
                 onClick={handleThermalPrint}
                 style={{
@@ -279,7 +346,7 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
                   fontSize: '1rem'
                 }}
               >
-                🧾 Imprimir Térmica
+                Imprimir en térmica
               </button>
             )}
             <button
@@ -318,6 +385,24 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
               Guardar PDF
             </button>
             <button
+              onClick={handleWhatsApp}
+              style={{
+                flex: '1 1 auto',
+                minWidth: '110px',
+                whiteSpace: 'nowrap',
+                padding: '0.75rem',
+                background: '#25D366',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.9rem'
+              }}
+            >
+              WhatsApp
+            </button>
+            <button
               onClick={onClose}
               style={{
                 flex: '1 1 auto',
@@ -338,10 +423,23 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
         </div>
         )}
 
+        {/* Vuelto destacado (solo pantalla, no se imprime): es la plata que el
+            cajero tiene que entregar — fijo y grande, sin animación */}
+        {isEfectivo && toNumber(changeAmount) > 0 && (
+          <div className="recibo-vuelto tnum" role="status">
+            <span>Vuelto</span>
+            <strong>{formatPriceCOP(toNumber(changeAmount))}</strong>
+          </div>
+        )}
+
         {/* Contenido del recibo (imprimible) */}
+        {/* recibo-paper: despliegue del comprobante plegado (rediseño 2026-10).
+            Arranca cuando termina la confirmación «PAGADO» (o al abrirlo desde
+            Historial); la X y las acciones quedan disponibles desde el primer
+            instante — la animación no retrasa nada. No afecta la impresión. */}
         <div 
           id="receipt-print"
-          className={`recibo-body print-${printFormat}`}
+          className={`recibo-body recibo-paper ${showIntro ? 'is-folded' : 'is-unfolding'} print-${printFormat}`}
           style={{
             border: '1px solid #ddd',
             padding: '1.5rem',
@@ -350,13 +448,21 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
         >
           {/* Encabezado PRO */}
           <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.35rem' }}>
+            {/* El logo solo EN PANTALLA: impreso (térmica o PDF) la "C" con
+                fondo amarillo sale como un cuadro negro (dueño, 2026-10-25) —
+                en papel queda solo CHANATOS en texto. */}
+            <div className="recibo-logo" style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.35rem' }}>
               <BrandMark size={40} />
             </div>
-            <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>CHANATOS</h1>
-            <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>NIT: --</div>
-            <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>Dirección: --</div>
-            <div style={{ fontSize: '0.75rem', marginBottom: '0.5rem' }}>Tel: --</div>
+            {/* Identidad del negocio (Administración → Identidad del negocio).
+                NIT, dirección y teléfono SOLO si están configurados: antes salía
+                "NIT: --" fijo, que en un recibo parece un dato faltante. */}
+            <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.06em' }}>
+              {(business.business_name || 'Chanatos').toUpperCase()}
+            </h1>
+            {business.business_nit && <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>NIT {business.business_nit}</div>}
+            {business.business_address && <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>{business.business_address}</div>}
+            {business.business_phone && <div style={{ fontSize: '0.75rem', marginBottom: '0.15rem' }}>Tel. {business.business_phone}</div>}
             <div style={{ borderTop: '1px solid #333', marginTop: '0.5rem' }}></div>
           </div>
 
@@ -448,15 +554,31 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
           {/* Separador */}
           <div style={{ borderTop: '1px solid #333', margin: '0.5rem 0' }}></div>
 
-          {/* Pago PRO */}
+          {/* Pago PRO. Cuenta dividida ya pagada: se listan TODOS los pagos
+              (el recibo final es de la cuenta completa, 2026-10-25) */}
           <div style={{ marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+            {(order?.payments?.length || 0) > 1 ? (
+              <div style={{ marginBottom: '0.3rem' }}>
+                <strong>Pagos:</strong>
+                {order.payments.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{paymentMethodLabel(p.method)}</span>
+                    <span>{formatPriceCOP(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div style={{ marginBottom: '0.3rem' }}>
               <strong>Pago:</strong> {paymentMethodLabel(payment.method)}
             </div>
-            {isEfectivo && changeAmount !== undefined && changeAmount !== null && (
+            )}
+            {/* "Pagó/Vuelto" habla del ÚLTIMO pago en efectivo: con varios pagos
+                listados arriba solo aparece si hubo vuelto que informar */}
+            {isEfectivo && changeAmount !== undefined && changeAmount !== null
+              && ((order?.payments?.length || 0) <= 1 || toNumber(changeAmount) > 0) && (
               <>
                 <div style={{ marginBottom: '0.3rem' }}>
-                  <strong>Pagó:</strong> {formatPriceCOP(payment.amount + (changeAmount || 0))}
+                  <strong>Pagó:</strong> {formatPriceCOP(toNumber(payment.amount) + toNumber(payment.tip_amount) + toNumber(changeAmount))}
                 </div>
                 {changeAmount > 0 && (
                   <div style={{ marginBottom: '0.3rem' }}>
@@ -476,10 +598,32 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             textAlign: 'center',
             fontSize: '0.85rem'
           }}>
-            <div style={{ marginBottom: '0.25rem' }}>Gracias por su compra</div>
-            <div style={{ marginBottom: '0.5rem' }}>Vuelva pronto</div>
+            <div style={{ marginBottom: '0.5rem' }}>{business.receipt_footer || 'Gracias por venir a Chanatos'}</div>
             <div style={{ borderTop: '1px solid #333', marginTop: '0.5rem' }}></div>
           </div>
+        </div>
+
+        {/* Acciones SIEMPRE visibles (el resto de controles de impresión sigue
+            oculto con SHOW_PRINT_CONTROLS hasta que haya impresora) */}
+        <div className="recibo-acciones" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+          <button
+            onClick={handleWhatsApp}
+            style={{
+              flex: 2, minHeight: '48px', padding: '0.7rem', background: '#25D366', color: 'white',
+              border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem'
+            }}
+          >
+            Enviar por WhatsApp
+          </button>
+          <button
+            onClick={handlePrint}
+            style={{
+              flex: 1, minHeight: '48px', padding: '0.7rem', background: '#f1f3f5', color: '#333',
+              border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem'
+            }}
+          >
+            Imprimir
+          </button>
         </div>
       </div>
 
@@ -535,25 +679,34 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             border-radius: 0 !important;
           }
           
+          /* En papel el recibo va ARRIBA y centrado, no flotando en la mitad
+             de la hoja: se conserva el flex de pantalla (centra horizontal)
+             pero alineado al tope. */
           .recibo-container {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-            height: 100%;
+            height: auto;
+            align-items: flex-start !important;
             background: white !important;
             background-color: white !important;
-            padding: 0;
+            padding: 0 !important;
             margin: 0;
             box-shadow: none !important;
           }
           
+          .recibo-logo,
+          .recibo-acciones,
           .recibo-controls {
             display: none !important;
           }
           
           .recibo-content {
-            max-width: 100%;
+            max-width: none !important;
+            width: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
             box-shadow: none !important;
             padding: 0;
             margin: 0;
@@ -572,20 +725,25 @@ export default function Recibo({ order, payment, items, onClose, onPrint, change
             border-radius: 0 !important;
           }
           
-          /* Formato 80mm (ticket estándar) */
+          /* Formato 80mm (ticket estándar). HOY no hay impresora térmica: esto
+             sale en hoja A4/carta o en PDF, y a tamaño real quedaba un cuadrito
+             perdido en la mitad (dueño, 2026-10-25). zoom agranda el ticket a
+             ~13 cm de ancho, legible en papel normal. La térmica de verdad NO
+             pasa por acá (usará posElectron.printReceipt): al llegar la
+             impresora, quitar el zoom o condicionarlo. */
           .print-80mm {
-            width: 80mm !important;
-            max-width: 80mm !important;
-            margin: 0 auto;
-            padding: 4px 6px !important;
-            font-size: 10px !important;
-            line-height: 1.2 !important;
+            width: 124mm !important;
+            max-width: 124mm !important;
+            margin: 6mm auto 0;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
+            line-height: 1.35 !important;
             background: white !important;
             color: black !important;
           }
           
           .print-80mm h1 {
-            font-size: 13px !important;
+            font-size: 20px !important;
             margin: 2px 0 3px 0 !important;
             color: black !important;
             font-weight: bold !important;

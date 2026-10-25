@@ -1,0 +1,213 @@
+/* Animaciones de iconos portadas de Lucide Animated (MIT © pqoqubbw) a CSS.
+   Solo corren con .ai-play (Icon.jsx la pone al tocar/seleccionar/confirmar).
+   transform-box: fill-box → el origen se mide sobre cada trazo. */
+.icon .ai {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Trazos que se dibujan (pathLength=1 en el SVG) */
+.ai-play .ai-draw {
+  stroke-dasharray: 1 1;
+  animation: ai-draw 400ms var(--ease-out, ease-out) both;
+}
+.ai-play .ai-d2 { animation-delay: 100ms; }
+.ai-play .ai-d3 { animation-delay: 200ms; }
+.ai-play .ai-check { animation: ai-draw-check 400ms var(--ease-out, ease-out) both; }
+
+@keyframes ai-draw {
+  from { stroke-dashoffset: 1; opacity: 0.2; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes ai-draw-check {
+  from { stroke-dashoffset: 1; transform: scale(0.5); }
+  to { stroke-dashoffset: 0; transform: scale(1); }
+}
+
+/* layout-grid: los cuadros rotan de lugar y vuelven */
+.ai-play .ai-grid-1 { animation: ai-grid-1 600ms ease-in-out; }
+.ai-play .ai-grid-2 { animation: ai-grid-2 600ms ease-in-out; }
+.ai-play .ai-grid-3 { animation: ai-grid-3 600ms ease-in-out; }
+.ai-play .ai-grid-4 { animation: ai-grid-4 600ms ease-in-out; }
+@keyframes ai-grid-1 { 40%, 60% { transform: translateX(11px); } }
+@keyframes ai-grid-2 { 40%, 60% { transform: translateY(11px); } }
+@keyframes ai-grid-3 { 40%, 60% { transform: translateX(-11px); } }
+@keyframes ai-grid-4 { 40%, 60% { transform: translateY(-11px); } }
+
+/* Rebote corto genérico (iconos de Lucide sin variante animada) */
+.ai-play .ai-pop { animation: ai-pop 380ms var(--ease-out, ease-out); }
+@keyframes ai-pop {
+  40% { transform: scale(1.12) translateY(-1px); }
+}
+.ai-play .ai-chairs-top { animation: ai-chairs-top 380ms var(--ease-out, ease-out); }
+.ai-play .ai-chairs-bottom { animation: ai-chairs-bottom 380ms var(--ease-out, ease-out); }
+@keyframes ai-chairs-top { 40% { transform: translateY(-1.5px); } }
+@keyframes ai-chairs-bottom { 40% { transform: translateY(1.5px); } }
+
+/* cooking-pot (dueño, 2026-10: "debería ir de un lado a otro"): la olla
+   entera se mece de lado a lado apoyada en su base y la tapa la sigue con un
+   poco de retraso, como si hirviera. Antes solo temblaba la tapa. */
+.ai-play .ai-pot,
+.ai-play .ai-lid {
+  transform-box: view-box;
+  transform-origin: 12px 22px;
+}
+.ai-play .ai-pot { animation: ai-pot-sway 900ms ease-in-out; }
+.ai-play .ai-lid { animation: ai-lid-sway 900ms ease-in-out; }
+@keyframes ai-pot-sway {
+  15% { transform: rotate(-9deg); }
+  35% { transform: rotate(8deg); }
+  55% { transform: rotate(-6deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-1.5deg); }
+}
+@keyframes ai-lid-sway {
+  15% { transform: rotate(-12deg) translateY(-1px); }
+  35% { transform: rotate(11deg) translateY(-2px); }
+  55% { transform: rotate(-8deg) translateY(-1px); }
+  75% { transform: rotate(5deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+/* sliders-horizontal: las perillas se deslizan y vuelven */
+.ai-play .ai-knob-1 { animation: ai-knob-1 500ms var(--ease-out, ease-out); }
+.ai-play .ai-knob-2 { animation: ai-knob-2 500ms var(--ease-out, ease-out); }
+.ai-play .ai-knob-3 { animation: ai-knob-3 500ms var(--ease-out, ease-out); }
+@keyframes ai-knob-1 { 50% { transform: translateX(-5px); } }
+@keyframes ai-knob-2 { 50% { transform: translateX(6px); } }
+@keyframes ai-knob-3 { 50% { transform: translateX(-8px); } }
+
+/* book-text */
+.ai-play .ai-book { animation: ai-book 600ms ease-in-out; }
+@keyframes ai-book {
+  20% { transform: scale(1.04) rotate(-8deg) translateY(-2px); }
+  50% { transform: rotate(8deg); }
+  80% { transform: rotate(-8deg); }
+}
+
+/* cart */
+.ai-play .ai-cart { animation: ai-cart 500ms ease-in-out; }
+@keyframes ai-cart {
+  30% { transform: scale(1.1) translateY(-4px); }
+  60% { transform: scale(1.1) translateY(0); }
+  80% { transform: scale(1.05) translateY(-2px); }
+}
+
+/* history: la flecha retrocede, las agujas giran al revés */
+.ai-play .ai-history-arrow { animation: ai-history-arrow 600ms var(--ease-out, ease-out); }
+@keyframes ai-history-arrow { 50% { transform: rotate(-50deg); } }
+.ai-play .ai-hand-long-ccw,
+.ai-play .ai-hand-long {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+.ai-play .ai-hand-long-ccw { animation: ai-spin-ccw 600ms cubic-bezier(0.4, 0, 0.2, 1); }
+.ai-play .ai-hand-short-ccw {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: ai-tick-ccw 500ms ease-in-out;
+}
+@keyframes ai-spin-ccw { to { transform: rotate(-360deg); } }
+@keyframes ai-tick-ccw { 50% { transform: rotate(-45deg); } }
+
+/* clock */
+.ai-play .ai-hand-long { animation: ai-spin-cw 600ms cubic-bezier(0.4, 0, 0.2, 1); }
+.ai-play .ai-hand-short {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: ai-tick-cw 500ms ease-in-out;
+}
+@keyframes ai-spin-cw { to { transform: rotate(360deg); } }
+@keyframes ai-tick-cw { 50% { transform: rotate(45deg); } }
+
+/* wallet */
+.ai-play .ai-wallet { animation: ai-wallet 550ms ease-in-out; }
+@keyframes ai-wallet { 45% { transform: translateY(-3px) rotate(-4deg); } }
+
+/* hand-coins: las monedas caen a la mano */
+.ai-play .ai-coin-1 { animation: ai-coin 520ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.ai-play .ai-coin-2 { animation: ai-coin 520ms cubic-bezier(0.34, 1.4, 0.64, 1) 150ms both; }
+@keyframes ai-coin {
+  from { transform: translateY(-20px); opacity: 0; }
+  30% { opacity: 1; }
+  to { transform: none; opacity: 1; }
+}
+
+/* download */
+.ai-play .ai-down { animation: ai-down 450ms cubic-bezier(0.34, 1.6, 0.64, 1); }
+@keyframes ai-down { 50% { transform: translateY(2px); } }
+
+/* wifi: las ondas se apagan y vuelven una por una */
+.ai-play .ai-wifi-1 { animation: ai-wifi 520ms ease-out 100ms both; }
+.ai-play .ai-wifi-2 { animation: ai-wifi 520ms ease-out 200ms both; }
+.ai-play .ai-wifi-3 { animation: ai-wifi 520ms ease-out 300ms both; }
+@keyframes ai-wifi {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* logout */
+.ai-play .ai-out { animation: ai-out 400ms var(--ease-out, ease-out); }
+@keyframes ai-out { 50% { transform: translateX(-3px); } 100% { transform: none; } }
+
+/* bike (dueño, 2026-10: "sale la bici y entra"): arranca, se va por la
+   derecha (el SVG la recorta en el borde), reaparece por la izquierda y frena
+   en su lugar con un pequeño rebote. */
+.icon-domicilio { overflow: hidden; } /* que "salga" de verdad por el borde */
+.ai-play .ai-ride { animation: ai-ride 900ms cubic-bezier(0.45, 0, 0.3, 1); }
+@keyframes ai-ride {
+  0% { transform: none; }
+  12% { transform: translateX(-1.5px); }
+  42% { transform: translateX(26px); }
+  42.01% { transform: translateX(-26px); }
+  82% { transform: translateX(1.5px) translateY(-0.5px); }
+  92% { transform: translateX(-0.5px); }
+  100% { transform: none; }
+}
+
+/* search */
+.ai-play .ai-search { animation: ai-search 700ms ease-in-out; }
+@keyframes ai-search {
+  33% { transform: translateY(-4px); }
+  66% { transform: translateX(-3px); }
+}
+
+/* chevrons */
+.ai-play .ai-nudge-r { animation: ai-nudge-r 500ms ease-in-out; }
+.ai-play .ai-nudge-l { animation: ai-nudge-l 500ms ease-in-out; }
+.ai-play .ai-nudge-d { animation: ai-nudge-d 500ms ease-in-out; }
+@keyframes ai-nudge-r { 40% { transform: translateX(2px); } }
+@keyframes ai-nudge-l { 40% { transform: translateX(-2px); } }
+@keyframes ai-nudge-d { 40% { transform: translateY(2px); } }
+
+/* plus */
+.ai-play .ai-spin-half { animation: ai-spin-half 500ms var(--ease-out, ease-out); }
+@keyframes ai-spin-half { from { transform: rotate(-180deg); } to { transform: none; } }
+
+/* square-pen */
+.ai-play .ai-pen { animation: ai-pen 500ms ease-in-out; }
+@keyframes ai-pen {
+  33% { transform: translate(-1px, 1.5px) rotate(0.5deg); }
+  66% { transform: translate(1.5px, -1px) rotate(-0.5deg); }
+}
+
+/* arrow-up-right */
+.ai-play .ai-arrow-ur { animation: ai-arrow-ur 500ms ease-in-out; transform-origin: top right; }
+@keyframes ai-arrow-ur { 50% { transform: scale(0.85) translate(-4px, 4px); } }
+
+/* badge-alert */
+.ai-play .ai-wiggle { animation: ai-wiggle 500ms ease-in-out; }
+@keyframes ai-wiggle {
+  20% { transform: scale(1.1) rotate(-3deg); }
+  40% { transform: scale(1.1) rotate(3deg); }
+  60% { transform: scale(1.1) rotate(-2deg); }
+  80% { transform: rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-play .ai,
+  .ai-play .ai-draw {
+    animation: none !important;
+  }
+}

@@ -174,6 +174,24 @@ async function computeSummary(db, from, to) {
   // total todavía está "en Rappi".
   const rappiSales = byMethod.find((r) => r.method === "RAPPI")?.total || 0;
 
+  // RAPPI (2026-10-25, dueño): Rappi recauda y transfiere después (semanal).
+  // Esta sección es para cuadrar ese depósito: cuánto debe Rappi por los
+  // pedidos del período, día por día. El pago RAPPI se registra cuando el
+  // pedido queda listo (closeOrderIfPrepaid) — con o sin caja abierta, por eso
+  // NO se saca de cash_sessions sino directo de payments.
+  const rappiRow = byMethod.find((r) => r.method === "RAPPI");
+  const rappiByDay = await db.all(
+    `SELECT substr(created_at, 1, 10) as day,
+            COALESCE(SUM(amount), 0) as total,
+            COUNT(*) as count
+     FROM payments
+     WHERE voided_at IS NULL AND method = 'RAPPI'
+       AND substr(created_at, 1, 10) BETWEEN ? AND ?
+     GROUP BY day
+     ORDER BY day`,
+    [from, to]
+  );
+
   return {
     from,
     to,
@@ -190,6 +208,11 @@ async function computeSummary(db, from, to) {
       maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       burgersSold: burgersRow?.qty || 0,
       rappi: rappiSales,
+    },
+    rappi: {
+      total: rappiSales,
+      count: rappiRow?.count || 0,
+      byDay: rappiByDay,
     },
     byMethod,
     byService,
@@ -317,14 +340,6 @@ router.get("/pnl", requireAuth, requireRole("CAJA"), async (req, res) => {
   }
 });
 
-// Gramos → kilos con 1 decimal cuando conviene mostrarlo así; el resto de
-// unidades (unidad, etc.) se dejan tal cual.
-function formatQty(qty, unit) {
-  if (unit === "gramo" && qty >= 1000) {
-    return `${(qty / 1000).toFixed(1)} kg`;
-  }
-  return `${qty} ${unit}`;
-}
 
 const METHOD_LABELS = { EFECTIVO: "Efectivo", TARJETA: "Tarjeta", TRANSFERENCIA: "Transferencia" };
 const SERVICE_LABELS = { MESA: "Mesa", VENTANILLA: "Ventanilla", DOMICILIO: "Domicilio" };
@@ -346,10 +361,7 @@ router.get("/summary/excel", requireAuth, requireRole("CAJA"), async (req, res) 
     }
 
     const db = getDb();
-    const [summary, pnl] = await Promise.all([
-      computeSummary(db, from, to),
-      computePnl(db, from, to),
-    ]);
+    const summary = await computeSummary(db, from, to);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "POS Chanatos";
@@ -415,41 +427,23 @@ router.get("/summary/excel", requireAuth, requireRole("CAJA"), async (req, res) 
     dias.addRows(summary.byDay);
     negrita(dias);
 
-    // Consumo de insumos según receta
-    const insumos = wb.addWorksheet("Consumo de insumos");
-    insumos.columns = [
-      { header: "Insumo", key: "ingredient_name", width: 24 },
-      { header: "Consumido", key: "qty", width: 18 },
+    // Rappi: para cuadrar el depósito semanal (Rappi recauda y paga después)
+    const rappi = wb.addWorksheet("Rappi");
+    rappi.columns = [
+      { header: "Día", key: "day", width: 14 },
+      { header: "Pedidos", key: "count", width: 10 },
+      { header: "Total", key: "total", width: 16 },
     ];
-    insumos.addRows(
-      summary.ingredientConsumption.map((r) => ({
-        ingredient_name: r.ingredient_name,
-        qty: formatQty(r.qty_consumed, r.unit),
-      }))
-    );
-    negrita(insumos);
+    rappi.addRows(summary.rappi.byDay);
+    rappi.addRow([]);
+    rappi.addRow(["Total que Rappi debe transferir", "", summary.rappi.total]).font = { bold: true };
+    negrita(rappi);
 
-    // Contaduría
-    const contaduria = wb.addWorksheet("Contaduría");
-    contaduria.columns = [{ header: "Concepto", key: "k", width: 32 }, { header: "Valor", key: "v", width: 20 }];
-    contaduria.addRows([
-      { k: "Ventas", v: pnl.sales },
-      { k: "Compras insumos controlados", v: pnl.controlledPurchases },
-      { k: "Gastos generales", v: pnl.generalExpenses },
-      { k: "Ingresos generales", v: pnl.manualIncome },
-      { k: "Utilidad neta", v: pnl.netProfit },
-    ]);
-    negrita(contaduria);
+    // (Hoja "Consumo de insumos" quitada el 2026-10-25: el inventario va a
+    // vivir en chanatos-plataforma-dev, igual que en la pantalla de Reportes.)
 
-    contaduria.addRow([]);
-    contaduria.addRow(["Compras de insumos por insumo"]).font = { bold: true };
-    contaduria.addRow(["Insumo", "Total"]).font = { bold: true };
-    pnl.controlledPurchasesByIngredient.forEach((r) => contaduria.addRow([r.ingredient_name, r.total]));
-
-    contaduria.addRow([]);
-    contaduria.addRow(["Gastos generales por categoría"]).font = { bold: true };
-    contaduria.addRow(["Categoría", "Total"]).font = { bold: true };
-    pnl.expensesByCategory.forEach((r) => contaduria.addRow([r.category, r.total]));
+    // (Hoja "Contaduría" quitada el 2026-10-25, igual que en la pantalla:
+    // la contabilidad va a vivir en chanatos-plataforma-dev.)
 
     const buffer = await wb.xlsx.writeBuffer();
     const nombre = `Reporte-Ventas-${from}-a-${to}.xlsx`;

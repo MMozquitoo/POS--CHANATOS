@@ -7,24 +7,27 @@ import { useState, memo, useEffect } from 'react';
 
 // Estado → esquema visual. En tarjeta tinteada la pill va blanca (contraste);
 // en tarjeta blanca (libre) la pill va tinteada.
+// Rediseño 2026-10: mismos colores de estado que Caja (plano de Mesas,
+// tarjetas de Órdenes, cocina): libre = neutro, en curso = naranja,
+// listo = verde. Antes "listo" iba en rojo, que en el resto del POS es error.
 const SCHEMES = {
   libre: {
     card: '#fff',
     number: 'var(--gray-900)',
-    pillBg: 'var(--green-tint)',
-    pillColor: 'var(--green-text)',
+    pillBg: 'var(--gray-50)',
+    pillColor: 'var(--gray-600)',
   },
   activo: {
-    card: 'var(--brand-tint)',
+    card: 'var(--orange-tint)',
     number: 'var(--gray-900)',
     pillBg: '#fff',
-    pillColor: 'var(--brand-deep)',
+    pillColor: 'var(--orange-text)',
   },
   listo: {
-    card: 'var(--red-tint)',
+    card: 'var(--green-tint)',
     number: 'var(--gray-900)',
     pillBg: '#fff',
-    pillColor: 'var(--red-text)',
+    pillColor: 'var(--green-text)',
   },
 };
 
@@ -69,13 +72,14 @@ function TableCard({
   const key = normalizeStatus(status);
   const scheme = (key && SCHEMES[key]) || SCHEMES.libre;
 
-  // Ventanilla (9) ámbar / Domicilios (10) verde: tarjeta tinteada siempre
+  // Ventanilla (9) mostaza / Domicilios (10) lila — los mismos tonos de sus
+  // tarjetas en el plano de Caja (el verde queda solo para "listo")
   let cardBg = scheme.card;
   let numberColor = scheme.number;
   if (highlight) {
     const esVentanilla = number === 9;
-    cardBg = esVentanilla ? 'var(--brand-tint)' : 'var(--green-tint)';
-    numberColor = esVentanilla ? 'var(--brand-deep)' : 'var(--green-text)';
+    cardBg = esVentanilla ? 'var(--brand-tint)' : '#ECEAFB';
+    numberColor = esVentanilla ? 'var(--brand-deep)' : '#4B40B0';
   }
   if (disabled) {
     cardBg = 'var(--gray-50)';

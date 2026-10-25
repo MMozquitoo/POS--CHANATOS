@@ -10,6 +10,8 @@ import OrderNoteModal from '../../components/OrderNoteModal';
 import { useAlert } from '../../hooks/useModal';
 import { formatPriceCOP } from '../../utils/currency.js';
 import './Mesero.css';
+import { toast } from '../../components/ui/Toast';
+import useSalirConBorrador from '../../hooks/useSalirConBorrador';
 
 const STATUS_LABELS = {
   NUEVO: 'Nuevo',
@@ -32,7 +34,7 @@ function getBackRoute(location, user) {
     return '/'; // Panel de mesero está en /
   }
   if (user?.role === 'CAJA') {
-    return '/centro-total'; // Panel de caja
+    return '/mesas'; // Panel de caja (rediseño 2026-10: plano de Mesas)
   }
 
   // 3) Último fallback
@@ -50,6 +52,7 @@ export default function PedidoMesa() {
   const [order, setOrder] = useState(null);
   // items = SOLO los productos nuevos aún no enviados; los ya enviados viven en order.items
   const [items, setItems] = useState([]);
+  const { confirmarSalida, salirModal } = useSalirConBorrador(items.length);
   const [productsByCategory, setProductsByCategory] = useState({});
   const [showCancelOrder, setShowCancelOrder] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -155,11 +158,7 @@ export default function PedidoMesa() {
       if (order && order.id) {
         const wasListo = order.status === 'LISTO';
         await axios.post(`/orders/${order.id}/items`, { items });
-        showAlert(
-          wasListo
-            ? 'Items agregados. La orden volvió a cocina para preparar lo nuevo.'
-            : 'Items agregados a la orden'
-        );
+        toast(wasListo ? 'Pedido actualizado · vuelve a cocina' : 'Pedido actualizado');
       } else {
         if (import.meta.env.DEV) {
           console.log('[FASE M8.7] PedidoMesa sendToKitchen antes de POST /orders:', {
@@ -181,7 +180,7 @@ export default function PedidoMesa() {
         if (import.meta.env.DEV) {
           console.log('[FASE M8.7] Pedido creado:', response.data);
         }
-        showAlert('Pedido enviado a cocina');
+        toast('Pedido enviado');
         setOrderNoteDraft('');
       }
 
@@ -241,7 +240,7 @@ export default function PedidoMesa() {
   return (
     <div className="pedido-container">
       <header className="pedido-header">
-        <button onClick={() => navigate(backTo, { replace: true })} className="back-btn">‹ Volver</button>
+        <button onClick={async () => { if (await confirmarSalida()) navigate(backTo, { replace: true }); }} className="back-btn">‹ Volver</button>
         <h2>{table?.label || `Mesa ${tableId}`}</h2>
       </header>
 
@@ -261,8 +260,8 @@ export default function PedidoMesa() {
           }}
         >
           {(order?.special_note || orderNoteDraft)
-            ? `⚠ Nota para cocina: ${order?.special_note || orderNoteDraft}`
-            : '+ Nota para cocina (no de un producto)'}
+            ? `Nota de toda la orden: ${order?.special_note || orderNoteDraft}`
+            : '+ Nota de toda la orden (para cocina)'}
         </button>
 
         {/* Información de orden activa si existe */}
@@ -321,7 +320,7 @@ export default function PedidoMesa() {
                       {['NUEVO', 'EN_PREP'].includes(order.status) && <span style={{ color: 'var(--blue)', marginLeft: '0.4rem' }}>editar</span>}
                     </span>
                     {it.special_note && (
-                      <span style={{ fontSize: 'var(--text-13)', fontWeight: 700, color: 'var(--red-text)' }}>⚠ {it.special_note}</span>
+                      <span style={{ fontSize: 'var(--text-13)', fontWeight: 700, color: 'var(--red-text)' }}>Nota: {it.special_note}</span>
                     )}
                   </button>
                 ))}
@@ -350,8 +349,8 @@ export default function PedidoMesa() {
             card más que empujaba el selector de productos fuera de pantalla
             (reporte del dueño: "scroll pronunciado para armar el pedido") */}
         {items.length > 0 && (
-          <div className="pedido-items">
-            <h3>{order && order.id ? 'Nuevos items por enviar' : 'Pedido'}</h3>
+          <div className="pedido-items new-order-list">
+            <h3>{order && order.id ? 'Nuevos items por enviar' : 'Pedido'} <span className="draft-tag">Borrador · sin enviar</span></h3>
             <div className="items-list">
               {items.map((item, index) => (
                 <div key={index} className="item-card">
@@ -368,7 +367,7 @@ export default function PedidoMesa() {
                     </div>
                     {item.specialNote && (
                       <div style={{ fontSize: 'var(--text-13)', fontWeight: 700, color: 'var(--red-text)' }}>
-                        ⚠ {item.specialNote}
+                        Nota: {item.specialNote}
                       </div>
                     )}
                   </button>
@@ -379,7 +378,7 @@ export default function PedidoMesa() {
           </div>
         )}
 
-        <ProductPicker productsByCategory={productsByCategory} onAdd={addPickedItem} />
+        <ProductPicker productsByCategory={productsByCategory} onAdd={addPickedItem} draftItems={items} />
       </div>
 
       <div className="pedido-footer">
@@ -442,6 +441,7 @@ export default function PedidoMesa() {
         onClose={() => setEditingSentItem(null)}
         onSave={saveSentItemNote}
       />
+      {salirModal}
     </div>
   );
 }
