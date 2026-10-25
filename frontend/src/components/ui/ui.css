@@ -8,7 +8,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--s-16);
-  padding: 12px 12px 24px;
+  /* 12px abajo, igual que arriba y que los márgenes de la barra lateral y el
+     panel (que miden 100dvh - 24px): con 24px la página medía 12px de más y
+     aparecía un scroll que no llevaba a nada (dueño, 2026-10-25, PC del local) */
+  padding: 12px;
   align-items: start;
 }
 
