@@ -380,6 +380,19 @@ por unidad ("3/5"), salsas y "Quitar" por producto, cliente en Ventanilla/Domici
 de orden lista en Caja, cierre contando billetes, sección Rappi en Reportes, recibo corregido
 (cuenta completa) con WhatsApp, y las ventas del PC protegidas contra reinstalaciones.
 
+## Sincronización con Rappi (lado del POS listo, 2026-10-25)
+
+`backend/services/rappiPoller.js` (misma arquitectura que webOrdersPoller: el POS solo hace
+conexiones SALIENTES contra un relevo en la nube). Crea el pedido como Domicilio+RAPPI con el
+cliente y los PRECIOS DE RAPPI tal cual (el cliente ya pagó allá), enlaza product_id por nombre
+(inactivo o desconocido → item personalizado), idempotente vía web_order_id `rappi-<id>`, y
+reporta al relevo ready/cancelled (un Rappi se cierra solo al quedar listo → PAGADA cuenta como
+ready). NO-OP sin `RAPPI_ORDERS_ENDPOINT` / `RAPPI_ORDERS_SECRET` / `RAPPI_POLLER_PIN`
+(+ `RAPPI_POLL_INTERVAL_MS`, 15s). El contrato HTTP del relevo está en el encabezado del
+archivo. FALTA (bloqueado por Rappi): que el dueño consiga credenciales en dev-portal.rappi.com
+/ partners.rappi.com; con eso se construye el relevo (webhooks de Rappi → cola, estilo del
+servicio de pedidos web en Railway) y se certifica con ellos.
+
 ## Rediseño 2026-10 (contenedor de Caja, identidad, movimiento)
 
 Referencias en `docs/referencias-diseno/` (01 Resumen, 02 estructura, 03 movimiento del

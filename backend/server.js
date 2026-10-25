@@ -31,6 +31,7 @@ import settingsRoutes from "./routes/settings.js";
 // Importar base de datos
 import { initDatabase, getDb, DB_PATH } from "./db/database.js";
 import { startWebOrdersPoller } from "./services/webOrdersPoller.js";
+import { startRappiPoller } from "./services/rappiPoller.js";
 
 // Configuración
 const __filename = fileURLToPath(import.meta.url);
@@ -266,4 +267,5 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   // orden local. No-op si no hay WEB_ORDERS_ENDPOINT configurado (instalaciones
   // sin esta variable siguen funcionando exactamente igual que antes).
   startWebOrdersPoller(Number(PORT));
+  startRappiPoller(Number(PORT));
 });
