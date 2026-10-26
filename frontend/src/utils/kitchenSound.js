@@ -38,7 +38,7 @@ export function notifyDesktop({ title, body, force = false } = {}) {
   api.notify({ title, body });
 }
 
-export function playKitchenChime() {
+function playTones(notes) {
   const now = Date.now();
   if (now - lastPlay < 1500) return; // no repetir si llegan varios eventos juntos
   lastPlay = now;
@@ -47,8 +47,7 @@ export function playKitchenChime() {
   if (!c || c.state !== 'running') return;
 
   const t0 = c.currentTime;
-  // Dos tonos ascendentes (ding-ding), cálido y claro sobre ruido de cocina
-  [[880, 0], [1174.66, 0.18]].forEach(([freq, dt]) => {
+  notes.forEach(([freq, dt]) => {
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = 'sine';
@@ -61,4 +60,15 @@ export function playKitchenChime() {
     osc.start(t0 + dt);
     osc.stop(t0 + dt + 0.45);
   });
+}
+
+export function playKitchenChime() {
+  // Dos tonos ascendentes (ding-ding), cálido y claro sobre ruido de cocina
+  playTones([[880, 0], [1174.66, 0.18]]);
+}
+
+// Pedido NUEVO llegando a cocina (Caja, 2026-10): dos toques en la misma nota,
+// más grave — se distingue del ding-ding ascendente de "orden lista".
+export function playNewOrderChime() {
+  playTones([[784, 0], [784, 0.2]]);
 }

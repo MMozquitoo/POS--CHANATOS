@@ -9,10 +9,11 @@ import Modal from '../../components/Modal';
 import BrandMark from '../../components/BrandMark';
 import PlatformBadge from '../../components/PlatformBadge';
 import { useAlert, useConfirm } from '../../hooks/useModal';
-import { notifyDesktop, playKitchenChime, unlockAudio } from '../../utils/kitchenSound';
 import KitchenTicket, { KitchenItems } from '../../components/kitchen/KitchenTicket';
 import { useOrderWorkspace } from '../../components/orders/OrderWorkspaceHost';
+import OrdenesDrawer from '../../components/OrdenesDrawer';
 import PageHeader from '../../components/ui/PageHeader';
+import Icon from '../../components/ui/Icon';
 import EmptyState from '../../components/EmptyState';
 import useChangedIds from '../../hooks/useChangedIds';
 import { useNow } from '../../hooks/useLiveOrders';
@@ -82,36 +83,19 @@ export default function CocinaCaja({ hideHeader = false }) {
   // se elige UNA sección a la vez (como pestañas); en desktop, con espacio de
   // sobra, siguen viéndose las 3 lado a lado y este estado no se usa.
   const [mobileSection, setMobileSection] = useState('NUEVO');
-
-  // Desbloquear el chime de Web Audio al primer toque — solo cuando esta vista
-  // corre "sola" (ruta /cocina); embebida en Centro Total, CentroTotal.jsx ya
-  // lo desbloquea a nivel de toda la pantalla.
-  useEffect(() => {
-    if (hideHeader) return;
-    document.addEventListener('pointerdown', unlockAudio, { once: true });
-    return () => document.removeEventListener('pointerdown', unlockAudio);
-  }, [hideHeader]);
+  // "+ Nueva orden" desde el tablero de cocina: abre el mismo selector de
+  // mesas/Ventanilla/Domicilios del "+" de la barra inferior; la orden se arma
+  // en la hoja de trabajo, sin salir de Cocina.
+  const [nuevaOrdenOpen, setNuevaOrdenOpen] = useState(false);
 
   useEffect(() => {
     loadOrders();
 
     if (socket) {
-      const onNew = (data) => {
-        loadOrders();
-        // Sonido + notificación nativa: solo cuando esta vista corre "sola" (ruta
-        // /cocina, hideHeader=false). Embebida, el aviso lo da la pantalla
-        // que la contiene, para no duplicarlo aquí.
-        if (!hideHeader) {
-          playKitchenChime();
-          const order = data?.order;
-          const label = order?.daily_no ? `Orden ${order.daily_no}` : (order?.code || 'Pedido nuevo');
-          const items = order?.items?.length;
-          notifyDesktop({
-            title: 'Nueva orden en cocina',
-            body: items ? `${label} — ${items} item${items === 1 ? '' : 's'}` : label,
-          });
-        }
-      };
+      // El sonido y la notificación de "Nueva orden en cocina" los da
+      // CajaShell para TODA Caja (antes esta vista tenía un chime propio y
+      // sonaba doble); acá solo se refresca el tablero.
+      const onNew = () => loadOrders();
       const onChange = () => loadOrders();
       socket.on('order:new', onNew);
       socket.on('order:status-changed', onChange);
@@ -131,7 +115,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         socket.off('item:voided', onChange);
       };
     }
-  }, [socket, hideHeader]);
+  }, [socket]);
 
   const loadOrders = async () => {
     try {
@@ -235,6 +219,16 @@ export default function CocinaCaja({ hideHeader = false }) {
           <PageHeader
             title="Cocina"
             subtitle={`${orders.NUEVO.length + orders.EN_PREP.length} en cocina · ${orders.LISTO.length} listos para cobrar`}
+            actions={
+              <button
+                type="button"
+                className="btn btn--primary cocina-caja-nueva-orden"
+                aria-label="Nueva orden"
+                onClick={() => setNuevaOrdenOpen(true)}
+              >
+                <Icon name="plus" size={20} /> <span className="btn-label">Nueva orden</span>
+              </button>
+            }
           />
         </div>
       )}
@@ -394,6 +388,7 @@ export default function CocinaCaja({ hideHeader = false }) {
         </div>
       )}
     </div>
+    <OrdenesDrawer open={nuevaOrdenOpen} onClose={() => setNuevaOrdenOpen(false)} />
     <Modal open={alertState.open} onClose={closeAlert} title={alertState.title}
       actions={<button className="btn-chanatos" onClick={closeAlert}>OK</button>}>
       <p>{alertState.message}</p>

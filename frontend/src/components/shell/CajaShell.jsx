@@ -9,7 +9,7 @@ import Icon from '../ui/Icon';
 import { MAIN_NAV, ADMIN_NAV, sectionFor } from './cajaNav';
 import CajaDelDiaButton from './CajaDelDiaButton';
 import useSonidoCaja, { sonidoCajaOn } from '../../hooks/useSonidoCaja';
-import { playKitchenChime, notifyDesktop, unlockAudio } from '../../utils/kitchenSound';
+import { playKitchenChime, playNewOrderChime, notifyDesktop, unlockAudio } from '../../utils/kitchenSound';
 import { orderNumber, placeOf } from '../../utils/orderView';
 import './shell.css';
 
@@ -25,10 +25,12 @@ export default function CajaShell({ children }) {
   const { logout, socket } = useAuth();
   const [sonido, setSonido] = useSonidoCaja();
 
-  // Aviso sonoro cuando una orden queda LISTA (en cualquier pantalla de Caja).
-  // El push nativo se desactivó porque crasheaba el APK; esto es el chime de
-  // cocina reutilizado, y en la app de escritorio además una notificación de
-  // Windows si la ventana está minimizada (notifyDesktop).
+  // Aviso sonoro en cualquier pantalla de Caja: pedido NUEVO llegando a cocina
+  // (toc-toc grave) y orden que queda LISTA (ding-ding ascendente). El push
+  // nativo se desactivó porque crasheaba el APK; esto es el chime de cocina
+  // reutilizado, y en la app de escritorio además una notificación de Windows
+  // si la ventana está minimizada (notifyDesktop). El chime que CocinaCaja
+  // tenía propio para order:new se quitó: este es el único que suena.
   useEffect(() => {
     document.addEventListener('pointerdown', unlockAudio, { once: true });
     if (!socket) return undefined;
@@ -41,9 +43,21 @@ export default function CajaShell({ children }) {
         body: `${placeOf(order).label} · Orden ${orderNumber(order)}`,
       });
     };
+    const alLlegarACocina = (payload) => {
+      const order = payload?.order;
+      if (!order || !sonidoCajaOn()) return;
+      playNewOrderChime();
+      const items = order.items?.length;
+      notifyDesktop({
+        title: 'Nueva orden en cocina',
+        body: `${placeOf(order).label} · Orden ${orderNumber(order)}${items ? ` — ${items} item${items === 1 ? '' : 's'}` : ''}`,
+      });
+    };
     socket.on('order:status-changed', alQuedarLista);
+    socket.on('order:new', alLlegarACocina);
     return () => {
       socket.off('order:status-changed', alQuedarLista);
+      socket.off('order:new', alLlegarACocina);
       document.removeEventListener('pointerdown', unlockAudio);
     };
   }, [socket]);

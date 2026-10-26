@@ -99,6 +99,13 @@
     visibility: hidden !important;
   }
 
+  /* El "+ Nueva orden" del encabezado de Cocina (CocinaCaja) duplica el "+"
+     central de la barra inferior en móvil — mismo selector de mesas. En
+     desktop, sin BottomNav, es la única forma de crear un pedido desde ahí. */
+  .cocina-caja-nueva-orden {
+    display: none !important;
+  }
+
   /* El "Salir" del header de Mesas.jsx (Mesero) duplica el ☰ MENÚ de la
      barra inferior. (Regla movida acá desde mesero/BottomNav.css en la fase
      6 del rediseño: TODO ocultamiento "porque BottomNav ya lo cubre" vive
