@@ -20,14 +20,18 @@ async function cargarExcelJS() {
 // Analítica de negocio sobre pagos válidos e items pagados (FASE F10).
 // Compartida entre GET /summary (JSON) y GET /summary/excel (descarga).
 async function computeSummary(db, from, to) {
-  // Ventas por método (pagos no anulados)
+  // Ventas por método (pagos no anulados). method='CONTRATO' NO es venta: es
+  // el cierre de un pedido fiado ("hoy comió gratis") — la venta aparece el
+  // día que el cliente paga, como pago real efectivo/transferencia (la fila
+  // con settles_payment_id creada en /payments/contratos/:id).
   const byMethod = await db.all(
     `SELECT method,
             COUNT(*) as count,
             COALESCE(SUM(amount), 0) as total,
             COALESCE(SUM(tip_amount), 0) as tips
      FROM payments
-     WHERE voided_at IS NULL AND substr(created_at, 1, 10) BETWEEN ? AND ?
+     WHERE voided_at IS NULL AND method != 'CONTRATO'
+       AND substr(created_at, 1, 10) BETWEEN ? AND ?
      GROUP BY method
      ORDER BY total DESC`,
     [from, to]
@@ -50,7 +54,8 @@ async function computeSummary(db, from, to) {
             COALESCE(SUM(p.tip_amount), 0) as tips
      FROM payments p
      JOIN orders o ON o.id = p.order_id
-     WHERE p.voided_at IS NULL AND substr(p.created_at, 1, 10) BETWEEN ? AND ?
+     WHERE p.voided_at IS NULL AND p.method != 'CONTRATO'
+       AND substr(p.created_at, 1, 10) BETWEEN ? AND ?
      GROUP BY COALESCE(o.service, 'MESA')
      ORDER BY total DESC`,
     [from, to]
@@ -80,7 +85,8 @@ async function computeSummary(db, from, to) {
             COALESCE(SUM(amount), 0) as total,
             COUNT(*) as count
      FROM payments
-     WHERE voided_at IS NULL AND substr(created_at, 1, 10) BETWEEN ? AND ?
+     WHERE voided_at IS NULL AND method != 'CONTRATO'
+       AND substr(created_at, 1, 10) BETWEEN ? AND ?
      GROUP BY day
      ORDER BY day`,
     [from, to]
@@ -92,7 +98,8 @@ async function computeSummary(db, from, to) {
             COALESCE(SUM(amount), 0) as total,
             COUNT(*) as count
      FROM payments
-     WHERE voided_at IS NULL AND substr(created_at, 1, 10) BETWEEN ? AND ?
+     WHERE voided_at IS NULL AND method != 'CONTRATO'
+       AND substr(created_at, 1, 10) BETWEEN ? AND ?
      GROUP BY hour
      ORDER BY hour`,
     [from, to]
@@ -201,7 +208,6 @@ async function computeSummary(db, from, to) {
   // totals.sales (es venta del período, como Rappi) y se informa aparte:
   // cuánto de eso fue a contrato y cuánto sigue pendiente de cobrar. El
   // detalle (quién, cuándo, si ya pagó) va a la hoja "Contratos" del Excel.
-  const contratoRow = byMethod.find((r) => r.method === "CONTRATO");
   const contratosDetalle = await db.all(
     `SELECT p.amount, p.created_at, p.debtor_name, p.settled_at, p.settled_method,
             o.daily_no, o.code, o.customer_name
@@ -229,7 +235,7 @@ async function computeSummary(db, from, to) {
       maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       burgersSold: burgersRow?.qty || 0,
       rappi: rappiSales,
-      contrato: contratoRow?.total || 0,
+      contrato: contratosDetalle.reduce((s, c) => s + (c.amount || 0), 0),
     },
     rappi: {
       total: rappiSales,
@@ -237,8 +243,8 @@ async function computeSummary(db, from, to) {
       byDay: rappiByDay,
     },
     contratos: {
-      total: contratoRow?.total || 0,
-      count: contratoRow?.count || 0,
+      total: contratosDetalle.reduce((s, c) => s + (c.amount || 0), 0),
+      count: contratosDetalle.length,
       pendiente: contratosDetalle.filter((c) => !c.settled_at).reduce((s, c) => s + (c.amount || 0), 0),
       rows: contratosDetalle,
     },
@@ -261,7 +267,8 @@ async function computePnl(db, from, to) {
   const salesRow = await db.get(
     `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
      FROM payments
-     WHERE voided_at IS NULL AND substr(created_at, 1, 10) BETWEEN ? AND ?`,
+     WHERE voided_at IS NULL AND method != 'CONTRATO'
+       AND substr(created_at, 1, 10) BETWEEN ? AND ?`,
     [from, to]
   );
   const sales = salesRow?.total || 0;

@@ -781,6 +781,7 @@ router.get("/session/:id/activity", requireAuth, requireRole("CAJA"), async (req
          AND oi.order_id IN (
            SELECT DISTINCT order_id FROM payments
            WHERE cash_session_id = ? AND voided_at IS NULL AND method NOT IN ('RAPPI', 'CONTRATO')
+             AND settles_payment_id IS NULL
          )
        GROUP BY base, variant, category`,
       [sessionId]

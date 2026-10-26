@@ -1018,6 +1018,27 @@ router.get("/contratos", requireAuth, requireRole("CAJA"), async (req, res) => {
        WHERE p.method = 'CONTRATO' AND p.voided_at IS NULL
        ORDER BY p.created_at DESC`
     );
+    // Productos del pedido (para la tarjeta estilo Órdenes de la pantalla)
+    const orderIds = [...new Set(rows.map((r) => r.order_id))];
+    const itemsByOrder = {};
+    if (orderIds.length > 0) {
+      const placeholders = orderIds.map(() => "?").join(",");
+      const items = await db.all(
+        `SELECT order_id, name, qty, price FROM order_items
+         WHERE order_id IN (${placeholders}) AND voided_at IS NULL
+         ORDER BY id`,
+        orderIds
+      );
+      for (const it of items) {
+        (itemsByOrder[it.order_id] = itemsByOrder[it.order_id] || []).push({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+        });
+      }
+    }
+    rows.forEach((r) => { r.items = itemsByOrder[r.order_id] || []; });
+
     const pending = rows.filter((r) => !r.settled_at);
     const settled = rows.filter((r) => r.settled_at).slice(0, 50);
     res.json({
@@ -1047,14 +1068,67 @@ router.patch("/contratos/:id", requireAuth, requireRole("CAJA"), async (req, res
     }
     // settled: true = ya pagó (default); false = deshacer una marca por error
     const settled = req.body?.settled !== false;
+    const timestamp = toBogotaSQLiteTimestamp(new Date());
     const settledMethod = ["EFECTIVO", "TRANSFERENCIA", "TARJETA"].includes(req.body?.method)
       ? req.body.method
       : null;
-    const timestamp = settled ? toBogotaSQLiteTimestamp(new Date()) : null;
-    await db.run(
-      "UPDATE payments SET settled_at = ?, settled_method = ? WHERE id = ?",
-      [timestamp, settled ? settledMethod : null, paymentId]
-    );
+
+    if (settled) {
+      // El pago del contrato es plata REAL que entra HOY al local (dueño,
+      // 2026-10-25: "hoy comió gratis y mañana pagó — aparece mañana"): se
+      // registra como un pago efectivo/transferencia de la caja ABIERTA, con
+      // settles_payment_id → este contrato. Esa fila es la que cuenta en
+      // Reportes y en el arqueo, el día que pagó.
+      if (payment.settled_at) {
+        return res.status(409).json({ error: "Este contrato ya está marcado como pagado" });
+      }
+      if (!settledMethod) {
+        return res.status(400).json({ error: "Indica cómo pagó (EFECTIVO o TRANSFERENCIA)" });
+      }
+      const cashSession = await db.get(
+        "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1"
+      );
+      if (!cashSession) {
+        return res.status(400).json({ error: "No hay caja abierta. Abre caja para recibir el pago del contrato (la plata entra al arqueo de hoy)." });
+      }
+      await db.run(
+        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount, settles_payment_id) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+        [payment.order_id, settledMethod, payment.amount, req.user.id, timestamp, cashSession.id, paymentId]
+      );
+      await db.run(
+        "UPDATE payments SET settled_at = ?, settled_method = ? WHERE id = ?",
+        [timestamp, settledMethod, paymentId]
+      );
+    } else {
+      // Deshacer: anula el pago real creado al marcarlo. Si ese pago quedó en
+      // una caja YA CERRADA no se puede (descuadraría un arqueo histórico) —
+      // misma regla que anular cualquier pago.
+      const settleRow = await db.get(
+        "SELECT * FROM payments WHERE settles_payment_id = ? AND voided_at IS NULL",
+        [paymentId]
+      );
+      if (settleRow?.cash_session_id) {
+        const settleSession = await db.get(
+          "SELECT closed_at FROM cash_sessions WHERE id = ?",
+          [settleRow.cash_session_id]
+        );
+        if (settleSession?.closed_at) {
+          return res.status(409).json({
+            error: "El pago de este contrato quedó en una caja ya cerrada; no se puede deshacer. Registra un egreso manual para corregirlo.",
+          });
+        }
+      }
+      if (settleRow) {
+        await db.run(
+          "UPDATE payments SET voided_at = ?, voided_by = ?, void_reason = ? WHERE id = ?",
+          [timestamp, req.user.id, "Contrato reabierto", settleRow.id]
+        );
+      }
+      await db.run(
+        "UPDATE payments SET settled_at = NULL, settled_method = NULL WHERE id = ?",
+        [paymentId]
+      );
+    }
 
     const orderInfo = await db.get(
       "SELECT o.*, t.number as table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE o.id = ?",

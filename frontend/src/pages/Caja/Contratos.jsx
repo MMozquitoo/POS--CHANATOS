@@ -1,19 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Caja.css';
 import CajaHeader from '../../components/CajaHeader';
 import EmptyState from '../../components/EmptyState';
 import ModalHost from '../../components/ModalHost';
+import Icon from '../../components/ui/Icon';
 import { useAlert, useConfirm } from '../../hooks/useModal';
+import useCajaAbierta from '../../hooks/useCajaAbierta';
 import { toast } from '../../components/ui/Toast';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { paymentMethodLabel } from '../../utils/statusLabels.js';
+import '../../components/orders/orders.css';
+import '../../components/ui/ui.css';
 
 // CONTRATOS — Administración (2026-10-25). Pedidos cerrados con el método
 // "Contrato" (fiados y pedidos grandes, ej. 200 sándwiches, que pagan
-// después). Marcar "Ya pagó" funciona con la caja abierta o cerrada A
-// PROPÓSITO: la venta ya contó el día que se hizo (igual que Rappi) y saldar
-// solo anota cuándo y cómo pagó — no crea un pago nuevo ni toca ningún arqueo.
+// después). "Hoy comió gratis": el día del contrato NO cuenta como venta.
+// Al marcar "Ya pagó" se registra un pago REAL (efectivo/transferencia) en la
+// caja ABIERTA de ese momento — por eso acá SÍ se exige caja abierta: esa
+// plata entra al arqueo y a Reportes del día que pagó. Tarjetas con el mismo
+// estilo de Órdenes (orders.css), con los productos del pedido.
 
 // "2026-10-25 14:30:00" (hora Bogotá) → "25/10 2:30 p. m."
 function fechaCorta(ts) {
@@ -43,10 +50,92 @@ function nombreDe(r) {
 }
 
 const METODOS_PAGO = ['EFECTIVO', 'TRANSFERENCIA'];
+const MAX_LINES = 4;
+
+function ContratoCard({ contrato: f, busy, pagando, setPagando, onPagar, onReabrir, cajaAbierta }) {
+  const pagado = !!f.settled_at;
+  const items = f.items || [];
+  return (
+    <article className="order-card" style={{ cursor: 'default' }}>
+      <header className="order-card__head">
+        <div className="order-card__who">
+          <div className="order-card__who-row">
+            <h3 className="order-card__title">{nombreDe(f)}</h3>
+          </div>
+          <span className="order-card__time">
+            {[lugarDe(f), f.daily_no ? `Orden ${f.daily_no}` : f.code, fechaCorta(f.created_at)].filter(Boolean).join(' · ')}
+          </span>
+        </div>
+        <span
+          className="pill"
+          style={pagado
+            ? { background: 'var(--green-tint)', color: 'var(--green-text)' }
+            : { background: 'var(--brand-tint)', color: 'var(--brand-deep)' }}
+        >
+          {pagado ? 'Pagado' : 'Pendiente'}
+        </span>
+      </header>
+
+      {items.length > 0 && (
+        <ul className="order-card__lines">
+          {items.slice(0, MAX_LINES).map((it, i) => (
+            <li key={i}>
+              <span className="tnum order-card__qty">{it.qty}×</span>
+              <span className="order-card__name">{it.name}</span>
+              <span className="tnum order-card__price">{formatPriceCOP((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
+            </li>
+          ))}
+          {items.length > MAX_LINES && (
+            <li className="order-card__more">y {items.length - MAX_LINES} más</li>
+          )}
+        </ul>
+      )}
+
+      <div className="order-card__totals">
+        <span className="order-card__total-label">Total</span>
+        <span className="order-card__total tnum">{formatPriceCOP(f.amount)}</span>
+      </div>
+
+      {pagado ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginTop: '0.6rem' }}>
+          <span style={{ fontSize: 'var(--text-13)', color: 'var(--gray-600)' }}>
+            Pagó {fechaCorta(f.settled_at)}{f.settled_method ? ` en ${paymentMethodLabel(f.settled_method).toLowerCase()}` : ''}
+          </span>
+          <button type="button" className="btn btn--secondary" disabled={!!busy} onClick={() => onReabrir(f)} style={{ padding: '0.35rem 0.7rem', fontSize: 'var(--text-13)' }}>
+            Deshacer
+          </button>
+        </div>
+      ) : pagando === f.id ? (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+          {METODOS_PAGO.map((m) => (
+            <button key={m} type="button" className="btn btn--primary" disabled={!!busy} onClick={() => onPagar(f, m)} style={{ flex: 1, minWidth: 130 }}>
+              {busy === f.id ? 'Guardando…' : `Pagó en ${paymentMethodLabel(m).toLowerCase()}`}
+            </button>
+          ))}
+          <button type="button" className="btn btn--secondary" disabled={!!busy} onClick={() => setPagando(null)} style={{ flex: '0 0 auto' }}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn btn--primary btn--block"
+          disabled={!!busy || cajaAbierta === false}
+          onClick={() => setPagando(f.id)}
+          style={{ marginTop: '0.6rem' }}
+        >
+          {cajaAbierta === false ? 'Abre la caja para recibir el pago' : 'Ya pagó'}
+        </button>
+      )}
+    </article>
+  );
+}
 
 export default function Contratos() {
+  const navigate = useNavigate();
   const { alertState, showAlert, closeAlert } = useAlert();
   const { confirmState, showConfirm, acceptConfirm, cancelConfirm } = useConfirm();
+  const cajaAbierta = useCajaAbierta();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -69,14 +158,17 @@ export default function Contratos() {
 
   const marcarPagado = async (contrato, method) => {
     if (busy) return;
+    if (!(await showConfirm(
+      `¿Registrar el pago de ${nombreDe(contrato)} por ${formatPriceCOP(contrato.amount)} en ${paymentMethodLabel(method).toLowerCase()}? Entra a la caja y a las ventas de HOY.`
+    ))) return;
     setBusy(contrato.id);
     try {
       await axios.patch(`/payments/contratos/${contrato.id}`, { settled: true, method });
-      toast(`Contrato de ${nombreDe(contrato)} marcado como pagado`);
+      toast(`Pago de ${nombreDe(contrato)} registrado en la caja de hoy`);
       setPagando(null);
       await load();
     } catch (error) {
-      await showAlert(error.response?.data?.error || 'No se pudo marcar como pagado');
+      await showAlert(error.response?.data?.error || 'No se pudo registrar el pago');
     } finally {
       setBusy(null);
     }
@@ -84,14 +176,14 @@ export default function Contratos() {
 
   const reabrir = async (contrato) => {
     if (busy) return;
-    if (!(await showConfirm(`¿Volver a dejar pendiente el contrato de ${nombreDe(contrato)} por ${formatPriceCOP(contrato.amount)}?`))) return;
+    if (!(await showConfirm(`¿Deshacer el pago de ${nombreDe(contrato)} por ${formatPriceCOP(contrato.amount)}? Se anula el pago registrado y la deuda vuelve a pendiente.`))) return;
     setBusy(contrato.id);
     try {
       await axios.patch(`/payments/contratos/${contrato.id}`, { settled: false });
       toast('Contrato reabierto');
       await load();
     } catch (error) {
-      await showAlert(error.response?.data?.error || 'No se pudo reabrir');
+      await showAlert(error.response?.data?.error || 'No se pudo deshacer');
     } finally {
       setBusy(null);
     }
@@ -104,7 +196,7 @@ export default function Contratos() {
     <div className="caja-container">
       <CajaHeader title="Contratos" backTo="/mas" />
 
-      <div className="caja-content caja-page" style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div className="caja-content caja-page" style={{ maxWidth: 760, margin: '0 auto' }}>
         {loading ? (
           <p style={{ textAlign: 'center', color: 'var(--gray-600)' }}>Cargando…</p>
         ) : (
@@ -119,40 +211,31 @@ export default function Contratos() {
                 </div>
               </div>
               <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-600)' }}>
-                {pending.length === 1 ? '1 contrato' : `${pending.length} contratos`} · se marca pagado con la caja abierta o cerrada
+                {pending.length === 1 ? '1 contrato' : `${pending.length} contratos`} · el pago entra a la caja del día que paguen
               </div>
             </div>
+
+            {cajaAbierta === false && pending.length > 0 && (
+              <div className="caja-cerrada" role="status" style={{ marginBottom: '1rem' }}>
+                <span className="caja-cerrada__icon" aria-hidden="true">
+                  <Icon name="caja" size={22} strokeWidth={2.2} />
+                </span>
+                <div className="caja-cerrada__text">
+                  <strong>La caja está cerrada</strong>
+                  <span>Para recibir el pago de un contrato abre la caja (puede ser con $ 0): esa plata entra al arqueo del día.</span>
+                </div>
+                <button type="button" className="btn btn--dark" onClick={() => navigate('/centro', { state: { abrirCaja: true } })}>
+                  Abrir caja
+                </button>
+              </div>
+            )}
 
             {pending.length === 0 ? (
               <EmptyState icon="check" title="Nada pendiente por cobrar" description="Cuando dejes un pedido como contrato (método Contrato al cobrar), aparece aquí hasta que paguen." />
             ) : (
-              <div className="list-group" style={{ marginBottom: '1.4rem' }}>
+              <div style={{ display: 'grid', gap: '0.8rem', marginBottom: '1.4rem' }}>
                 {pending.map((f) => (
-                  <div key={f.id} className="list-row" style={{ display: 'block', padding: '0.8rem 1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.6rem' }}>
-                      <div style={{ fontWeight: 700, fontSize: 'var(--text-17)', color: 'var(--gray-900)' }}>{nombreDe(f)}</div>
-                      <div className="tnum" style={{ fontWeight: 800, fontSize: 'var(--text-17)' }}>{formatPriceCOP(f.amount)}</div>
-                    </div>
-                    <div style={{ fontSize: 'var(--text-13)', color: 'var(--gray-600)', margin: '2px 0 10px' }}>
-                      {[lugarDe(f), f.daily_no ? `Orden ${f.daily_no}` : f.code, fechaCorta(f.created_at)].filter(Boolean).join(' · ')}
-                    </div>
-                    {pagando === f.id ? (
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {METODOS_PAGO.map((m) => (
-                          <button key={m} type="button" className="btn btn--primary" disabled={!!busy} onClick={() => marcarPagado(f, m)} style={{ flex: 1, minWidth: 120 }}>
-                            {busy === f.id ? 'Guardando…' : `Pagó en ${paymentMethodLabel(m).toLowerCase()}`}
-                          </button>
-                        ))}
-                        <button type="button" className="btn btn--secondary" disabled={!!busy} onClick={() => setPagando(null)} style={{ flex: '0 0 auto' }}>
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button type="button" className="btn btn--primary btn--block" disabled={!!busy} onClick={() => setPagando(f.id)}>
-                        Ya pagó
-                      </button>
-                    )}
-                  </div>
+                  <ContratoCard key={f.id} contrato={f} busy={busy} pagando={pagando} setPagando={setPagando} onPagar={marcarPagado} onReabrir={reabrir} cajaAbierta={cajaAbierta} />
                 ))}
               </div>
             )}
@@ -162,22 +245,9 @@ export default function Contratos() {
                 <h3 style={{ fontSize: 'var(--text-15)', color: 'var(--gray-600)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 0.6rem' }}>
                   Pagados recientes
                 </h3>
-                <div className="list-group">
+                <div style={{ display: 'grid', gap: '0.8rem' }}>
                   {settled.map((f) => (
-                    <div key={f.id} className="list-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 1rem' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--gray-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreDe(f)}</div>
-                        <div style={{ fontSize: 'var(--text-12, 12px)', color: 'var(--gray-600)' }}>
-                          {[`Contrato ${fechaCorta(f.created_at)}`, `pagó ${fechaCorta(f.settled_at)}`, f.settled_method ? paymentMethodLabel(f.settled_method).toLowerCase() : null].filter(Boolean).join(' · ')}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: '0 0 auto' }}>
-                        <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP(f.amount)}</span>
-                        <button type="button" className="btn btn--secondary" disabled={!!busy} onClick={() => reabrir(f)} style={{ padding: '0.35rem 0.7rem', fontSize: 'var(--text-13)' }}>
-                          Deshacer
-                        </button>
-                      </div>
-                    </div>
+                    <ContratoCard key={f.id} contrato={f} busy={busy} pagando={pagando} setPagando={setPagando} onPagar={marcarPagado} onReabrir={reabrir} cajaAbierta={cajaAbierta} />
                   ))}
                 </div>
               </>

@@ -197,7 +197,7 @@ export default function Reportes() {
               {(t.contrato || 0) > 0 && (
                 <div className="rep-kpi">
                   <div className="rep-kpi-value">{formatPriceCOP(t.contrato)}</div>
-                  <div className="rep-kpi-label">De eso, contratos (pagan después; ver Administración → Contratos)</div>
+                  <div className="rep-kpi-label">Fiado en contratos (no suma a Ventas: cuenta el día que paguen)</div>
                 </div>
               )}
               <div className="rep-kpi">

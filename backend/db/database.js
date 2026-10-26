@@ -1012,14 +1012,17 @@ export const initDatabase = async () => {
     console.error("⚠️  Error actualizando CHECK de payments.method:", paymentsCheckError);
   }
 
-  // CONTRATO/FIADO (2026-10-25): payments.method = 'CONTRATO' cierra la orden como deuda
-  // del cliente ("paga después", igual que Rappi: NO entra al arqueo, SÍ es
-  // venta en Reportes). debtor_name = quién debe; settled_at/settled_method =
-  // cuándo/cómo se saldó (solo informativo: saldar NO crea un pago nuevo ni
-  // toca ninguna caja). Chequeo incondicional.
+  // CONTRATO/FIADO (2026-10-25): payments.method = 'CONTRATO' cierra la orden
+  // como deuda del cliente ("hoy comió gratis, paga después") — NO es venta ni
+  // entra a ningún arqueo. debtor_name = quién debe. Al marcar "Ya pagó"
+  // (pantalla Contratos, EXIGE caja abierta) se crea un pago REAL efectivo/
+  // transferencia de ese día con settles_payment_id → el id del CONTRATO:
+  // esa fila sí cuenta en Reportes y en el arqueo del día que pagó.
+  // settled_at/settled_method en la fila CONTRATO = estado de la deuda.
+  // Chequeo incondicional.
   try {
     const paymentsColsFiado = await database.all("PRAGMA table_info(payments)");
-    for (const [col, type] of [["debtor_name", "TEXT"], ["settled_at", "DATETIME"], ["settled_method", "TEXT"]]) {
+    for (const [col, type] of [["debtor_name", "TEXT"], ["settled_at", "DATETIME"], ["settled_method", "TEXT"], ["settles_payment_id", "INTEGER"]]) {
       if (!paymentsColsFiado.some((c) => c.name === col)) {
         console.log(`  ➕ Agregando ${col} a payments...`);
         await database.run(`ALTER TABLE payments ADD COLUMN ${col} ${type}`);
