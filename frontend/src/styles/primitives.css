@@ -19,12 +19,18 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background var(--transition-fast), transform var(--transition-fast),
-    opacity var(--transition-fast);
+  /* RESORTE (2026-10-26, idea del catálogo moxen.cl): al presionar se aplasta
+     rápido; al soltar vuelve con --ease-spring (sobrepasa 1 y asienta). La
+     curva de rebote va en la transición BASE porque es la que rige al salir
+     de :active; la de presión, dentro de :active. */
+  transition: background var(--transition-fast), opacity var(--transition-fast),
+    transform var(--dur-spring) var(--ease-spring);
   user-select: none;
 }
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  transition: background var(--transition-fast), opacity var(--transition-fast),
+    transform var(--dur-press) var(--ease-out);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -328,6 +334,29 @@
   to   { transform: translateY(0);   opacity: 1; }
 }
 
+/* ============ ESQUELETO (2026-10-26, idea del catálogo moxen.cl) ============
+   Tarjetas fantasma mientras carga, en vez del texto "Cargando…": bloques
+   grises con un brillo que barre. Componente: ui/Skeleton.jsx (SkeletonCards).
+   .skeleton = una línea; el ancho/alto lo pone quien la usa. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  min-height: 14px;
+  border-radius: 8px;
+  background: var(--gray-100);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.7) 50%, transparent);
+  animation: skeleton-barre 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes skeleton-barre {
+  to { transform: translateX(100%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chanatos-modal {
     animation: none;
@@ -340,5 +369,8 @@
   .btn-success:active,
   .btn-secondary:active {
     transform: none;
+  }
+  .skeleton::after {
+    animation: none;
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfirm } from '../../hooks/useModal';
@@ -75,6 +75,30 @@ export default function CajaShell({ children }) {
     if (await showConfirm('¿Cerrar sesión?')) logout();
   };
 
+  // PÍLDORA (2026-10-26, idea del catálogo moxen.cl): el resaltado mostaza de
+  // la sección activa es UN solo span que se desliza al enlace activo en vez
+  // de aparecer de golpe en cada uno. Se mide el enlace activo (offsetTop
+  // dentro del nav) al cambiar de sección y al redimensionar (769–1099px la
+  // barra se recoge a iconos y cambian las alturas). Fuera del nav principal
+  // (Administración/Cierre) la píldora se desvanece donde quedó.
+  const navRef = useRef(null);
+  const [pill, setPill] = useState({ top: 0, height: 0, visible: false });
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return undefined;
+    const mide = () => {
+      const activo = nav.querySelector('.shell-link.is-active');
+      if (activo) {
+        setPill({ top: activo.offsetTop, height: activo.offsetHeight, visible: true });
+      } else {
+        setPill((p) => ({ ...p, visible: false }));
+      }
+    };
+    mide();
+    window.addEventListener('resize', mide);
+    return () => window.removeEventListener('resize', mide);
+  }, [section]);
+
   return (
     <div className="shell">
       <aside className="shell-sidebar" aria-label="Navegación principal">
@@ -86,7 +110,16 @@ export default function CajaShell({ children }) {
           </div>
         </div>
 
-        <nav className="shell-nav">
+        <nav className="shell-nav shell-nav--main" ref={navRef}>
+          <span
+            className="shell-pill"
+            aria-hidden="true"
+            style={{
+              transform: `translateY(${pill.top}px)`,
+              height: pill.height || 0,
+              opacity: pill.visible ? 1 : 0,
+            }}
+          />
           {MAIN_NAV.map((item) => (
             <NavLink
               key={item.key}

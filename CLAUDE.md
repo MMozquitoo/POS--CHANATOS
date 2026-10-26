@@ -453,6 +453,18 @@ es Chanatos (mostaza, carbón, fondos cálidos, la forma orgánica de PagoExitos
   framer-motion hecho en CSS, ui.css): .kpi, .order-card, .mesa-tile, .admin-card suben 4 px
   con mouse (`@media (hover:hover) and (pointer:fine)`), se hunden al tocar en pantallas
   táctiles; la seleccionada conserva su aro. Los tickets de cocina NO se mueven.
+- **Microanimaciones 2026-10-26** (del catálogo moxen.cl/recursos.html, RECREADAS en CSS
+  propio — su código se vende por carrito, acá solo se calcó la sensación; cero dependencias):
+  (1) "Resorte": `.btn` y `.bn-fab` se aplastan rápido al presionar y rebotan al soltar
+  (`--dur-spring` 420ms + `--ease-spring` en chanatos-theme.css, curva que sobrepasa 1;
+  la curva de rebote va en la transición BASE y la de presión dentro de `:active`).
+  (2) "Píldora": el fondo mostaza de la sección activa de la barra lateral es UN span
+  (`.shell-pill`) que se desliza entre enlaces — CajaShell mide el enlace activo
+  (offsetTop, remide en resize) y shell.css vuelve transparente el `.is-active` del nav
+  principal para no duplicar; fuera del nav (Administración/Cierre) se desvanece.
+  (3) "Esqueleto": `.skeleton` en primitives.css (brillo que barre 1.7s) +
+  `ui/Skeleton.jsx` (SkeletonCards) en Contratos/Rappi y silueta de KPIs en Reportes,
+  en vez del texto "Cargando…". Todo respeta prefers-reduced-motion vía los tokens --dur-*.
 - **Stock bajo fuera del Resumen** (2026-10-25): el inventario va a vivir en otra plataforma
   (`/Users/cristian/Developer/chanatos-plataforma-dev`); no invertir en Ingredientes/Recetas del
   POS sin preguntar. Se quitó también de Reportes; sigue en Menú → Ingredientes.

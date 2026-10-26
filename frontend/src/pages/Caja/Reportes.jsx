@@ -179,7 +179,15 @@ export default function Reportes() {
             Menú → Ingredientes. */}
 
         {loading || !data ? (
-          <div className="rep-loading">Cargando reporte…</div>
+          /* Esqueleto (primitives.css): la silueta de los KPIs mientras carga */
+          <div role="status" aria-label="Cargando reporte" className="rep-kpis">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="rep-kpi" aria-hidden="true">
+                <span className="skeleton" style={{ display: 'block', width: '60%', height: 24, marginBottom: 8 }} />
+                <span className="skeleton" style={{ display: 'block', width: '80%' }} />
+              </div>
+            ))}
+          </div>
         ) : (
           <>
             {/* KPIs */}

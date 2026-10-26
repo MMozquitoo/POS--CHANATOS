@@ -134,6 +134,36 @@
   to { transform: none; opacity: 1; }
 }
 
+/* PÍLDORA (2026-10-26, idea del catálogo moxen.cl): el fondo mostaza de la
+   sección activa es un solo span (.shell-pill, lo posiciona CajaShell midiendo
+   el enlace activo) que se DESLIZA de un enlace al otro. Con la píldora
+   presente, el fondo del propio .is-active se vuelve transparente para no
+   duplicar el resaltado; el aro lateral ::before se queda como está. */
+.shell-nav--main {
+  position: relative;
+}
+.shell-pill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: var(--radius-control);
+  background: #FCEFCF;
+  pointer-events: none;
+  transition:
+    transform var(--dur-panel) var(--ease-ios),
+    height var(--dur-panel) var(--ease-ios),
+    opacity var(--dur-select) var(--ease-out);
+}
+.shell-nav--main .shell-link {
+  position: relative;
+  z-index: 1;
+}
+.shell-nav--main .shell-link.is-active,
+.shell-nav--main .shell-link.is-active:hover {
+  background: transparent;
+}
+
 .shell-link-label {
   flex: 1;
   min-width: 0;

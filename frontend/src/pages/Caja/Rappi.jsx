@@ -6,6 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import ModalHost from '../../components/ModalHost';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import { toast } from '../../components/ui/Toast';
+import SkeletonCards from '../../components/ui/Skeleton';
 import { formatPriceCOP } from '../../utils/currency.js';
 import '../../components/orders/orders.css';
 import '../../components/ui/ui.css';
@@ -199,7 +200,7 @@ export default function Rappi() {
 
       <div className="caja-content caja-page" style={{ maxWidth: 760, margin: '0 auto' }}>
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--gray-600)' }}>Cargando…</p>
+          <SkeletonCards count={3} />
         ) : (
           <>
             <div className="card" style={{ padding: '1rem 1.2rem', marginBottom: '1rem' }}>

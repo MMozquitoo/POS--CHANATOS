@@ -9,6 +9,7 @@ import Icon from '../../components/ui/Icon';
 import { useAlert, useConfirm } from '../../hooks/useModal';
 import useCajaAbierta from '../../hooks/useCajaAbierta';
 import { toast } from '../../components/ui/Toast';
+import SkeletonCards from '../../components/ui/Skeleton';
 import { formatPriceCOP } from '../../utils/currency.js';
 import { paymentMethodLabel } from '../../utils/statusLabels.js';
 import '../../components/orders/orders.css';
@@ -198,7 +199,7 @@ export default function Contratos() {
 
       <div className="caja-content caja-page" style={{ maxWidth: 760, margin: '0 auto' }}>
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--gray-600)' }}>Cargando…</p>
+          <SkeletonCards count={3} />
         ) : (
           <>
             <div className="card" style={{ padding: '1rem 1.2rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.4rem' }}>

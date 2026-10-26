@@ -97,7 +97,8 @@
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--transition-fast), background var(--transition-fast);
+  /* Resorte (ver primitives.css): se aplasta rápido y rebota al soltar */
+  transition: transform var(--dur-spring) var(--ease-spring), background var(--transition-fast);
 }
 
 .bn-fab svg {
@@ -106,8 +107,9 @@
 }
 
 .bn-fab:active {
-  transform: scale(0.94);
+  transform: scale(0.9);
   background: var(--brand-dark);
+  transition: transform var(--dur-press) var(--ease-out), background var(--transition-fast);
 }
 
 /* Espacio para que el contenido de cada página no quede tapado detrás de la
