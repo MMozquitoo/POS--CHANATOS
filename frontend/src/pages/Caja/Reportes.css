@@ -161,6 +161,15 @@
   white-space: nowrap;
 }
 
+/* Desglose de variantes bajo el nombre ("7 sencillo · 3 combo") */
+.rep-bar-sub {
+  font-size: var(--text-12, 12px);
+  color: var(--gray-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rep-bar-track {
   height: 8px;
   background: var(--gray-50);

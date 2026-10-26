@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import './SalsasChips.css';
 import { productoLlevaSalsas } from './SalsasChips';
 import { formatPriceCOP } from '../utils/currency.js';
@@ -58,8 +59,39 @@ export function adicionalesExtra(notes, adicionales) {
   return parseAdicionales(notes, adicionales).reduce((s, a) => s + (a.price || 0), 0);
 }
 
+// Con el menú de adicionales completo la lista se volvió "un mar de chips"
+// (dueño, 2026-10-25): colapsada muestra los MÁS USADOS (el uso se aprende en
+// este dispositivo, localStorage) + "Ver todos"; los marcados siempre se ven.
+const VISIBLES_COLAPSADO = 6;
+const USO_KEY = 'adicionales_uso';
+
+function leerUso() {
+  try {
+    return JSON.parse(localStorage.getItem(USO_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function anotarUso(name) {
+  try {
+    const uso = leerUso();
+    const k = name.toLowerCase();
+    uso[k] = (uso[k] || 0) + 1;
+    localStorage.setItem(USO_KEY, JSON.stringify(uso));
+  } catch { /* sin almacenamiento: se pierde el conteo, no la función */ }
+}
+
 export default function AdicionalesChips({ adicionales, value, onChange }) {
   const lista = adicionales || [];
+  const [verTodos, setVerTodos] = useState(false);
+  // Uso leído al abrir el panel (no en cada toque: los chips no se reordenan
+  // mientras el mesero está marcando)
+  const uso = useMemo(leerUso, []);
+  const ordenada = useMemo(
+    () => [...lista].sort((a, b) => (uso[b.name.toLowerCase()] || 0) - (uso[a.name.toLowerCase()] || 0)),
+    [lista, uso]
+  );
   if (lista.length === 0) return null;
 
   const parts = parseParts(value);
@@ -67,13 +99,20 @@ export default function AdicionalesChips({ adicionales, value, onChange }) {
 
   const toggle = (a) => {
     const rest = parts.filter((p) => !(esTokenAdicional(p) && nombreDeToken(p) === a.name.toLowerCase()));
-    const next = isOn(a) ? rest : [...rest, `${ADICIONAL_PREFIX}${a.name}`];
+    const prendiendo = !isOn(a);
+    if (prendiendo) anotarUso(a.name);
+    const next = prendiendo ? [...rest, `${ADICIONAL_PREFIX}${a.name}`] : rest;
     onChange(next.join(', '));
   };
 
+  const colapsada = lista.length > VISIBLES_COLAPSADO && !verTodos;
+  const top = ordenada.slice(0, VISIBLES_COLAPSADO);
+  const visibles = colapsada ? ordenada.filter((a) => top.includes(a) || isOn(a)) : ordenada;
+  const ocultos = ordenada.length - visibles.length;
+
   return (
     <div className="salsas-chips adicionales-chips">
-      {lista.map((a) => (
+      {visibles.map((a) => (
         <button
           key={a.id ?? a.name}
           type="button"
@@ -84,6 +123,15 @@ export default function AdicionalesChips({ adicionales, value, onChange }) {
           {a.price > 0 && <span style={{ opacity: 0.75, fontWeight: 500 }}> · {formatPriceCOP(a.price)}</span>}
         </button>
       ))}
+      {lista.length > VISIBLES_COLAPSADO && (
+        <button
+          type="button"
+          className="salsa-chip salsa-chip-all"
+          onClick={() => setVerTodos((v) => !v)}
+        >
+          {colapsada ? `Ver todos (${ocultos} más)` : 'Ver menos'}
+        </button>
+      )}
     </div>
   );
 }

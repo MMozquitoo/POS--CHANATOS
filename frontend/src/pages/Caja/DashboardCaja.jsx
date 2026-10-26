@@ -393,6 +393,7 @@ export default function DashboardCaja() {
                         <span className={`top-rank ${i === 0 ? 'is-first' : ''}`}>{i + 1}</span>
                         <span className="top-main">
                           <span className="top-name">{t.name}</span>
+                          {t.detail && <span className="top-detail">{t.detail}</span>}
                           <span className="top-bar"><span style={{ width: `${(t.qty / maxTop) * 100}%` }} /></span>
                         </span>
                         <span className="top-qty tnum">{t.qty}<small> und</small></span>

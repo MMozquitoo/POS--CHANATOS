@@ -7,6 +7,7 @@ import {
   formatBogotaDate 
 } from "../utils/timezone.js";
 import { logAudit } from "../utils/audit.js";
+import { agruparTopProducts } from "../utils/topProducts.js";
 
 const router = express.Router();
 
@@ -763,19 +764,28 @@ router.get("/session/:id/activity", requireAuth, requireRole("CAJA"), async (req
     // Productos de las órdenes cobradas en esta sesión (items pagados). Una
     // orden Rappi no tiene pagos de la sesión salvo el automático 'RAPPI', que
     // se excluye arriba; acá también: solo órdenes con algún pago no-Rappi.
-    const topProducts = await db.all(
-      `SELECT oi.name, SUM(oi.qty) as qty, COALESCE(SUM(oi.qty * oi.price), 0) as total
+    // Agrupado por producto BASE (sencillo + combo = la misma hamburguesa),
+    // con el desglose en `detail` — ver utils/topProducts.js. El LIMIT se
+    // aplica DESPUÉS de agrupar, si no un producto con 2 variantes gastaba
+    // dos de los 6 puestos.
+    const topRows = await db.all(
+      `SELECT COALESCE(p.name, oi.name) as base,
+              p.variant as variant,
+              SUM(oi.qty) as qty,
+              COALESCE(SUM(oi.qty * oi.price), 0) as total
        FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
        WHERE oi.voided_at IS NULL AND oi.paid_at IS NOT NULL
          AND oi.order_id IN (
            SELECT DISTINCT order_id FROM payments
            WHERE cash_session_id = ? AND voided_at IS NULL AND method != 'RAPPI'
          )
-       GROUP BY oi.name
-       ORDER BY qty DESC, total DESC
-       LIMIT 6`,
+       GROUP BY base, variant`,
       [sessionId]
     );
+    const topProducts = agruparTopProducts(topRows)
+      .sort((a, b) => b.qty - a.qty || b.total - a.total)
+      .slice(0, 6);
 
     // Actividad reciente: pagos (y sus anulaciones) + órdenes creadas/listas
     // dentro de la sesión. Cada evento con su hora real.

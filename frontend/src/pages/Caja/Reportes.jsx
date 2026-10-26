@@ -27,12 +27,15 @@ const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA:
 // money=false para magnitudes que son conteos, no plata; display sobreescribe
 // el texto mostrado (ej. "5.4 kg") sin afectar el % de la barra, que sigue
 // usando value
-function BarRow({ label, value, max, extra, money = true, display: displayOverride }) {
+function BarRow({ label, sub, value, max, extra, money = true, display: displayOverride }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
   const display = displayOverride ?? (money ? formatPriceCOP(value) : String(value));
   return (
-    <div className="rep-bar-row" title={`${label}: ${display}`}>
-      <div className="rep-bar-label">{label}</div>
+    <div className="rep-bar-row" title={`${label}${sub ? ` (${sub})` : ''}: ${display}`}>
+      <div className="rep-bar-label">
+        {label}
+        {sub && <div className="rep-bar-sub">{sub}</div>}
+      </div>
       <div className="rep-bar-track">
         <div className="rep-bar-fill" style={{ width: `${pct}%` }} />
       </div>
@@ -239,7 +242,14 @@ export default function Reportes() {
                 <p className="rep-empty">Sin ventas en este periodo</p>
               ) : (
                 data.topProducts.map(p => (
-                  <BarRow key={p.name} label={p.name} value={p.total} max={maxProduct} extra={`${p.qty} und`} />
+                  <BarRow
+                    key={p.name}
+                    label={p.name}
+                    sub={p.detail}
+                    value={p.total}
+                    max={maxProduct}
+                    extra={`${p.qty} und`}
+                  />
                 ))
               )}
             </section>

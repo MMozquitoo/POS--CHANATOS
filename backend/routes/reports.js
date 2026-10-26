@@ -1,6 +1,7 @@
 import express from "express";
 import { getDb } from "../db/database.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { agruparTopProducts } from "../utils/topProducts.js";
 
 const router = express.Router();
 
@@ -123,18 +124,22 @@ async function computeSummary(db, from, to) {
   // Productos vendidos (items pagados, no anulados). SIN LIMIT: con LIMIT 10
   // los productos baratos (ej. gaseosa 250 ml a $2.000) quedaban por fuera y
   // parecía que no se estaban contando (reporte del dueño 2026-08-04).
-  const topProducts = await db.all(
-    `SELECT name,
-            SUM(qty) as qty,
-            COALESCE(SUM(qty * price), 0) as total
-     FROM order_items
-     WHERE voided_at IS NULL
-       AND paid_at IS NOT NULL
-       AND substr(paid_at, 1, 10) BETWEEN ? AND ?
-     GROUP BY name
-     ORDER BY total DESC`,
+  // Agrupado por producto BASE (sencillo + combo = la misma hamburguesa), con
+  // el desglose de variantes en `detail` — ver utils/topProducts.js
+  const topRows = await db.all(
+    `SELECT COALESCE(p.name, oi.name) as base,
+            p.variant as variant,
+            SUM(oi.qty) as qty,
+            COALESCE(SUM(oi.qty * oi.price), 0) as total
+     FROM order_items oi
+     LEFT JOIN products p ON p.id = oi.product_id
+     WHERE oi.voided_at IS NULL
+       AND oi.paid_at IS NOT NULL
+       AND substr(oi.paid_at, 1, 10) BETWEEN ? AND ?
+     GROUP BY base, variant`,
     [from, to]
   );
+  const topProducts = agruparTopProducts(topRows).sort((a, b) => b.total - a.total);
 
   // Hamburguesas vendidas (unidades pagadas de productos categoría
   // HAMBURGUESAS, sencillas y dobles cuentan igual — el dueño pidió el
@@ -391,6 +396,7 @@ router.get("/summary/excel", requireAuth, requireRole("CAJA"), async (req, res) 
       { header: "Producto", key: "name", width: 32 },
       { header: "Unidades", key: "qty", width: 12 },
       { header: "Total vendido", key: "total", width: 16 },
+      { header: "Detalle", key: "detail", width: 26 },
     ];
     productos.addRows(summary.topProducts);
     negrita(productos);
