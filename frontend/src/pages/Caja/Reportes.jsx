@@ -295,7 +295,7 @@ export default function Reportes() {
             {data.rappi && (
               <section className="rep-section rep-rappi">
                 <h3>Rappi <span className="rep-section-hint">(recauda y transfiere después)</span></h3>
-                {data.rappi.count === 0 && (
+                {data.rappi.count === 0 && !(data.rappi.depositado?.count > 0) && !(data.rappi.pendiente?.count > 0) && (
                   <p className="rep-empty">Sin pedidos de Rappi en este periodo. Cuando los haya, aquí se cuadra el depósito: elige «7 días» o «Rango» sobre la semana que Rappi consigna.</p>
                 )}
                 {data.rappi.count > 0 && (
@@ -323,9 +323,37 @@ export default function Reportes() {
                     extra={`${d.count} ${d.count === 1 ? 'pedido' : 'pedidos'}`}
                   />
                 ))}
-                {data.rappi.count > 0 && (
+                {/* La plata que ENTRÓ de Rappi, contada el día del depósito
+                    (dueño, 2026-10-25: "como contrato — aparece el día que
+                    pagan"). Se marca en Administración → Rappi; no se suma a
+                    ventas porque la venta ya contó el día del pedido. */}
+                {(data.rappi.depositado?.count > 0 || data.rappi.pendiente?.count > 0) && (
+                  <>
+                    <h4 className="rep-rappi-subtitle">Plata que entró de Rappi</h4>
+                    <div className="rep-kpis">
+                      <div className="rep-kpi">
+                        <div className="rep-kpi-value">{formatPriceCOP(data.rappi.depositado?.total || 0)}</div>
+                        <div className="rep-kpi-label">Depositado en este periodo (día que pagó Rappi)</div>
+                      </div>
+                      <div className="rep-kpi">
+                        <div className="rep-kpi-value">{formatPriceCOP(data.rappi.pendiente?.total || 0)}</div>
+                        <div className="rep-kpi-label">Rappi aún debe (todos los pedidos sin depositar)</div>
+                      </div>
+                    </div>
+                    {(data.rappi.depositado?.byDay?.length || 0) > 1 && data.rappi.depositado.byDay.map(d => (
+                      <BarRow
+                        key={`dep-${d.day}`}
+                        label={d.day}
+                        value={d.total}
+                        max={Math.max(0, ...data.rappi.depositado.byDay.map(x => x.total))}
+                        extra={`${d.count} ${d.count === 1 ? 'pedido' : 'pedidos'}`}
+                      />
+                    ))}
+                  </>
+                )}
+                {(data.rappi.count > 0 || data.rappi.pendiente?.count > 0) && (
                 <p className="rep-rappi-note">
-                  Al cuadrar el depósito, recuerda que Rappi descuenta su comisión: acá está lo vendido, no lo neto.
+                  El depósito se marca en Administración → Rappi el día que llega la plata. Al cuadrarlo, recuerda que Rappi descuenta su comisión: acá está lo vendido, no lo neto.
                 </p>
                 )}
               </section>

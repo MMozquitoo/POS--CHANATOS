@@ -2662,6 +2662,17 @@
   color: var(--gray-600);
 }
 
+/* "Plata que entró de Rappi" (2026-10-25): subtítulo dentro de la sección
+   Rappi de Reportes, mismo tono que los h3 de .rep-section */
+.rep-rappi-subtitle {
+  margin: 14px 0 10px;
+  font-size: var(--text-13);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+}
+
 /* Conteo de efectivo por denominación (cierre de caja, 2026-10-25) */
 .conteo-efectivo {
   display: flex;

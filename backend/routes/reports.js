@@ -204,6 +204,29 @@ async function computeSummary(db, from, to) {
     [from, to]
   );
 
+  // LIQUIDACIÓN RAPPI (2026-10-25, dueño: "como contrato — la plata aparece
+  // el día que pagan"): depositado = pagos RAPPI marcados en Administración →
+  // Rappi, contados POR LA FECHA DEL DEPÓSITO (settled_at), no la del pedido.
+  // Es el dinero que ENTRÓ de Rappi en el período. NO se suma a ventas (la
+  // venta ya contó el día del pedido — sumarlo la duplicaría). pendiente =
+  // todo lo que Rappi aún debe, sin importar el período.
+  const rappiDepositadoByDay = await db.all(
+    `SELECT substr(settled_at, 1, 10) as day,
+            COALESCE(SUM(amount), 0) as total,
+            COUNT(*) as count
+     FROM payments
+     WHERE voided_at IS NULL AND method = 'RAPPI' AND settled_at IS NOT NULL
+       AND substr(settled_at, 1, 10) BETWEEN ? AND ?
+     GROUP BY day
+     ORDER BY day`,
+    [from, to]
+  );
+  const rappiPendiente = await db.get(
+    `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+     FROM payments
+     WHERE voided_at IS NULL AND method = 'RAPPI' AND settled_at IS NULL`
+  );
+
   // CONTRATO (2026-10-25): fiados/pedidos grandes que pagan después. Entra en
   // totals.sales (es venta del período, como Rappi) y se informa aparte:
   // cuánto de eso fue a contrato y cuánto sigue pendiente de cobrar. El
@@ -241,6 +264,15 @@ async function computeSummary(db, from, to) {
       total: rappiSales,
       count: rappiRow?.count || 0,
       byDay: rappiByDay,
+      depositado: {
+        total: rappiDepositadoByDay.reduce((s, d) => s + (d.total || 0), 0),
+        count: rappiDepositadoByDay.reduce((s, d) => s + (d.count || 0), 0),
+        byDay: rappiDepositadoByDay,
+      },
+      pendiente: {
+        total: rappiPendiente?.total || 0,
+        count: rappiPendiente?.count || 0,
+      },
     },
     contratos: {
       total: contratosDetalle.reduce((s, c) => s + (c.amount || 0), 0),
@@ -473,6 +505,17 @@ router.get("/summary/excel", requireAuth, requireRole("CAJA"), async (req, res) 
     rappi.addRows(summary.rappi.byDay);
     rappi.addRow([]);
     rappi.addRow(["Total que Rappi debe transferir", "", summary.rappi.total]).font = { bold: true };
+    // La plata que ENTRÓ de Rappi, por la fecha del depósito (se marca en
+    // Administración → Rappi). No va en "ventas": la venta contó el día del pedido.
+    if (summary.rappi.depositado?.count > 0 || summary.rappi.pendiente?.count > 0) {
+      rappi.addRow([]);
+      rappi.addRow(["Depositado por Rappi (por fecha del depósito)"]).font = { bold: true };
+      summary.rappi.depositado.byDay.forEach((d) => {
+        rappi.addRow([d.day, d.count, d.total]);
+      });
+      rappi.addRow(["Total depositado en el período", summary.rappi.depositado.count, summary.rappi.depositado.total]).font = { bold: true };
+      rappi.addRow(["Pendiente por depositar (todo)", summary.rappi.pendiente.count, summary.rappi.pendiente.total]).font = { bold: true };
+    }
     negrita(rappi);
 
     // Contratos: fiados y pedidos grandes del período, quién debe y si ya pagó

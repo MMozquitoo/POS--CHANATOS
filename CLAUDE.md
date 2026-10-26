@@ -127,6 +127,11 @@ backend/
     reports.js           # /reports/summary?from&to: ventas/propinas/descuentos/canceladas, ticket
                          #   (totals.sales INCLUYE Rappi — es venta del período aunque la plata
                          #   llegue después; totals.rappi dice cuánto de eso es Rappi),
+                         #   summary.rappi.depositado {total,count,byDay} = plata que ENTRÓ de
+                         #   Rappi POR FECHA DEL DEPÓSITO (settled_at; dueño 2026-10-25: "como
+                         #   contrato — la plata aparece el día que pagan") + .pendiente global.
+                         #   NO se suma a ventas (la venta ya contó el día del pedido). UI:
+                         #   Reportes → "Plata que entró de Rappi" + hoja Rappi del Excel.
                          #   promedio, top productos, por método/día/hora, pedidos por hora de llegada,
                          #   tiempo de preparación (orders.ready_at). Todo lo monetario cuenta AL PAGAR.
                          #   /reports/pnl?from&to (Contaduría, 2026-08): ventas − compras de insumos
@@ -618,7 +623,10 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
   después"), pero SÍ cuenta como venta en Reportes/Contaduría. En DetalleMesa el único método
   ofrecido para una orden Rappi es "Rappi". El depósito semanal se cuadra en Administración →
   Rappi: se seleccionan los pedidos que cubrió y se marcan "depositados" (settled_at en la fila
-  RAPPI, en lote; no crea pagos ni toca ninguna caja — ver payments.js).
+  RAPPI, en lote; no crea pagos ni toca ninguna caja — ver payments.js). Esa plata aparece en
+  Reportes como "Plata que entró de Rappi" EL DÍA DEL DEPÓSITO (como los contratos), separada
+  de las ventas para no contar dos veces: la venta es del día del pedido, la plata del día que
+  Rappi pagó.
 - **Contrato (2026-10-25):** fiado o pedido grande que pagan después. "Hoy comió gratis": el día
   del contrato NO es venta ni plata (excluido de Reportes y arqueo). La venta y la plata aparecen
   EL DÍA QUE PAGAN: marcar "Ya pagó" en Administración → Contratos exige caja abierta, pregunta
