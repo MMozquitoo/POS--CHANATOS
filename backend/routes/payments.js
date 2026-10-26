@@ -1159,6 +1159,112 @@ router.patch("/contratos/:id", requireAuth, requireRole("CAJA"), async (req, res
   }
 });
 
+// RAPPI — LIQUIDACIÓN DEL DEPÓSITO (2026-10-25): un pedido Rappi se cierra
+// solo con un pago method='RAPPI' (la venta YA contó ese día en Reportes; la
+// plata la deposita Rappi DESPUÉS, normalmente semanal). Acá se marca qué
+// pedidos ya cubrió un depósito: settled_at en la MISMA fila RAPPI. A
+// diferencia de los contratos NO se crea un pago nuevo (duplicaría la venta)
+// y NO se exige caja abierta (la plata llega al banco, no a ninguna caja).
+router.get("/rappi", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const rows = await db.all(
+      `SELECT p.id, p.order_id, p.amount, p.created_at, p.settled_at,
+              o.daily_no, o.code, o.service, o.customer_name,
+              t.number as table_number
+       FROM payments p
+       JOIN orders o ON o.id = p.order_id
+       LEFT JOIN tables t ON t.id = o.table_id
+       WHERE p.method = 'RAPPI' AND p.voided_at IS NULL
+       ORDER BY p.created_at DESC`
+    );
+    // Productos del pedido (para la tarjeta estilo Órdenes, igual que Contratos)
+    const orderIds = [...new Set(rows.map((r) => r.order_id))];
+    const itemsByOrder = {};
+    if (orderIds.length > 0) {
+      const placeholders = orderIds.map(() => "?").join(",");
+      const items = await db.all(
+        `SELECT order_id, name, qty, price FROM order_items
+         WHERE order_id IN (${placeholders}) AND voided_at IS NULL
+         ORDER BY id`,
+        orderIds
+      );
+      for (const it of items) {
+        (itemsByOrder[it.order_id] = itemsByOrder[it.order_id] || []).push({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+        });
+      }
+    }
+    rows.forEach((r) => { r.items = itemsByOrder[r.order_id] || []; });
+
+    const pending = rows.filter((r) => !r.settled_at);
+    const settled = rows.filter((r) => r.settled_at).slice(0, 60);
+    res.json({
+      pending,
+      settled,
+      totalPending: pending.reduce((s, r) => s + (r.amount || 0), 0),
+    });
+  } catch (error) {
+    console.error("Error listando pedidos de Rappi:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// Marcar/desmarcar en lote: un depósito semanal cubre muchos pedidos.
+router.patch("/rappi/settle", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const ids = Array.isArray(req.body?.paymentIds)
+      ? [...new Set(req.body.paymentIds.map((n) => parseInt(n)).filter((n) => Number.isInteger(n) && n > 0))]
+      : [];
+    if (ids.length === 0) {
+      return res.status(400).json({ error: "Indica qué pedidos de Rappi marcar (paymentIds)" });
+    }
+    const settled = req.body?.settled !== false;
+    const placeholders = ids.map(() => "?").join(",");
+    const rows = await db.all(
+      `SELECT id, amount, settled_at FROM payments
+       WHERE id IN (${placeholders}) AND method = 'RAPPI' AND voided_at IS NULL`,
+      ids
+    );
+    if (rows.length !== ids.length) {
+      return res.status(404).json({ error: "Algún pago no existe o no es de Rappi" });
+    }
+    const target = rows.filter((r) => (settled ? !r.settled_at : !!r.settled_at));
+    if (target.length === 0) {
+      return res.status(409).json({
+        error: settled
+          ? "Esos pedidos ya estaban marcados como depositados"
+          : "Esos pedidos no estaban marcados como depositados",
+      });
+    }
+    const timestamp = toBogotaSQLiteTimestamp(new Date());
+    const targetIds = target.map((r) => r.id);
+    const targetPh = targetIds.map(() => "?").join(",");
+    await db.run(
+      `UPDATE payments SET settled_at = ? WHERE id IN (${targetPh})`,
+      [settled ? timestamp : null, ...targetIds]
+    );
+    const total = target.reduce((s, r) => s + (r.amount || 0), 0);
+    await logAudit({
+      action: settled ? "RAPPI_DEPOSITADO" : "RAPPI_DEPOSITO_DESHECHO",
+      entity_type: "payment",
+      entity_id: targetIds[0],
+      user_id: req.user.id,
+      summary: settled
+        ? `Depósito de Rappi: ${targetIds.length} pedido(s) por ${total} marcados como depositados`
+        : `Depósito de Rappi deshecho: ${targetIds.length} pedido(s) por ${total} vuelven a pendiente`,
+      meta: { payment_ids: targetIds, total, settled },
+    });
+    res.json({ ok: true, settled, count: targetIds.length, total });
+  } catch (error) {
+    console.error("Error liquidando pedidos de Rappi:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 router.get("/today", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const db = getDb();

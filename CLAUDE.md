@@ -93,6 +93,13 @@ backend/
                          #   normalizePaymentItemsPayload tiene TRES copias (DetalleMesa.jsx,
                          #   utils/payments.js, CentroTotal.jsx) y su methodMap convertía métodos
                          #   desconocidos a EFECTIVO en silencio — RAPPI/CONTRATO ya están en las 3.
+                         #   LIQUIDACIÓN RAPPI (2026-10-25): GET /payments/rappi (pendientes+
+                         #   depositados con items) y PATCH /payments/rappi/settle {paymentIds,
+                         #   settled} EN LOTE — cuadrar el depósito semanal marcando settled_at en
+                         #   la MISMA fila RAPPI. A diferencia de CONTRATO, NO crea pagos (la venta
+                         #   YA contó el día del pedido) y NO exige caja (la plata llega al banco).
+                         #   UI: Administración → Rappi (pages/Caja/Rappi.jsx, /rappi): tarjetas
+                         #   seleccionables al toque + "Marcar depositados (N · $X)" + deshacer.
     cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash,
                          #   declared_transfer, declared_card opcional}. (OJO: /cash/session/open NO
                          #   existe). Arqueo excluye pagos anulados e incluye propinas en efectivo en
@@ -609,7 +616,9 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
   Se cierra solo al quedar LISTO con un pago `RAPPI`; NO entra en el total ni en el arqueo del
   cierre de caja ni en el "Total cobrado" del Resumen (se muestra aparte como "Rappi, paga
   después"), pero SÍ cuenta como venta en Reportes/Contaduría. En DetalleMesa el único método
-  ofrecido para una orden Rappi es "Rappi".
+  ofrecido para una orden Rappi es "Rappi". El depósito semanal se cuadra en Administración →
+  Rappi: se seleccionan los pedidos que cubrió y se marcan "depositados" (settled_at en la fila
+  RAPPI, en lote; no crea pagos ni toca ninguna caja — ver payments.js).
 - **Contrato (2026-10-25):** fiado o pedido grande que pagan después. "Hoy comió gratis": el día
   del contrato NO es venta ni plata (excluido de Reportes y arqueo). La venta y la plata aparecen
   EL DÍA QUE PAGAN: marcar "Ya pagó" en Administración → Contratos exige caja abierta, pregunta

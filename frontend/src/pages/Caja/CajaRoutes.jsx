@@ -30,6 +30,7 @@ const Diagnostico = lazy(() => import('./Diagnostico'));
 const AperturaCaja = lazy(() => import('./AperturaCaja'));
 const HistorialGeneral = lazy(() => import('./HistorialGeneral'));
 const Contratos = lazy(() => import('./Contratos'));
+const Rappi = lazy(() => import('./Rappi'));
 const Conexion = lazy(() => import('./Conexion'));
 const Aplicacion = lazy(() => import('./Aplicacion'));
 
@@ -80,6 +81,8 @@ export default function CajaRoutes() {
         {/* Contratos: fiados y pedidos grandes que pagan después (método
             Contrato al cobrar); marcar pagado no exige caja abierta */}
         <Route path="/contratos" element={<Contratos />} />
+        {/* Rappi: cuadrar el depósito semanal — marcar qué pedidos ya pagó Rappi */}
+        <Route path="/rappi" element={<Rappi />} />
         <Route path="/mas" element={<MasCaja />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/ventanilla" element={<VentanillaCaja />} />

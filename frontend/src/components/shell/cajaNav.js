@@ -26,6 +26,9 @@ export const ADMIN_NAV = [
   // Contratos = fiados y pedidos grandes (ej. 200 sándwiches) que pagan
   // después: se fían al cobrar (método "Contrato") y acá se marcan pagados
   { label: 'Contratos', to: '/contratos', icon: 'cobrar' },
+  // Rappi = cuadrar el depósito semanal: marcar qué pedidos ya cubrió la
+  // plata que Rappi depositó (no crea pagos: la venta ya contó ese día)
+  { label: 'Rappi', to: '/rappi', icon: 'domicilio' },
   // 'Compras y gastos' (/compras) oculta: compras, inventario y gastos van a
   // vivir en chanatos-plataforma-dev (dueño, 2026-10-25). El gasto rápido del
   // Cierre de caja sigue (lo necesita el conteo del efectivo).
