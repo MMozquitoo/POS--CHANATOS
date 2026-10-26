@@ -197,6 +197,25 @@
   animation: toast-in var(--dur-select) var(--ease-out);
 }
 
+/* Botón principal del COLOR DEL ESTADO (nueva azul, en preparación ámbar,
+   lista verde — los mismos de las pills/columnas en todo el POS). El ámbar
+   lleva texto oscuro: blanco sobre #f59f00 no tiene contraste. */
+.order-actions .btn--primary.st-nuevo { background: #1971c2; color: #fff; }
+.order-actions .btn--primary.st-prep { background: #f59f00; color: var(--gray-900); }
+.order-actions .btn--primary.st-listo { background: #2b8a3e; color: #fff; }
+.order-actions .btn--primary.st-nuevo:hover,
+.order-actions .btn--primary.st-prep:hover,
+.order-actions .btn--primary.st-listo:hover { filter: brightness(0.94); }
+.order-actions .btn--primary.st-nuevo:active,
+.order-actions .btn--primary.st-prep:active,
+.order-actions .btn--primary.st-listo:active { filter: brightness(0.88); }
+
+/* El estado "armado" (confirmar con segundo toque) manda sobre el color */
+.order-actions .btn--primary.is-armed {
+  background: var(--text);
+  color: #fff;
+}
+
 .order-line__kitchen {
   margin-top: 3px;
   display: inline-flex;

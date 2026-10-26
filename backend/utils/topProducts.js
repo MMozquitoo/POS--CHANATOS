@@ -11,6 +11,52 @@
 //     y demás ("Coca-Cola Personal - 250 ml") no cambia nada.
 //   - VARIAS variantes → name = base, detail = "8 sencillo · 4 combo"
 //     (variant NULL = la versión sola del producto; se rotula "sencillo").
+// SOLO el Resumen del turno (dueño, 2026-10-25): la pantalla principal cuenta
+// PRODUCCIÓN, no referencias del menú — todas las hamburguesas en UNA línea
+// (la Doble Carne cuenta por 2: son dos carnes), todos los perros juntos
+// (sencillo y especial cuentan igual), y el resto igual que
+// agruparTopProducts. Reportes NO usa esto: allá sigue producto por producto.
+const FAMILIAS = {
+  HAMBURGUESAS: { nombre: "Hamburguesas", prefijo: /^hamburguesa\s+/i },
+  PERROS_CALIENTES: { nombre: "Perros calientes", prefijo: /^perro\s+/i },
+};
+
+// "Doble" vale por 2 (dos carnes), "Triple" por 3; el resto por 1
+const pesoUnidad = (base) => (/triple/i.test(base) ? 3 : /doble/i.test(base) ? 2 : 1);
+
+export function agruparTopResumen(rows) {
+  const familias = new Map();
+  const resto = [];
+  for (const r of rows) {
+    const fam = FAMILIAS[r.category];
+    if (!fam) {
+      resto.push(r);
+      continue;
+    }
+    let f = familias.get(r.category);
+    if (!f) {
+      f = { name: fam.nombre, qty: 0, total: 0, porBase: new Map() };
+      familias.set(r.category, f);
+    }
+    const peso = pesoUnidad(r.base);
+    f.qty += (r.qty || 0) * peso;
+    f.total += r.total || 0;
+    // Etiqueta corta para el desglose: "Hamburguesa Clásica" → "clásica"
+    const label = r.base.replace(fam.prefijo, "").toLowerCase() || r.base.toLowerCase();
+    const e = f.porBase.get(label) || { label, qty: 0, peso };
+    e.qty += r.qty || 0;
+    f.porBase.set(label, e);
+  }
+  const famRows = [...familias.values()].map((f) => {
+    const detail = [...f.porBase.values()]
+      .sort((a, b) => b.qty - a.qty)
+      .map((e) => `${e.qty} ${e.label}${e.peso > 1 ? ` ×${e.peso}` : ""}`)
+      .join(" · ");
+    return { name: f.name, qty: f.qty, total: f.total, detail };
+  });
+  return [...famRows, ...agruparTopProducts(resto)];
+}
+
 export function agruparTopProducts(rows) {
   const grupos = new Map();
   for (const r of rows) {

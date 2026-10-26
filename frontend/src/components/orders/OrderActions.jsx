@@ -52,6 +52,9 @@ export default function OrderActions({ order, from, onDone, onOpen, compact = fa
 
   const primary = actions.filter((a) => a.kind === 'primary');
   const secondary = actions.filter((a) => a.kind === 'secondary');
+  // Botón principal del color del estado (dueño, 2026-10-25): nueva azul,
+  // en preparación ámbar, lista verde — mismos colores de estado del POS
+  const statusClass = { NUEVO: 'st-nuevo', EN_PREP: 'st-prep', LISTO: 'st-listo' }[order.status] || '';
 
   return (
     <div className={`order-actions ${compact ? 'is-compact' : ''}`}>
@@ -59,7 +62,7 @@ export default function OrderActions({ order, from, onDone, onOpen, compact = fa
         <button
           key={a.key}
           type="button"
-          className={`btn btn--primary btn--block ${armed === a.key ? 'is-armed' : ''}`}
+          className={`btn btn--primary btn--block ${statusClass} ${armed === a.key ? 'is-armed' : ''}`}
           disabled={!!busy}
           onClick={(e) => run(a, e)}
         >
