@@ -200,7 +200,10 @@ export default function RielCobro({
                   Pago por adelantado: la orden sigue en cocina y se cierra sola cuando esté lista.
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: esRappi ? '1fr' : 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
+              {/* 3 métodos en UNA fila: con 2 columnas el chip Contrato creaba
+                  una segunda fila y el riel ya no cabía en pantallas de 768px
+                  de alto (doble scrollbar en el PC del local, 2026-10-25) */}
+              <div style={{ display: 'grid', gridTemplateColumns: esRappi ? '1fr' : 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                 {/* TARJETA oculta a pedido del dueño: no hay datáfono activo todavía.
                     Se deja el código de payments/reportes intacto (reversible) — ver
                     CLAUDE.md "Pendientes conocidos": evalúa Bold/Wompi. */}

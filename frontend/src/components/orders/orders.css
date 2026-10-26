@@ -597,6 +597,19 @@
   padding-bottom: 1rem !important;
 }
 
+/* Dentro de la hoja, el riel de cobro NO lleva scroll propio: la hoja ya
+   tiene el suyo (.order-ws__body) y en Windows quedaban DOS barras pegadas
+   ("doble scroll", PC del local 2026-10-25). El sticky + max-height de
+   mobile-polish.css (≥901px) es para la PÁGINA /mesa/:id, no para acá. */
+.order-ws__body .detalle-mesa-grid > :nth-child(2) {
+  position: static !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+.order-ws__body .resumen-panel {
+  overflow-y: visible !important;
+}
+
 @media (min-width: 769px) and (max-width: 1099px) {
   .order-ws {
     width: calc(100vw - 100px);
