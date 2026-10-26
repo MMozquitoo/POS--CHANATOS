@@ -197,6 +197,22 @@ async function computeSummary(db, from, to) {
     [from, to]
   );
 
+  // CONTRATO (2026-10-25): fiados/pedidos grandes que pagan después. Entra en
+  // totals.sales (es venta del período, como Rappi) y se informa aparte:
+  // cuánto de eso fue a contrato y cuánto sigue pendiente de cobrar. El
+  // detalle (quién, cuándo, si ya pagó) va a la hoja "Contratos" del Excel.
+  const contratoRow = byMethod.find((r) => r.method === "CONTRATO");
+  const contratosDetalle = await db.all(
+    `SELECT p.amount, p.created_at, p.debtor_name, p.settled_at, p.settled_method,
+            o.daily_no, o.code, o.customer_name
+     FROM payments p
+     JOIN orders o ON o.id = p.order_id
+     WHERE p.voided_at IS NULL AND p.method = 'CONTRATO'
+       AND substr(p.created_at, 1, 10) BETWEEN ? AND ?
+     ORDER BY p.created_at`,
+    [from, to]
+  );
+
   return {
     from,
     to,
@@ -213,11 +229,18 @@ async function computeSummary(db, from, to) {
       maxPrepMin: prepRow?.max_min != null ? Math.round(prepRow.max_min) : null,
       burgersSold: burgersRow?.qty || 0,
       rappi: rappiSales,
+      contrato: contratoRow?.total || 0,
     },
     rappi: {
       total: rappiSales,
       count: rappiRow?.count || 0,
       byDay: rappiByDay,
+    },
+    contratos: {
+      total: contratoRow?.total || 0,
+      count: contratoRow?.count || 0,
+      pendiente: contratosDetalle.filter((c) => !c.settled_at).reduce((s, c) => s + (c.amount || 0), 0),
+      rows: contratosDetalle,
     },
     byMethod,
     byService,
@@ -346,7 +369,7 @@ router.get("/pnl", requireAuth, requireRole("CAJA"), async (req, res) => {
 });
 
 
-const METHOD_LABELS = { EFECTIVO: "Efectivo", TARJETA: "Tarjeta", TRANSFERENCIA: "Transferencia" };
+const METHOD_LABELS = { EFECTIVO: "Efectivo", TARJETA: "Tarjeta", TRANSFERENCIA: "Transferencia", RAPPI: "Rappi", CONTRATO: "Contrato" };
 const SERVICE_LABELS = { MESA: "Mesa", VENTANILLA: "Ventanilla", DOMICILIO: "Domicilio" };
 
 // GET /api/reports/summary/excel?from=&to= → el reporte de ventas del rango
@@ -444,6 +467,30 @@ router.get("/summary/excel", requireAuth, requireRole("CAJA"), async (req, res) 
     rappi.addRow([]);
     rappi.addRow(["Total que Rappi debe transferir", "", summary.rappi.total]).font = { bold: true };
     negrita(rappi);
+
+    // Contratos: fiados y pedidos grandes del período, quién debe y si ya pagó
+    if (summary.contratos.count > 0) {
+      const contratos = wb.addWorksheet("Contratos");
+      contratos.columns = [
+        { header: "Cliente", key: "cliente", width: 28 },
+        { header: "Orden", key: "orden", width: 12 },
+        { header: "Día", key: "dia", width: 14 },
+        { header: "Total", key: "total", width: 16 },
+        { header: "Estado", key: "estado", width: 26 },
+      ];
+      contratos.addRows(summary.contratos.rows.map((c) => ({
+        cliente: c.debtor_name || c.customer_name || "Sin nombre",
+        orden: c.daily_no || c.code || "",
+        dia: String(c.created_at || "").slice(0, 10),
+        total: c.amount,
+        estado: c.settled_at
+          ? `Pagado ${String(c.settled_at).slice(0, 10)}${c.settled_method ? ` (${METHOD_LABELS[c.settled_method] || c.settled_method})` : ""}`
+          : "Pendiente",
+      })));
+      contratos.addRow([]);
+      contratos.addRow(["Pendiente por cobrar", "", "", summary.contratos.pendiente]).font = { bold: true };
+      negrita(contratos);
+    }
 
     // (Hoja "Consumo de insumos" quitada el 2026-10-25: el inventario va a
     // vivir en chanatos-plataforma-dev, igual que en la pantalla de Reportes.)

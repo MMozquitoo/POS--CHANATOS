@@ -23,6 +23,9 @@ export const CIERRE_NAV = { key: 'cierre', label: 'Cierre de caja', to: '/cierre
 // todo vive dentro de CajaRoutes → RequireRole CAJA).
 export const ADMIN_NAV = [
   { label: 'Menú y precios', to: '/menu', icon: 'menu' },
+  // Contratos = fiados y pedidos grandes (ej. 200 sándwiches) que pagan
+  // después: se fían al cobrar (método "Contrato") y acá se marcan pagados
+  { label: 'Contratos', to: '/contratos', icon: 'cobrar' },
   // 'Compras y gastos' (/compras) oculta: compras, inventario y gastos van a
   // vivir en chanatos-plataforma-dev (dueño, 2026-10-25). El gasto rápido del
   // Cierre de caja sigue (lo necesita el conteo del efectivo).

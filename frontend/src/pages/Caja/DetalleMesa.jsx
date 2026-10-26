@@ -115,7 +115,12 @@ function normalizePaymentItemsPayload({
     'TRANSFER': 'TRANSFERENCIA',
     'EFECTIVO': 'EFECTIVO',
     'TARJETA': 'TARJETA',
-    'TRANSFERENCIA': 'TRANSFERENCIA'
+    'TRANSFERENCIA': 'TRANSFERENCIA',
+    // OJO: un método que falte acá se cobra como EFECTIVO en silencio (bug
+    // real 2026-10-25: el primer "Contrato" entró al arqueo como efectivo).
+    // Hay TRES copias de este helper: acá, utils/payments.js y CentroTotal.
+    'RAPPI': 'RAPPI',
+    'CONTRATO': 'CONTRATO'
   };
   normalizedMethod = methodMap[normalizedMethod] || 'EFECTIVO';
 
@@ -764,8 +769,9 @@ export default function DetalleMesa({ embedded = false, tableId: tableIdProp, or
       return;
     }
 
-    // FASE 9.1: Verificar sesión de caja antes de cobrar
-    if (cashSessionActive === false) {
+    // FASE 9.1: Verificar sesión de caja antes de cobrar. CONTRATO no necesita
+    // caja: no entra plata (la deuda se salda después en Administración → Contratos)
+    if (cashSessionActive === false && paymentMethod !== 'CONTRATO') {
       showAlert('Abre la caja antes de cobrar (puede ser con $ 0)');
       return;
     }
@@ -888,7 +894,21 @@ export default function DetalleMesa({ embedded = false, tableId: tableIdProp, or
         return;
       }
 
-      if (!(await showConfirm(`¿Cobrar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(totalACobrar)}?`))) {
+      // CONTRATO (2026-10-25): fiado o pedido grande que pagan después. Se pide el
+      // nombre; la orden se cierra normal y la deuda queda en Administración →
+      // Contratos hasta marcarla pagada.
+      let debtorName = null;
+      if (paymentMethod === 'CONTRATO') {
+        debtorName = (await showPrompt('¿A nombre de quién queda el contrato?', 'Contrato (paga después)', 'Nombre del cliente o negocio'))?.trim();
+        if (!debtorName) {
+          setLoadingPay(false);
+          return;
+        }
+        if (!(await showConfirm(`¿Dejar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(totalACobrar)} como contrato a nombre de ${debtorName}? Queda pendiente en Administración → Contratos.`))) {
+          setLoadingPay(false);
+          return;
+        }
+      } else if (!(await showConfirm(`¿Cobrar ORDEN ${activeOrder.daily_no || activeOrder.code || activeOrder.id} por ${formatPriceCOP(totalACobrar)}?`))) {
         setLoadingPay(false);
         return;
       }
@@ -921,8 +941,8 @@ export default function DetalleMesa({ embedded = false, tableId: tableIdProp, or
       // FASE F10: propina opcional; con descuento o abono previo el cobro va por monto (el saldo)
       const tip = Math.max(0, parseMontoCOP(tipAmount) || 0);
       const paymentRes = porMonto
-        ? await axios.post('/payments', { orderId: activeOrder.id, method: paymentMethod, amount: totalACobrar, tipAmount: tip })
-        : await axios.post('/payments/items', { ...payload, tipAmount: tip });
+        ? await axios.post('/payments', { orderId: activeOrder.id, method: paymentMethod, amount: totalACobrar, tipAmount: tip, debtorName })
+        : await axios.post('/payments/items', { ...payload, tipAmount: tip, debtorName });
       setTipAmount('');
 
       // Recibo final por el armador único (cobro/recibo.js): cuenta completa

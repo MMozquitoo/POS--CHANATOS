@@ -21,7 +21,7 @@ const PERIODS = [
   { key: 'rango', label: 'Rango' },
 ];
 
-const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia', RAPPI: 'Rappi' };
+const METHOD_LABELS = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia', RAPPI: 'Rappi', CONTRATO: 'Contrato' };
 
 // Fila con barra horizontal (una sola magnitud → un solo tono validado #B8860B)
 // money=false para magnitudes que son conteos, no plata; display sobreescribe
@@ -192,6 +192,12 @@ export default function Reportes() {
                 <div className="rep-kpi">
                   <div className="rep-kpi-value">{formatPriceCOP(t.rappi)}</div>
                   <div className="rep-kpi-label">De eso, Rappi (lo paga Rappi después)</div>
+                </div>
+              )}
+              {(t.contrato || 0) > 0 && (
+                <div className="rep-kpi">
+                  <div className="rep-kpi-value">{formatPriceCOP(t.contrato)}</div>
+                  <div className="rep-kpi-label">De eso, contratos (pagan después; ver Administración → Contratos)</div>
                 </div>
               )}
               <div className="rep-kpi">

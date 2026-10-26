@@ -75,6 +75,20 @@ backend/
                          #   primero y luego items NO (409 con el saldo) — cobraba cada item completo
                          #   sin descontar el abono (sobrecobro reproducido). Al dividir una fila por
                          #   cantidad se copia también special_note.
+                         #   CONTRATO (2026-10-25): method='CONTRATO' = fiado o pedido grande (ej.
+                         #   200 sándwiches) que pagan DESPUÉS. Cierra la orden normal (PAGADA+
+                         #   inventario+mesa libre) con debtor_name; NO exige caja abierta y NO entra
+                         #   a ningún arqueo (igual que RAPPI; excluido en cash.js), SÍ es venta en
+                         #   Reportes el día que se fió. GET /payments/contratos (pendientes+pagados)
+                         #   y PATCH /payments/contratos/:id {settled, method} — marcar "ya pagó" solo
+                         #   anota settled_at/settled_method (NO crea pago nuevo, NO toca cajas; por
+                         #   eso funciona con caja abierta o cerrada). UI: chip "Contrato" en el riel
+                         #   de cobro (pide nombre) + pantalla Administración → Contratos
+                         #   (pages/Caja/Contratos.jsx, /contratos). El CHECK de payments.method se
+                         #   reconstruyó otra vez (RAPPI+CONTRATO, mismo patrón). TRAMPA RESUELTA:
+                         #   normalizePaymentItemsPayload tiene TRES copias (DetalleMesa.jsx,
+                         #   utils/payments.js, CentroTotal.jsx) y su methodMap convertía métodos
+                         #   desconocidos a EFECTIVO en silencio — RAPPI/CONTRATO ya están en las 3.
     cash.js              # Caja: POST /cash/open {initialCash} y /cash/session/close {closing_cash,
                          #   declared_transfer, declared_card opcional}. (OJO: /cash/session/open NO
                          #   existe). Arqueo excluye pagos anulados e incluye propinas en efectivo en
@@ -592,6 +606,10 @@ detalle técnico del error en pantalla (sirve para diagnóstico en sitio).
   cierre de caja ni en el "Total cobrado" del Resumen (se muestra aparte como "Rappi, paga
   después"), pero SÍ cuenta como venta en Reportes/Contaduría. En DetalleMesa el único método
   ofrecido para una orden Rappi es "Rappi".
+- **Contrato (2026-10-25):** fiado o pedido grande que pagan después. Se cobra con el método
+  "Contrato" (pide el nombre), cierra la orden normal y la deuda queda en Administración →
+  Contratos. No entra a ningún arqueo (como Rappi) pero sí es venta en Reportes. Marcar "ya
+  pagó" funciona con caja abierta o cerrada y solo anota cuándo/cómo — no crea pagos.
 - **Caja abierta / cerrada (2026-10):** los pedidos se toman SIEMPRE, con o sin caja (mesero,
   caja, cocina). Sin caja abierta NO se cobra (payments.js 400), no se anulan pagos viejos sin
   sesión, y la página de pedidos web no deja pedir (webOrdersPoller.js le reporta `isOpen`).

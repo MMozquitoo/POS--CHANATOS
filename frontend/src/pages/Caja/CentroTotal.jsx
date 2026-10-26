@@ -62,7 +62,9 @@ function normalizePaymentItemsPayload({
     'TRANSFER': 'TRANSFERENCIA',
     'EFECTIVO': 'EFECTIVO',
     'TARJETA': 'TARJETA',
-    'TRANSFERENCIA': 'TRANSFERENCIA'
+    'TRANSFERENCIA': 'TRANSFERENCIA',
+    'RAPPI': 'RAPPI',
+    'CONTRATO': 'CONTRATO'
   };
   normalizedMethod = methodMap[normalizedMethod] || 'EFECTIVO';
 

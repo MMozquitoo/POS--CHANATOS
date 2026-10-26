@@ -29,6 +29,7 @@ export const PAYMENT_METHOD_LABELS = {
   TARJETA: 'Tarjeta',
   TRANSFERENCIA: 'Transferencia',
   RAPPI: 'Rappi',
+  CONTRATO: 'Contrato', // fiado/pedido grande que pagan después: tampoco entra al arqueo (ver Contratos)
 };
 
 export function paymentMethodLabel(method) {

@@ -29,6 +29,7 @@ const ConfigServidor = lazy(() => import('./ConfigServidor'));
 const Diagnostico = lazy(() => import('./Diagnostico'));
 const AperturaCaja = lazy(() => import('./AperturaCaja'));
 const HistorialGeneral = lazy(() => import('./HistorialGeneral'));
+const Contratos = lazy(() => import('./Contratos'));
 const Conexion = lazy(() => import('./Conexion'));
 const Aplicacion = lazy(() => import('./Aplicacion'));
 
@@ -76,6 +77,9 @@ export default function CajaRoutes() {
         {/* /historial ahora es la vista combinada (pestañas Pagos/Cierres) —
             junta lo que antes eran dos entradas de menú separadas. */}
         <Route path="/historial" element={<HistorialGeneral />} />
+        {/* Contratos: fiados y pedidos grandes que pagan después (método
+            Contrato al cobrar); marcar pagado no exige caja abierta */}
+        <Route path="/contratos" element={<Contratos />} />
         <Route path="/mas" element={<MasCaja />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/ventanilla" element={<VentanillaCaja />} />

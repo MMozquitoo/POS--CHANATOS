@@ -34,7 +34,11 @@ export function normalizePaymentItemsPayload({
     'TRANSFER': 'TRANSFERENCIA',
     'EFECTIVO': 'EFECTIVO',
     'TARJETA': 'TARJETA',
-    'TRANSFERENCIA': 'TRANSFERENCIA'
+    'TRANSFERENCIA': 'TRANSFERENCIA',
+    // OJO: un método que falte acá se cobraba como EFECTIVO en silencio
+    // (bug real 2026-10-25: el primer "Contrato" entró al arqueo como efectivo)
+    'RAPPI': 'RAPPI',
+    'CONTRATO': 'CONTRATO'
   };
   normalizedMethod = methodMap[normalizedMethod] || 'EFECTIVO';
 

@@ -982,12 +982,13 @@ export const initDatabase = async () => {
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='payments'"
     );
     const paymentsSql = paymentsSqlRow?.sql || "";
-    if (paymentsSql && /CHECK\(method\s+IN\s*\([^)]+\)\)/i.test(paymentsSql) && !paymentsSql.includes("'RAPPI'")) {
-      console.log("  🔄 Actualizando CHECK de payments.method para incluir 'RAPPI'...");
+    // CONTRATO/FIADO (2026-10-25) se suma al mismo rebuild: dispara si falta cualquiera
+    if (paymentsSql && /CHECK\(method\s+IN\s*\([^)]+\)\)/i.test(paymentsSql) && (!paymentsSql.includes("'RAPPI'") || !paymentsSql.includes("'CONTRATO'"))) {
+      console.log("  🔄 Actualizando CHECK de payments.method (RAPPI/CONTRATO)...");
       const paymentsCols = (await database.all("PRAGMA table_info(payments)")).map((c) => c.name);
       const colList = paymentsCols.join(", ");
       const newSql = paymentsSql
-        .replace(/CHECK\(method\s+IN\s*\([^)]+\)\)/i, "CHECK(method IN ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'RAPPI'))")
+        .replace(/CHECK\(method\s+IN\s*\([^)]+\)\)/i, "CHECK(method IN ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'RAPPI', 'CONTRATO'))")
         .replace(/CREATE TABLE\s+"?payments"?\s*\(/i, "CREATE TABLE payments_new (");
       await database.run("PRAGMA foreign_keys=off");
       await database.run("BEGIN IMMEDIATE");
@@ -1005,10 +1006,28 @@ export const initDatabase = async () => {
       }
       await database.run("CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)");
       await database.run("CREATE INDEX IF NOT EXISTS idx_payments_cash_session ON payments(cash_session_id)");
-      console.log("  ✅ CHECK de payments.method actualizado (RAPPI permitido)");
+      console.log("  ✅ CHECK de payments.method actualizado (RAPPI/CONTRATO permitidos)");
     }
   } catch (paymentsCheckError) {
     console.error("⚠️  Error actualizando CHECK de payments.method:", paymentsCheckError);
+  }
+
+  // CONTRATO/FIADO (2026-10-25): payments.method = 'CONTRATO' cierra la orden como deuda
+  // del cliente ("paga después", igual que Rappi: NO entra al arqueo, SÍ es
+  // venta en Reportes). debtor_name = quién debe; settled_at/settled_method =
+  // cuándo/cómo se saldó (solo informativo: saldar NO crea un pago nuevo ni
+  // toca ninguna caja). Chequeo incondicional.
+  try {
+    const paymentsColsFiado = await database.all("PRAGMA table_info(payments)");
+    for (const [col, type] of [["debtor_name", "TEXT"], ["settled_at", "DATETIME"], ["settled_method", "TEXT"]]) {
+      if (!paymentsColsFiado.some((c) => c.name === col)) {
+        console.log(`  ➕ Agregando ${col} a payments...`);
+        await database.run(`ALTER TABLE payments ADD COLUMN ${col} ${type}`);
+        console.log(`  ✅ Campo ${col} agregado a payments`);
+      }
+    }
+  } catch (fiadoError) {
+    console.error("⚠️  Error agregando columnas de contrato:", fiadoError);
   }
 
   console.log("✅ Base de datos inicializada correctamente");

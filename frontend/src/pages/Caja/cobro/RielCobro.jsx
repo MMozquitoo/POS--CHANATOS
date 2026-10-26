@@ -209,6 +209,9 @@ export default function RielCobro({
                   : [
                     { key: 'EFECTIVO', label: 'Efectivo' },
                     { key: 'TRANSFERENCIA', label: 'Transfer.' },
+                    // Contrato = fiado o pedido grande que pagan después. Pide el nombre
+                    // al cobrar y queda en Administración → Deudas.
+                    { key: 'CONTRATO', label: 'Contrato' },
                   ]).map(({ key, label }) => {
                   const selected = paymentMethod === key;
                   return (

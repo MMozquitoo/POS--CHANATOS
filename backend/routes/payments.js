@@ -72,8 +72,8 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     // Validar method
     if (!method) {
       validationErrors.push('Falta method (o payment_method/paymentMethod)');
-    } else if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(method)) {
-      validationErrors.push(`method inválido: ${method}. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA o RAPPI`);
+    } else if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI", "CONTRATO"].includes(method)) {
+      validationErrors.push(`method inválido: ${method}. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA, RAPPI o CONTRATO`);
     }
 
     // Validar tableId u orderId
@@ -163,14 +163,18 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
     const cashSession = await db.get(
       "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1"
     );
-    if (!cashSession || !cashSession.id) {
+    // CONTRATO no necesita caja: no entra plata (la deuda se salda en Contratos)
+    if ((!cashSession || !cashSession.id) && method !== 'CONTRATO') {
       return res.status(400).json({
         error: 'BAD_REQUEST',
         details: 'No hay caja abierta. Debe abrir caja antes de cobrar.',
         errorId
       });
     }
-    const cashSessionId = cashSession.id;
+    const cashSessionId = cashSession?.id ?? null;
+    const debtorName = method === 'CONTRATO'
+      ? String(body.debtorName ?? body.debtor_name ?? '').trim().slice(0, 60) || null
+      : null;
 
     // 2) IN clause seguro con placeholders dinámicos (usar normalizedItemIds)
     const placeholders = normalizedItemIds.map(() => '?').join(',');
@@ -484,8 +488,8 @@ router.post("/items", requireAuth, requireRole("CAJA"), async (req, res) => {
       firstPaymentOfRequest = false;
 
       const paymentResult = await db.run(
-        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [oid, method, orderAmount, req.user.id, paymentTimestamp, cashSessionId, itemsTip]
+        "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount, debtor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [oid, method, orderAmount, req.user.id, paymentTimestamp, cashSessionId, itemsTip, debtorName]
       );
 
       // PASO 16.2.2-B: Validar que el INSERT fue exitoso
@@ -738,8 +742,8 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     // Validar cada línea de pago
     const normalizedLines = [];
     for (const line of paymentLines) {
-      if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(line.method)) {
-        return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA o RAPPI" });
+      if (!["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI", "CONTRATO"].includes(line.method)) {
+        return res.status(400).json({ error: "Método de pago inválido. Debe ser EFECTIVO, TARJETA, TRANSFERENCIA, RAPPI o CONTRATO" });
       }
       const amountNum = typeof line.amount === 'string' ? parseFloat(line.amount) : Number(line.amount);
       if (isNaN(amountNum) || amountNum <= 0) {
@@ -750,15 +754,18 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 
     const db = getDb();
 
-    // Verificar que existe sesión de caja abierta ANTES de cualquier operación
+    // Verificar que existe sesión de caja abierta ANTES de cualquier operación.
+    // CONTRATO no necesita caja: no entra plata (la deuda se salda en Contratos).
+    const soloContrato = normalizedLines.every((l) => l.method === 'CONTRATO');
     const cashSession = await db.get(
       "SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1"
     );
 
-    if (!cashSession) {
+    if (!cashSession && !soloContrato) {
       return res.status(400).json({ error: "No hay caja abierta. Debe abrir caja antes de cobrar." });
     }
-    const cashSessionId = cashSession.id;
+    const cashSessionId = cashSession?.id ?? null;
+    const debtorNameBody = String(req.body.debtorName ?? req.body.debtor_name ?? '').trim().slice(0, 60) || null;
 
     // Verificar que el pedido existe y está LISTO
     const order = await db.get("SELECT * FROM orders WHERE id = ?", [orderId]);
@@ -865,8 +872,8 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
       for (const line of normalizedLines) {
         // La propina se registra en el primer pago del cobro
         const result = await db.run(
-          "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [orderId, line.method, line.amount, req.user.id, paymentTimestamp, cashSessionId, first ? tipAmount : 0]
+          "INSERT INTO payments (order_id, method, amount, created_by, created_at, cash_session_id, tip_amount, debtor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [orderId, line.method, line.amount, req.user.id, paymentTimestamp, cashSessionId, first ? tipAmount : 0, line.method === 'CONTRATO' ? debtorNameBody : null]
         );
         insertedIds.push(result.lastID);
         first = false;
@@ -990,6 +997,94 @@ router.post("/", requireAuth, requireRole("CAJA"), async (req, res) => {
 });
 
 // GET /api/payments/today (mantener para compatibilidad)
+// CONTRATO/FIADO (2026-10-25): deudas de clientes ("fiado / paga después"). La orden se
+// cerró con un pago method='CONTRATO' (venta contada ese día en Reportes, igual
+// que Rappi; NO entra a ningún arqueo). Acá se listan y se marcan como
+// pagadas — a propósito SIN exigir caja abierta: saldar una deuda solo anota
+// cuándo/cómo pagó, no crea un pago nuevo ni toca ninguna sesión.
+router.get("/contratos", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const rows = await db.all(
+      `SELECT p.id, p.order_id, p.amount, p.created_at, p.debtor_name,
+              p.settled_at, p.settled_method,
+              o.daily_no, o.code, o.service, o.customer_name,
+              t.number as table_number,
+              u.name as created_by_name
+       FROM payments p
+       JOIN orders o ON o.id = p.order_id
+       LEFT JOIN tables t ON t.id = o.table_id
+       LEFT JOIN users u ON u.id = p.created_by
+       WHERE p.method = 'CONTRATO' AND p.voided_at IS NULL
+       ORDER BY p.created_at DESC`
+    );
+    const pending = rows.filter((r) => !r.settled_at);
+    const settled = rows.filter((r) => r.settled_at).slice(0, 50);
+    res.json({
+      pending,
+      settled,
+      totalPending: pending.reduce((s, r) => s + (r.amount || 0), 0),
+    });
+  } catch (error) {
+    console.error("Error listando contratos:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+router.patch("/contratos/:id", requireAuth, requireRole("CAJA"), async (req, res) => {
+  try {
+    const db = getDb();
+    const paymentId = parseInt(req.params.id);
+    if (isNaN(paymentId)) {
+      return res.status(400).json({ error: "ID inválido" });
+    }
+    const payment = await db.get("SELECT * FROM payments WHERE id = ?", [paymentId]);
+    if (!payment || payment.method !== "CONTRATO") {
+      return res.status(404).json({ error: "Contrato no encontrado" });
+    }
+    if (payment.voided_at) {
+      return res.status(409).json({ error: "Este contrato está anulado" });
+    }
+    // settled: true = ya pagó (default); false = deshacer una marca por error
+    const settled = req.body?.settled !== false;
+    const settledMethod = ["EFECTIVO", "TRANSFERENCIA", "TARJETA"].includes(req.body?.method)
+      ? req.body.method
+      : null;
+    const timestamp = settled ? toBogotaSQLiteTimestamp(new Date()) : null;
+    await db.run(
+      "UPDATE payments SET settled_at = ?, settled_method = ? WHERE id = ?",
+      [timestamp, settled ? settledMethod : null, paymentId]
+    );
+
+    const orderInfo = await db.get(
+      "SELECT o.*, t.number as table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE o.id = ?",
+      [payment.order_id]
+    );
+    await logAudit({
+      action: settled ? "CONTRATO_PAGADO" : "CONTRATO_REABIERTO",
+      entity_type: "payment",
+      entity_id: paymentId,
+      table_number: orderInfo?.table_number ?? null,
+      order_id: payment.order_id,
+      user_id: req.user.id,
+      summary: settled
+        ? `Contrato de ${payment.debtor_name || 'sin nombre'} por ${payment.amount} marcado como pagado${settledMethod ? ` (${settledMethod})` : ''} - Orden ${orderInfo?.daily_no || orderInfo?.code || payment.order_id}`
+        : `Contrato de ${payment.debtor_name || 'sin nombre'} por ${payment.amount} reabierto - Orden ${orderInfo?.daily_no || orderInfo?.code || payment.order_id}`,
+      meta: {
+        amount: payment.amount,
+        debtor_name: payment.debtor_name,
+        settled,
+        settled_method: settledMethod,
+      },
+    });
+
+    res.json({ ok: true, settled });
+  } catch (error) {
+    console.error("Error actualizando contrato:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 router.get("/today", requireAuth, requireRole("CAJA"), async (req, res) => {
   try {
     const db = getDb();
@@ -1035,7 +1130,7 @@ router.get("/", requireAuth, requireRole("CAJA"), async (req, res) => {
     }
 
     // Filtro por método
-    if (method && ["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI"].includes(method)) {
+    if (method && ["EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI", "CONTRATO"].includes(method)) {
       conditions.push("p.method = ?");
       params.push(method);
     }
