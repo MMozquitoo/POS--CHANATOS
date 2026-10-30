@@ -40,6 +40,22 @@ function prepararDatos() {
     // instalación (se perdería al reinstalar): mejor enterarse en el log.
     console.error('No se pudo preparar la carpeta de datos:', e);
   }
+
+  // RESCATE DEL .env (2026-10-30): mismos secretos (Rappi, pedidos web,
+  // Instagram) que antes se perdían en cada reinstalación porque viven DENTRO
+  // de resources\backend (installer.nsh los rescata a datos\backend.env antes
+  // de que el desinstalador viejo borre esa carpeta). Acá se copian de vuelta
+  // a su lugar de siempre, solo si la instalación nueva no trae uno propio.
+  try {
+    const envDestino = path.join(RES, 'backend', '.env');
+    const envRescatado = path.join(DATA_DIR, 'backend.env');
+    if (!fs.existsSync(envDestino) && fs.existsSync(envRescatado)) {
+      fs.copyFileSync(envRescatado, envDestino);
+      console.log('.env restaurado desde', envRescatado);
+    }
+  } catch (e) {
+    console.error('No se pudo restaurar el .env:', e);
+  }
 }
 
 // Windows agrupa/identifica las notificaciones de la app por este id (debe coincidir

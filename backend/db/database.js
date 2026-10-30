@@ -1033,6 +1033,71 @@ export const initDatabase = async () => {
     console.error("⚠️  Error agregando columnas de contrato:", fiadoError);
   }
 
+  // INSTAGRAM (2026-10-29): publicaciones y historias programadas desde
+  // Administración → Instagram. La imagen vive en Vercel Blob (instagramBlob.js,
+  // Instagram exige una URL pública); image_url guarda esa URL. ig_media_id
+  // queda NULL hasta publicarse; sirve para poder borrar la publicación desde
+  // el POS después. Chequeo incondicional.
+  try {
+    await database.run(`
+      CREATE TABLE IF NOT EXISTS instagram_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL CHECK(type IN ('POST', 'STORY')),
+        caption TEXT,
+        image_url TEXT NOT NULL,
+        scheduled_at DATETIME NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK(status IN ('PENDIENTE', 'PUBLICADO', 'ERROR', 'CANCELADO')),
+        error_message TEXT,
+        ig_media_id TEXT,
+        published_at DATETIME,
+        created_by INTEGER,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+    await database.run(
+      `CREATE INDEX IF NOT EXISTS idx_instagram_posts_pending ON instagram_posts(status, scheduled_at)`
+    );
+  } catch (instagramError) {
+    console.error("⚠️  Error creando tabla instagram_posts:", instagramError);
+  }
+
+  // BIBLIOTECA DE INSTAGRAM (2026-10-30): banco de piezas ya generadas (ej. la
+  // campaña "30 días" importada una vez con scripts/import-instagram-library.js)
+  // para arrastrar al calendario sin subir archivo cada vez. Un mismo elemento
+  // se puede programar en varias fechas (no se "consume"). Chequeo incondicional.
+  try {
+    await database.run(`
+      CREATE TABLE IF NOT EXISTS instagram_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL CHECK(type IN ('POST', 'STORY')),
+        caption TEXT,
+        image_url TEXT NOT NULL,
+        label TEXT,
+        day_order INTEGER,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (libraryError) {
+    console.error("⚠️  Error creando tabla instagram_library:", libraryError);
+  }
+
+  // CALENDARIO DE INSTAGRAM (2026-10-30): library_id rastrea de qué pieza de
+  // la biblioteca salió una publicación programada (solo informativo); permalink
+  // guarda el link real tras publicar (botón "Ver en Instagram"). Chequeo incondicional.
+  try {
+    const igCalCols = await database.all("PRAGMA table_info(instagram_posts)");
+    for (const [col, type] of [["library_id", "INTEGER"], ["permalink", "TEXT"]]) {
+      if (!igCalCols.some((c) => c.name === col)) {
+        console.log(`  ➕ Agregando ${col} a instagram_posts...`);
+        await database.run(`ALTER TABLE instagram_posts ADD COLUMN ${col} ${type}`);
+        console.log(`  ✅ Campo ${col} agregado a instagram_posts`);
+      }
+    }
+  } catch (igCalError) {
+    console.error("⚠️  Error agregando columnas de calendario a instagram_posts:", igCalError);
+  }
+
   console.log("✅ Base de datos inicializada correctamente");
 };
 

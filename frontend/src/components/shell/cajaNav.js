@@ -23,6 +23,9 @@ export const CIERRE_NAV = { key: 'cierre', label: 'Cierre de caja', to: '/cierre
 // todo vive dentro de CajaRoutes → RequireRole CAJA).
 export const ADMIN_NAV = [
   { label: 'Menú y precios', to: '/menu', icon: 'menu' },
+  // Instagram = armar y programar publicaciones/historias (se publican solas
+  // a la hora indicada); requiere tener configurado el token en el servidor
+  { label: 'Instagram', to: '/instagram', icon: 'instagram' },
   // Contratos = fiados y pedidos grandes (ej. 200 sándwiches) que pagan
   // después: se fían al cobrar (método "Contrato") y acá se marcan pagados
   { label: 'Contratos', to: '/contratos', icon: 'cobrar' },

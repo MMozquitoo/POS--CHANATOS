@@ -166,6 +166,22 @@ backend/
                          #   ANTES del BEGIN — el PRAGMA es no-op dentro de una transacción).
                          #   exceljs se carga con import DIFERIDO: el botón de actualizar no
                          #   reinstala node_modules, así el POS arranca igual sin la dependencia.
+    instagram.js          # CALENDARIO DE INSTAGRAM (2026-10-29/30): GET /status (¿hay token
+                         #   configurado?), GET /library (banco de piezas ya generadas, ver
+                         #   scripts/import-instagram-library*.js), GET/POST/PATCH/DELETE /posts
+                         #   (programar, mover de día, cancelar o borrar de Instagram — services/
+                         #   instagramPublisher.js habla con graph.facebook.com, services/
+                         #   instagramBlob.js sube la imagen a Vercel Blob con import DIFERIDO,
+                         #   mismo patrón que exceljs arriba). "Publicar ahora" no espera al
+                         #   poller: la propia ruta llama a publicarUnPost (services/
+                         #   instagramPoller.js) de una vez. El poller revisa cada
+                         #   INSTAGRAM_POLL_INTERVAL_MS (default 60s) lo que siga con
+                         #   scheduled_at <= ahora. No-op sin INSTAGRAM_ACCESS_TOKEN/
+                         #   INSTAGRAM_ACCOUNT_ID/BLOB_READ_WRITE_TOKEN en el .env (ver
+                         #   env.example). UI: pages/Caja/Instagram.jsx — calendario mensual +
+                         #   panel de día (arrastrar una pieza entre días la reprograma); un día
+                         #   ya pasado no deja agregar nada (evita publicar sin querer algo
+                         #   "atrasado" — bug real de esta sesión, se corrigió ahí mismo).
     inventoryMovements.js # deduct/restoreInventoryFromOrderItems (descuento automático al vender,
                          #   por receta); stock negativo permitido pero auditado (STOCK_NEGATIVE);
                          #   errores auditados (INVENTORY_ERROR). POST /inventory-movements "modo
@@ -409,6 +425,54 @@ Reportes + Administración), cobro y edición en una hoja sin cambiar de pantall
 por unidad ("3/5"), salsas y "Quitar" por producto, cliente en Ventanilla/Domicilios, sonido
 de orden lista en Caja, cierre contando billetes, sección Rappi en Reportes, recibo corregido
 (cuenta completa) con WhatsApp, y las ventas del PC protegidas contra reinstalaciones.
+
+## PARA CLAUDE EN EL PC DEL LOCAL — aplicar el calendario de Instagram (2026-10-30)
+
+Si estás corriendo en el PC Windows del restaurante (o guiando a alguien ahí), esta
+actualización ya está publicada en GitHub y aprobada por el dueño. Aplícala así, EN ORDEN,
+y al terminar borra esta sección y haz commit de ese borrado.
+
+Qué trae: Administración → Instagram pasó de un formulario suelto a un CALENDARIO (plano
+mensual + panel de día) para programar publicaciones/historias, con una BIBLIOTECA de 50
+piezas ya generadas (30 publicaciones + 20 historias de la campaña "30 días", con su texto
+y precio ya escritos — nadie tiene que redactar nada) listas para arrastrar a un día. Ver
+"Estructura → routes/instagram.js" arriba para el detalle técnico.
+
+1. **Respaldo primero (obligatorio):** Administración → Aplicación → DESCARGAR DATOS (EXCEL).
+   Guardar fuera del PC (USB o correo).
+2. **OJO — dependencia nueva, el botón no alcanza esta vez:** se agregó `@vercel/blob` a
+   `backend/package.json`. "BUSCAR ACTUALIZACIONES" (la actualización remota liviana) NO
+   reinstala `node_modules`, así que por sí sola deja Instagram sin funcionar (el resto del
+   POS sigue igual — `instagramBlob.js` lo carga diferido, no rompe el arranque). Hace falta
+   el **instalador completo** (paso 3) si todavía no se instaló.
+3. **Instalador nuevo (Instalar-POS-Chanatos.exe, el dueño lo tiene).** Instalarlo encima,
+   igual que siempre. Esta versión de `installer.nsh`/`main.js` YA rescata también el archivo
+   `.env` (antes solo rescataba la base de datos) — no debería perderse nada, pero confirma el
+   paso 5 igual.
+4. **Los 3 secretos de Instagram NO están en este repo** (es público): pídeselos a Cristian si
+   no llegaron ya en una copia de `backend/.env` junto con el instalador (USB/correo). Son:
+   - `INSTAGRAM_ACCESS_TOKEN`
+   - `INSTAGRAM_ACCOUNT_ID`
+   - `BLOB_READ_WRITE_TOKEN`
+5. **Verificar `%LOCALAPPDATA%\Programs\POS Chanatos\resources\backend\.env`:**
+   - Si el rescate automático funcionó, las líneas viejas (`RAPPI_ORDERS_SECRET`,
+     `WEB_ORDERS_SECRET`, `WEB_ORDERS_POLLER_PIN`, etc.) deberían seguir ahí — confírmalo,
+     si faltan Rappi/pedidos web se desconectan en silencio.
+   - Agrega al final (si no están ya) las 3 líneas del paso 4, formato `CLAVE=valor` sin
+     comillas (ver `backend/env.example` para el formato exacto).
+   - Reiniciar el POS (cerrar y volver a abrir la app) para que tome el `.env` nuevo.
+6. **Cargar la biblioteca de piezas:** desde una terminal en la carpeta de instalación
+   (`%LOCALAPPDATA%\Programs\POS Chanatos\resources\backend`):
+   ```
+   node scripts\import-instagram-library-json.js scripts\instagram-library-30-dias.json
+   ```
+   Ya viene empaquetado con el instalador (no hace falta la carpeta de fotos original ni
+   volver a subir nada: solo inserta texto + links a imágenes que ya están en Vercel Blob).
+   Es idempotente — correrlo dos veces no duplica nada.
+7. **Prueba rápida:** Administración → Instagram → si dice "Instagram no está configurado",
+   revisar el paso 5. Si no, elegir una pieza de la biblioteca y programarla para un día
+   futuro (NO "ahora": eso publicaría de verdad sin avisar) → confirmar que queda
+   "Programada" en el calendario.
 
 ## Sincronización con Rappi (lado del POS listo, 2026-10-25)
 

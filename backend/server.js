@@ -27,11 +27,13 @@ import updateRoutes from "./routes/update.js";
 import backupRoutes from "./routes/backup.js";
 import pushRoutes from "./routes/push.js";
 import settingsRoutes from "./routes/settings.js";
+import instagramRoutes from "./routes/instagram.js";
 
 // Importar base de datos
 import { initDatabase, getDb, DB_PATH } from "./db/database.js";
 import { startWebOrdersPoller } from "./services/webOrdersPoller.js";
 import { startRappiPoller } from "./services/rappiPoller.js";
+import { startInstagramPoller } from "./services/instagramPoller.js";
 
 // Configuración
 const __filename = fileURLToPath(import.meta.url);
@@ -64,7 +66,9 @@ app.use(
     credentials: corsOrigin ? true : false,
   })
 );
-app.use(express.json({ limit: '1mb' }));
+// 8mb: las publicaciones de Instagram mandan la imagen como data URL en el
+// JSON (igual que el logo del negocio, pero sin el tope de 250KB de ese caso)
+app.use(express.json({ limit: '8mb' }));
 
 // Security headers
 app.use((req, res, next) => {
@@ -154,6 +158,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/update", updateRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/instagram", instagramRoutes);
 // El respaldo sube un .xlsx crudo: express.raw lo entrega como Buffer (express.json
 // solo atiende application/json, así que no interfiere).
 app.use("/api/backup", express.raw({ type: "*/*", limit: "100mb" }), backupRoutes);
@@ -268,4 +273,5 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   // sin esta variable siguen funcionando exactamente igual que antes).
   startWebOrdersPoller(Number(PORT));
   startRappiPoller(Number(PORT));
+  startInstagramPoller();
 });

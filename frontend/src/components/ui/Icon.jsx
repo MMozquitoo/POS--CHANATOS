@@ -142,6 +142,12 @@ const ICONS = {
       <rect x="6" y="14" width="12" height="8" rx="1" />
     </g>
   ),
+  instagram: ( // camera (Lucide, sin variante animada: rebote corto)
+    <g className="ai ai-pop">
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </g>
+  ),
   identidad: ( // store (Lucide)
     <g className="ai ai-pop">
       <path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5" />

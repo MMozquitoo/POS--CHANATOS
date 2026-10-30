@@ -9,7 +9,9 @@
     "dev": "node server.js",
     "init-db": "node scripts/init-db.js",
     "migrate": "node scripts/migrate.js",
-    "reset-day": "node scripts/reset-day.js"
+    "reset-day": "node scripts/reset-day.js",
+    "import-instagram-library": "node scripts/import-instagram-library.js",
+    "import-instagram-library-json": "node scripts/import-instagram-library-json.js"
   },
   "keywords": [
     "pos",
@@ -19,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vercel/blob": "^0.27.3",
     "bcryptjs": "^3.0.3",
     "bonjour-service": "^1.4.2",
     "cors": "^2.8.5",

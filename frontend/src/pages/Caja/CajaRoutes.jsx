@@ -31,6 +31,7 @@ const AperturaCaja = lazy(() => import('./AperturaCaja'));
 const HistorialGeneral = lazy(() => import('./HistorialGeneral'));
 const Contratos = lazy(() => import('./Contratos'));
 const Rappi = lazy(() => import('./Rappi'));
+const Instagram = lazy(() => import('./Instagram'));
 const Conexion = lazy(() => import('./Conexion'));
 const Aplicacion = lazy(() => import('./Aplicacion'));
 
@@ -83,6 +84,8 @@ export default function CajaRoutes() {
         <Route path="/contratos" element={<Contratos />} />
         {/* Rappi: cuadrar el depósito semanal — marcar qué pedidos ya pagó Rappi */}
         <Route path="/rappi" element={<Rappi />} />
+        {/* Instagram: armar y programar publicaciones/historias */}
+        <Route path="/instagram" element={<Instagram />} />
         <Route path="/mas" element={<MasCaja />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/ventanilla" element={<VentanillaCaja />} />

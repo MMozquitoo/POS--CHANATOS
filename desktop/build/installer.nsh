@@ -12,6 +12,17 @@
       CopyFiles /SILENT "$LOCALAPPDATA\Programs\POS Chanatos\resources\backend\data\*.*" "$APPDATA\POS Chanatos\datos"
     ${EndIf}
   ${EndIf}
+
+  ; RESCATE DEL .env (2026-10-30): mismo problema que la base — resources\backend\.env
+  ; (secretos: Rappi, pedidos web, Instagram) vive DENTRO de la carpeta que el
+  ; desinstalador borra. Se guarda como "backend.env" junto a la base (main.js,
+  ; prepararDatos, la copia de vuelta a resources\backend\.env si hace falta).
+  ${IfNot} ${FileExists} "$APPDATA\POS Chanatos\datos\backend.env"
+    ${If} ${FileExists} "$LOCALAPPDATA\Programs\POS Chanatos\resources\backend\.env"
+      CreateDirectory "$APPDATA\POS Chanatos\datos"
+      CopyFiles /SILENT "$LOCALAPPDATA\Programs\POS Chanatos\resources\backend\.env" "$APPDATA\POS Chanatos\datos\backend.env"
+    ${EndIf}
+  ${EndIf}
 !macroend
 
 ; Personalizaciones del instalador NSIS (electron-builder)

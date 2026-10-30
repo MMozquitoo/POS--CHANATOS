@@ -836,6 +836,8 @@
 .order-card,
 .mesa-tile,
 .admin-card,
+.ig-library-item,
+.ig-day,
 .surface.block {
   transition:
     transform var(--dur-select) var(--ease-out),
@@ -846,14 +848,18 @@
   .kpi:hover,
   .order-card:hover,
   .mesa-tile:hover,
-  .admin-card:hover {
+  .admin-card:hover,
+  .ig-library-item:hover,
+  .ig-day:hover {
     transform: translateY(-4px);
   }
   /* La seleccionada conserva su aro mostaza */
   .kpi:hover,
   .order-card:not(.is-selected):hover,
   .mesa-tile:not(.is-selected):hover,
-  .admin-card:hover {
+  .admin-card:hover,
+  .ig-library-item:not(.is-selected):hover,
+  .ig-day:not(.is-selected):hover {
     box-shadow: 0 14px 30px -14px rgba(25, 25, 25, 0.28), 0 2px 6px rgba(25, 25, 25, 0.06);
   }
 }
@@ -861,7 +867,9 @@
 @media (hover: none) {
   .order-card:active,
   .mesa-tile:active,
-  .admin-card:active {
+  .admin-card:active,
+  .ig-library-item:active,
+  .ig-day:active {
     transform: scale(0.985);
   }
 }
@@ -871,9 +879,45 @@
   .order-card:hover,
   .mesa-tile:hover,
   .admin-card:hover,
+  .ig-library-item:hover,
+  .ig-day:hover,
   .order-card:active,
   .mesa-tile:active,
-  .admin-card:active {
+  .admin-card:active,
+  .ig-library-item:active,
+  .ig-day:active {
     transform: none;
+  }
+}
+
+/* "Pop" al elegir una pieza de la biblioteca: mismo resorte que .btn al
+   presionar (--dur-spring), para que se sienta la selección sin depender
+   solo del color del aro. */
+.ig-library-item.is-selected {
+  animation: ig-pop var(--dur-spring) var(--ease-spring);
+}
+
+@keyframes ig-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* Breve resalte en el día del calendario justo después de agregar algo —
+   mismo lenguaje que el resaltado de pedidos (~800ms), para confirmar sin
+   depender solo del toast. */
+.ig-day.is-new {
+  animation: ig-flash var(--dur-flash) var(--ease-out);
+}
+
+@keyframes ig-flash {
+  0% { background: var(--brand); }
+  100% { background: var(--gray-50, #F5F5F2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ig-library-item.is-selected,
+  .ig-day.is-new {
+    animation: none;
   }
 }
