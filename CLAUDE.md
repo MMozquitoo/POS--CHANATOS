@@ -487,6 +487,47 @@ archivo. FALTA (bloqueado por Rappi): que el dueño consiga credenciales en dev-
 / partners.rappi.com; con eso se construye el relevo (webhooks de Rappi → cola, estilo del
 servicio de pedidos web en Railway) y se certifica con ellos.
 
+## PLANEADO — Pedidos por QR en la mesa (2026-10-29, pendiente de hablar con el equipo)
+
+Idea del dueño: 8 QR (uno por mesa física 1-8, reemplazando el QR único/compartido que ya
+mandó a imprimir — las 8 tarjetas actuales apuntan todas al mismo link de menú, `chanatos-qr-
+mesas` en su Drive) que el cliente escanea para armar su propio pedido desde el celular y que
+caiga en cocina solo, sin que el mesero lo digite. NO empezar a construir sin hablar antes con
+el equipo (dueño, 2026-10-29: "guárdalo para próximos pasos, yo lo haré cuando lo hable con
+todos") — esta sección es la memoria de lo que se acordó, no una autorización para programarlo.
+
+**Reutilizar, no reconstruir:** `/Users/cristian/Developer/DomiciliosChanatos/chanatos-web`
+(Next.js 15 + Zustand, deploy en Vercel) es la página de domicilios actual — el dueño dijo que
+"ya no se va a utilizar por ahora" para domicilios, pero YA tiene el menú + carrito
+(`src/app/menu`, `src/app/checkout`) y, más importante, el relevo (`src/app/api/web-orders` +
+`api/pos-status`) que el POS ya consume desde `backend/services/webOrdersPoller.js` (mismo
+patrón que Rappi arriba: el POS solo hace conexiones salientes). La idea es agregar una ruta
+nueva tipo `/mesa/[numero]` que reusa ese menú/carrito pero, en vez de crear un pedido de
+domicilio, se conecta a la cuenta YA ACTIVA de esa mesa física en el POS (como si el mesero lo
+hubiera tomado) — hay que extender el relevo y el poller para que sepan de número de mesa, no
+solo "domicilio". La página de domicilios (`/menu`, `/checkout`) se deja intacta por si se
+vuelve a necesitar, solo se deja de promocionar.
+
+**Decisiones ya tomadas con el dueño (no repreguntar):**
+- QR **distinto por mesa** (no uno compartido) → implica reimprimir las 8 tarjetas con un
+  link que identifica la mesa.
+- El pedido por QR es lo prioritario; el pago es "posibilidad", **no obligatorio** — un
+  cliente puede seguir pidiendo por QR y pagando con el mesero/caja como siempre.
+
+**Pago — limitación real, no es solo falta de código:** el dueño ya generó un link de cobro
+(`https://checkout.nequi.wompi.co/l/...`) pero es un "Cobro" manual hecho desde la app de
+**Nequi Negocios**, no una cuenta de comercio de **Wompi con llaves de API** (la cuenta de
+Wompi para persona natural con RUT es la misma que ya estaba pendiente para el datáfono, ver
+"Pendientes conocidos" abajo). Sin esas llaves NO se puede generar automáticamente un link de
+pago distinto por cada pedido ni confirmar el pago solo. Plan de dos fases:
+- **Fase 1 (sin Wompi, se puede construir ya):** botón "Pagar con Nequi" en la pantalla del
+  pedido que abre WhatsApp hacia caja con el total y la mesa prellenados (mismo patrón wa.me
+  que ya usa Recibo.jsx) — el cajero genera el cobro a mano en su Nequi y lo responde por
+  WhatsApp. Manual, pero real y usable de inmediato.
+- **Fase 2 (si sacan cuenta de Wompi):** link de pago automático por pedido + webhook de
+  Wompi al mismo relevo de `chanatos-web` → confirmación sola, sin que nadie tenga que
+  generar nada a mano.
+
 ## Rediseño 2026-10 (contenedor de Caja, identidad, movimiento)
 
 Referencias en `docs/referencias-diseno/` (01 Resumen, 02 estructura, 03 movimiento del
