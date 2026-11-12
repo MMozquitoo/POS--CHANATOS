@@ -367,6 +367,55 @@ export default function Reportes() {
               </section>
             )}
 
+            {/* Contratos (2026-11-11): la venta de un fiado cuenta el día que
+                paga, no el día que se fió — pero antes de este bloque, en
+                Reportes solo se veía t.contrato (agrupado por el día del
+                fiado), así que un contrato fiado otro día y pagado HOY no
+                aparecía al mirar "Hoy". pagadoEnPeriodo agrupa por settled_at,
+                igual que data.rappi.depositado. */}
+            {data.contratos && (data.contratos.count > 0 || data.contratos.pagadoEnPeriodo?.count > 0) && (
+              <section className="rep-section rep-rappi">
+                <h3>Contratos <span className="rep-section-hint">(fiado / pedidos grandes que pagan después)</span></h3>
+                <div className="rep-kpis">
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(data.contratos.total)}</div>
+                    <div className="rep-kpi-label">Fiado en este periodo (no es venta todavía)</div>
+                  </div>
+                  <div className="rep-kpi">
+                    <div className="rep-kpi-value">{formatPriceCOP(data.contratos.pendiente)}</div>
+                    <div className="rep-kpi-label">Sigue pendiente de cobrar (todos los contratos)</div>
+                  </div>
+                </div>
+                {data.contratos.pagadoEnPeriodo?.count > 0 && (
+                  <>
+                    <h4 className="rep-rappi-subtitle">Contratos pagados en este periodo</h4>
+                    <div className="rep-kpis">
+                      <div className="rep-kpi">
+                        <div className="rep-kpi-value">{formatPriceCOP(data.contratos.pagadoEnPeriodo.total)}</div>
+                        <div className="rep-kpi-label">Pagado en este periodo (día que pagó el cliente — sí es venta)</div>
+                      </div>
+                      <div className="rep-kpi">
+                        <div className="rep-kpi-value">{data.contratos.pagadoEnPeriodo.count}</div>
+                        <div className="rep-kpi-label">Contratos pagados</div>
+                      </div>
+                    </div>
+                    {(data.contratos.pagadoEnPeriodo.byDay?.length || 0) > 1 && data.contratos.pagadoEnPeriodo.byDay.map(d => (
+                      <BarRow
+                        key={`con-${d.day}`}
+                        label={d.day}
+                        value={d.total}
+                        max={Math.max(0, ...data.contratos.pagadoEnPeriodo.byDay.map(x => x.total))}
+                        extra={`${d.count} ${d.count === 1 ? 'contrato' : 'contratos'}`}
+                      />
+                    ))}
+                  </>
+                )}
+                <p className="rep-rappi-note">
+                  El detalle de quién debe y quién ya pagó está en Administración → Contratos.
+                </p>
+              </section>
+            )}
+
             {/* Por día (solo si el periodo cubre varios días) */}
             {data.byDay.length > 1 && (
               <section className="rep-section">

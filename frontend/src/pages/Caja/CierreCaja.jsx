@@ -431,6 +431,45 @@ export default function CierreCaja() {
                     <span className="tnum" style={{ fontWeight: 700 }}>{formatPriceCOP(method.total)}</span>
                   </div>
                 ))}
+                {(summary.contratoPagado?.total || 0) > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    marginBottom: '0.4rem',
+                    padding: '0.7rem 0.85rem',
+                    background: 'var(--gray-50)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.9375rem'
+                  }}>
+                    <span>
+                      <strong>Contratos pagados hoy</strong> · {summary.contratoPagado.count} contrato(s)
+                      <div style={{ fontSize: 'var(--text-13)', fontWeight: 500, color: 'var(--gray-500)' }}>Ya incluido arriba en Efectivo/Transferencia — por eso hoy puede dar más plata de la normal</div>
+                    </span>
+                    <span className="tnum" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatPriceCOP(summary.contratoPagado.total)}</span>
+                  </div>
+                )}
+                {(summary.rappiDepositadoHoy?.total || 0) > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    marginBottom: '0.4rem',
+                    padding: '0.7rem 0.85rem',
+                    background: '#FFE9E3',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.9375rem',
+                    color: '#C2330F'
+                  }}>
+                    <span>
+                      <strong>Rappi depositado hoy</strong> · {summary.rappiDepositadoHoy.count} pedido(s)
+                      <div style={{ fontSize: 'var(--text-13)', fontWeight: 500 }}>Le llegó al banco, no a este cajón: no entra al total</div>
+                    </span>
+                    <span className="tnum" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatPriceCOP(summary.rappiDepositadoHoy.total)}</span>
+                  </div>
+                )}
                 {(summary.rappi?.total || 0) > 0 && (
                   <div style={{
                     display: 'flex',

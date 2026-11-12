@@ -648,6 +648,34 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
     );
     const rappiRow = paymentsByMethod.find((m) => m.method === "RAPPI");
 
+    // Desglose informativo (dueño, 2026-11-11: "al contar los meseros la plata
+    // va a dar de más y deben justificarla"): estos dos valores NO se suman a
+    // nada nuevo, solo explican de dónde salió plata que ya está en `total`/
+    // `byMethod` (contrato) o que conscientemente se excluye (Rappi).
+    //
+    // Contratos pagados DURANTE esta sesión: la fila que crea /payments/
+    // contratos/:id al marcar "Ya pagó" (method EFECTIVO/TRANSFERENCIA,
+    // settles_payment_id -> el contrato). Ya está contada en totalResult/
+    // byMethod; esto es solo para que el cierre explique el bulto.
+    const contratoPagadoRow = await db.get(
+      `SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
+       FROM payments
+       WHERE cash_session_id = ? AND voided_at IS NULL AND settles_payment_id IS NOT NULL`,
+      [sessionId]
+    );
+
+    // Rappi depositado HOY (fecha de calendario, no de esta sesión: el
+    // depósito se marca en Administración -> Rappi y puede cubrir pedidos de
+    // días distintos, incluso con la caja cerrada). Nunca entra al efectivo
+    // esperado ni al total: esa plata la paga Rappi al banco, no al cajón.
+    const rappiDepositadoRow = await db.get(
+      `SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
+       FROM payments
+       WHERE voided_at IS NULL AND method = 'RAPPI' AND settled_at IS NOT NULL
+         AND substr(settled_at, 1, 10) = ?`,
+      [getBogotaDateString()]
+    );
+
     // Gastos/ingresos manuales registrados mientras esta caja estuvo abierta.
     // Se filtra por created_at dentro de la ventana de la sesión (no por
     // transaction_date): si la plata salió del cajón antes de abrir, ya se
@@ -719,6 +747,14 @@ router.get("/session/:id/summary", requireAuth, requireRole("CAJA"), async (req,
       byMethod: paymentsByMethod || [],
       tipsCash: paymentsByMethod.find((m) => m.method === "EFECTIVO")?.tips || 0,
       rappi: { count: rappiRow?.count || 0, total: rappiRow?.total || 0 },
+      contratoPagado: {
+        count: contratoPagadoRow?.count || 0,
+        total: contratoPagadoRow?.total || 0,
+      },
+      rappiDepositadoHoy: {
+        count: rappiDepositadoRow?.count || 0,
+        total: rappiDepositadoRow?.total || 0,
+      },
       manual: {
         income: manualIncome,
         expense: manualExpense,

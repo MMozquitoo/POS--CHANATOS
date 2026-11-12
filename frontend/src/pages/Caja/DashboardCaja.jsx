@@ -218,6 +218,11 @@ export default function DashboardCaja() {
   const totalTransfer = summary?.byMethod?.find(m => m.method === 'TRANSFERENCIA')?.total || 0;
   // Rappi paga después: se muestra aparte, nunca dentro de "Total cobrado"
   const totalRappi = summary?.rappi?.total || summary?.byMethod?.find(m => m.method === 'RAPPI')?.total || 0;
+  // Dos cifras informativas (dueño, 2026-11-11): no suman nada nuevo, solo
+  // explican plata que ya está en otro número de arriba (contrato) o que a
+  // propósito nunca entra al cajón (Rappi depositado).
+  const contratoPagadoHoy = summary?.contratoPagado?.total || 0;
+  const rappiDepositadoHoy = summary?.rappiDepositadoHoy?.total || 0;
   const expectedCash = initialCash + totalCash;
   const diffCash = session?.closing_cash !== null && session?.closing_cash !== undefined 
     ? session.closing_cash - expectedCash 
@@ -313,13 +318,27 @@ export default function DashboardCaja() {
               </div>
             </section>
 
-            {(totalRappi > 0 || totalCard > 0 || diffCash !== null) && (
+            {(totalRappi > 0 || totalCard > 0 || diffCash !== null || contratoPagadoHoy > 0 || rappiDepositadoHoy > 0) && (
               <section className="kpi-extra" aria-label="Aparte del total">
                 {totalRappi > 0 && (
                   <div className="kpi-chip kpi-chip--rappi">
                     <span>Rappi · paga después</span>
                     <strong className="tnum">{formatPriceCOP(totalRappi)}</strong>
                     <small>No entra en el total cobrado</small>
+                  </div>
+                )}
+                {contratoPagadoHoy > 0 && (
+                  <div className="kpi-chip">
+                    <span>Contratos pagados hoy</span>
+                    <strong className="tnum">{formatPriceCOP(contratoPagadoHoy)}</strong>
+                    <small>Ya incluido en el total cobrado</small>
+                  </div>
+                )}
+                {rappiDepositadoHoy > 0 && (
+                  <div className="kpi-chip kpi-chip--rappi">
+                    <span>Rappi depositado hoy</span>
+                    <strong className="tnum">{formatPriceCOP(rappiDepositadoHoy)}</strong>
+                    <small>Le llegó al banco, no al cajón</small>
                   </div>
                 )}
                 {totalCard > 0 && (

@@ -242,6 +242,22 @@ async function computeSummary(db, from, to) {
     [from, to]
   );
 
+  // Contratos PAGADOS en este período (dueño, 2026-11-11: "no aparece en
+  // Reportes" — un contrato fiado otro día y pagado hoy no salía en "Hoy"
+  // porque contratosDetalle arriba filtra por la fecha del fiado, no la del
+  // pago). Mismo patrón que rappiDepositadoByDay: agrupa por settled_at.
+  const contratosPagadosByDay = await db.all(
+    `SELECT substr(settled_at, 1, 10) as day,
+            COALESCE(SUM(amount), 0) as total,
+            COUNT(*) as count
+     FROM payments
+     WHERE voided_at IS NULL AND method = 'CONTRATO' AND settled_at IS NOT NULL
+       AND substr(settled_at, 1, 10) BETWEEN ? AND ?
+     GROUP BY day
+     ORDER BY day`,
+    [from, to]
+  );
+
   return {
     from,
     to,
@@ -279,6 +295,11 @@ async function computeSummary(db, from, to) {
       count: contratosDetalle.length,
       pendiente: contratosDetalle.filter((c) => !c.settled_at).reduce((s, c) => s + (c.amount || 0), 0),
       rows: contratosDetalle,
+      pagadoEnPeriodo: {
+        total: contratosPagadosByDay.reduce((s, d) => s + (d.total || 0), 0),
+        count: contratosPagadosByDay.reduce((s, d) => s + (d.count || 0), 0),
+        byDay: contratosPagadosByDay,
+      },
     },
     byMethod,
     byService,
